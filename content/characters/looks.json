@@ -1,0 +1,37 @@
+[
+ {
+  "style": "short"
+ },
+ {
+  "style": "bob"
+ },
+ {
+  "style": "hat"
+ },
+ {
+  "style": "short",
+  "bun": 1
+ },
+ {
+  "style": "bob",
+  "bag": 1
+ },
+ {
+  "style": "short",
+  "bag": 1
+ },
+ {
+  "style": "hat",
+  "bag": 1
+ },
+ {
+  "style": "short"
+ },
+ {
+  "style": "bob"
+ },
+ {
+  "style": "bob",
+  "bun": 1
+ }
+]

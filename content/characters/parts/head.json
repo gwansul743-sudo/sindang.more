@@ -1,0 +1,130 @@
+{
+ "front": {
+  "short": [
+   ".....hhhhh.....",
+   "....hhhhhhh....",
+   "...hhhhhhhhh...",
+   "...hhhsssshh...",
+   "...hsssssssh...",
+   "...hsesssesh...",
+   "...scesssecs...",
+   "....sssssss...."
+  ],
+  "bob": [
+   ".....hhhhh.....",
+   "....hhhhhhh....",
+   "...hhhhhhhhh...",
+   "...hhsssshhh...",
+   "...hsssssssh...",
+   "...hsesssesh...",
+   "...hcesssech...",
+   "...hhsssssh...."
+  ],
+  "hat": [
+   ".....aaaaa.....",
+   "....aaaaaaa....",
+   "....aaaaaaa....",
+   "..aaaaaaaaaaa..",
+   "...hsssssssh...",
+   "...hsesssesh...",
+   "...scesssecs...",
+   "....sssssss...."
+  ]
+ },
+ "side": {
+  "short": [
+   ".....hhhhh.....",
+   "....hhhhhhh....",
+   "...hhhhhhhhh...",
+   "...hhhhhhsss...",
+   "...hhhhhssss...",
+   "...hhhhssess...",
+   "...hhhsssecs...",
+   "....hssssss...."
+  ],
+  "bob": [
+   ".....hhhhh.....",
+   "....hhhhhhh....",
+   "...hhhhhhhhh...",
+   "...hhhhhhsss...",
+   "...hhhhhssss...",
+   "...hhhhssess...",
+   "...hhhhssecs...",
+   "...hhhsssss...."
+  ],
+  "hat": [
+   ".....aaaaa.....",
+   "....aaaaaaa....",
+   "....aaaaaaa....",
+   "...aaaaaaaaaaa.",
+   "...hhhhhssss...",
+   "...hhhhssess...",
+   "...hhhsssecs...",
+   "....hssssss...."
+  ]
+ },
+ "back": {
+  "short": [
+   ".....hhhhh.....",
+   "....hhhhhhh....",
+   "...hhhhhhhhh...",
+   "...hhhhhhhhh...",
+   "...hhhhhhhhh...",
+   "...hhhhhhhhh...",
+   "...shhhhhhhs...",
+   "....sssssss...."
+  ],
+  "bob": [
+   ".....hhhhh.....",
+   "....hhhhhhh....",
+   "...hhhhhhhhh...",
+   "...hhhhhhhhh...",
+   "...hhhhhhhhh...",
+   "...hhhhhhhhh...",
+   "...hhhhhhhhh...",
+   "...hhhhhhhh...."
+  ],
+  "hat": [
+   ".....aaaaa.....",
+   "....aaaaaaa....",
+   "....aaaaaaa....",
+   "..aaaaaaaaaaa..",
+   "...hhhhhhhhh...",
+   "...hhhhhhhhh...",
+   "...shhhhhhhs...",
+   "....sssssss...."
+  ]
+ },
+ "wave": {
+  "short": [
+   ".....hhhhh.....",
+   "....hhhhhhh....",
+   "...hhhhhhhhh...",
+   "...hhhsssshh...",
+   "...hsssssssh...",
+   "...hsssssssh...",
+   "...scesssecs...",
+   "....sssmsss...."
+  ],
+  "bob": [
+   ".....hhhhh.....",
+   "....hhhhhhh....",
+   "...hhhhhhhhh...",
+   "...hhsssshhh...",
+   "...hsssssssh...",
+   "...hsssssssh...",
+   "...hcesssech...",
+   "...hhssmssh...."
+  ],
+  "hat": [
+   ".....aaaaa.....",
+   "....aaaaaaa....",
+   "....aaaaaaa....",
+   "..aaaaaaaaaaa..",
+   "...hsssssssh...",
+   "...hsssssssh...",
+   "...scesssecs...",
+   "....sssmsss...."
+  ]
+ }
+}
