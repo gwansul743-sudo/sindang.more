@@ -158,5 +158,16 @@
     ]
    ]
   ]
+ },
+ "mark": {
+  "_": "머리 위 NPC 표시: 아래를 가리키는 빨간 세모(5·3·1칸)+외곽선+윗면 하이라이트",
+  "outline": "M5 -7h7v1h-7zM5 -6h1v1h-1zM11 -6h1v1h-1zM6 -5h1v1h-1zM10 -5h1v1h-1zM7 -4h1v1h-1zM9 -4h1v1h-1zM8 -3h1v1h-1z",
+  "fill": "M6 -6h5v1h-5zM7 -5h3v1h-3zM8 -4h1v1h-1z",
+  "shine": "M6 -6h5v.5h-5z",
+  "colors": {
+   "outline": "#2b3f33",
+   "fill": "#e5482f",
+   "shine": "#ff8a6b"
+  }
  }
 }

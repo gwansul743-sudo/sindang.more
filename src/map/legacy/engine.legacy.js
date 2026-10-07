@@ -11,6 +11,8 @@ import { mountRoads } from '../layers/roads';
 import { mountTerrain } from '../layers/terrain';
 import { mountLandmarks, mountDistricts } from '../layers/landmarks';
 import { mountDots } from '../layers/dots';
+import { SW, FEET, SHADOW, mountFrames } from '../sprites/compose';
+import { walkerFrames, chiefFrames, dogFrames } from '../sprites/frames';
 
 export function bootLegacy(DATA){
 /* ═══════════════ CORE (투영 · 팬줌 · 가게 점 · 카드 · 관리 · 인트로) ═══════════════ */
@@ -286,45 +288,8 @@ export function bootLegacy(DATA){
     nodes.forEach((n,a) => { if(n.comp<0 || compLen[n.comp]<90) return; n.nb.forEach(b => { if(b>a){ const l=dist(a,b); edges.push({a,b,l}); total+=l; } }); });
     if(!edges.length) return;
 
-    /* ── 2. 스프라이트: 15×18칸, 발끝이 16번째 줄 ─────────────────── */
-    const HEAD = DATA.characters.head, BODY = DATA.characters.body, WAVE_TORSO = DATA.characters.wave.torso, WAVE_ARM = DATA.characters.wave.arm;
-    const SW = 17, SH = 18, FEET = 16, PAD = 1;       /* 위 그림은 15칸 폭, 양옆 1칸씩 여백을 더해 17칸 (흔드는 손 자리) */
-
-    function compose(head, torso, pants, legs, extra){
-      const rows = head.concat(torso, [pants], legs);            /* 8+3+1+(2|3) */
-      const top = FEET - rows.length;                            /* 다리가 길면(pass) 몸이 한 칸 올라감 */
-      const g = Array.from({length:SH}, () => Array(SW).fill('.'));
-      rows.forEach((r,i) => { for(let x=0;x<r.length;x++) if(r[x]!=='.') g[top+i][x+PAD]=r[x]; });
-      (extra||[]).forEach(([r,c,ch]) => { if(g[top+r]) g[top+r][c]=ch; });
-      return g;
-    }
-    function outline(g){
-      const o = g.map(r => r.slice());
-      for(let y=0;y<SH;y++) for(let x=0;x<SW;x++) if(g[y][x]==='.'){
-        if((g[y-1]&&g[y-1][x]!=='.')||(g[y+1]&&g[y+1][x]!=='.')||(g[y][x-1]&&g[y][x-1]!=='.')||(g[y][x+1]&&g[y][x+1]!=='.')) o[y][x]='o';
-      }
-      return o;
-    }
-    function paths(g, col, parent){
-      const by = {};
-      for(let y=0;y<SH;y++){ let x=0; while(x<SW){ const ch=g[y][x]; if(ch==='.'){ x++; continue; }
-        let x2=x; while(x2<SW && g[y][x2]===ch) x2++; (by[ch]=by[ch]||[]).push(`M${x} ${y}h${x2-x}v1h${x-x2}z`); x=x2; } }
-      for(const ch in by) el('path',{d:by[ch].join(''),fill:col[ch]||'#2b3f33'},parent);
-    }
-    function buildFrames(style, bun, bag){
-      const F = {}, add = (name, view, torso, legs, extra, headSet) => {
-        const ex = (extra||[]).slice();
-        if(bun && style!=='hat') ex.push([-1,7,'h'],[-1,8,'h'],[-1,9,'h']);
-        if(bag && view!=='side') ex.push([11,4,'g'],[11,5,'g'],[12,4,'g'],[12,5,'g']);
-        if(bag && view==='side') ex.push([11,8,'g'],[11,9,'g'],[12,8,'g'],[12,9,'g']);
-        F[name] = outline(compose((headSet||HEAD[view])[style], torso, BODY[view].pants, legs, ex));
-      };
-      ['front','back'].forEach(v => { const b=BODY[v]; add(v+'0',v,b.torso,b.stand); add(v+'1',v,b.torso,b.s1); add(v+'2',v,b.torso,b.pass); add(v+'3',v,b.torso,b.s2); });
-      const s=BODY.side; add('side0','side',s.torso,s.stand); add('side1','side',bag?s.torso:s.torsoF,s.s1); add('side2','side',s.torso,s.pass); add('side3','side',bag?s.torso:s.torsoB,s.s2);
-      add('wave0','front',WAVE_TORSO,BODY.front.stand,WAVE_ARM[0],HEAD.wave); add('wave1','front',WAVE_TORSO,BODY.front.stand,WAVE_ARM[1],HEAD.wave);
-      return F;
-    }
-
+    /* ── 2. 스프라이트 — map/sprites/* (4-1 ④) ─────────────────────── */
+    const BODY = DATA.characters.body;
     const {skin:SKIN, hair:HAIR, top:TOP, pant:PANT, shoe:SHOE, hat:HATC, bag:BAGC} = DATA.characters.palette, LOOKS = DATA.characters.looks;
     /* ── 3. 주민 만들기 ───────────────────────────────────────────── */
     const layer = el('g',{class:'walkers','aria-hidden':'true','pointer-events':'none'});
@@ -358,11 +323,10 @@ export function bootLegacy(DATA){
       if(hat===top) hat = '#f4e8b5';
       const col = {o:'#2b3f33', e:'#2b3028', c:'#ef9f8a', m:'#a5402f', s:pick(SKIN), h:pick(i%7===4?HAIR.slice(4):HAIR.slice(0,4)), t:top, p:pant, b:pick(SHOE), a:hat, g:pick(BAGC)};
       const g = el('g',{class:'wk'},layer);
-      el('path',{d:'M4 15h9v1h-9zM5 16h7v1h-7z',fill:'#24382d',opacity:'.22',transform:`translate(${-SW/2},${-FEET})`},g);
-      const body = el('g',{},g), frames = {}, F = buildFrames(look.style, look.bun, look.bag);
-      for(const name in F){ const fg = el('g',{display:'none'},body); paths(F[name], col, fg); frames[name]=fg; }
+      el('path',{d:SHADOW,fill:'#24382d',opacity:'.22',transform:`translate(${-SW/2},${-FEET})`},g);
+      const fs = mountFrames(g, walkerFrames(DATA.characters, look.style, look.bun, look.bag), col);
       const a = flip?e.b:e.a, b = flip?e.a:e.b;
-      walkers.push({g, body, frames, shown:null, a, b, d:Math.random()*e.l, len:e.l, x:nodes[a].x, y:nodes[a].y, ox:0, oy:0,
+      walkers.push({g, body:fs.body, fs, a, b, d:Math.random()*e.l, len:e.l, x:nodes[a].x, y:nodes[a].y, ox:0, oy:0,
         face:'front', faceWant:'front', faceT:0, dir:1, mode:'walk', until:0, nextPause:rnd(4,16), walkT:Math.random()*4,
         speed:WALKER_SPEED*rnd(.8,1.2), offT:0, offLimit:rnd(1,3.5), armed:true, front:false, waveStart:0, waveMin:0, waveEnd:0, dirWant:1, lastT:'', lastB:''});
     }
@@ -370,40 +334,26 @@ export function bootLegacy(DATA){
        · 서 있는 자리: CHIEF.x / CHIEF.y (지도 단위, 발끝 기준)
        · 도안: 사용자가 준 시안(갈색 헌팅캡·회색 곱슬머리·선글라스·빨간 조끼·완장·명찰)을 주민과 같은 17×18칸 규격으로 다시 그린 것.
          CHIEF_ART의 네 장(front0·wave0·wave1·bow)과 CHIEF.col(색)만 바꾸면 교체됩니다 */
-    const CHIEF = {x:DATA.characters.chief.x, y:DATA.characters.chief.y, col:DATA.characters.chief.col}, CHIEF_ART = DATA.characters.chief.art;
+    const CHIEF = DATA.characters.chief;
     (function(){
-      const b = BODY.front, A = CHIEF_ART, legs = [b.pants].concat(b.stand), F = {
-        front0: outline(compose(A.head, A.torso, b.pants, b.stand)),
-        wave0:  outline(compose(A.headWave, A.torsoWave, b.pants, b.stand, A.arm[0])),
-        wave1:  outline(compose(A.headWave, A.torsoWave, b.pants, b.stand, A.arm[1])),
-        bow:    outline(compose(["..............."].concat(A.head), A.torsoBow, b.pants, b.stand)) };   /* 머리가 한 칸 내려온 모습 */
       const g = el('g',{class:'wk wk-chief'},layer);
-      el('path',{d:'M4 15h9v1h-9zM5 16h7v1h-7z',fill:'#24382d',opacity:'.22',transform:`translate(${-SW/2},${-FEET})`},g);
-      const body = el('g',{},g), frames = {};
-      for(const name in F){ const fg = el('g',{display:'none'},body); paths(F[name], CHIEF.col, fg); frames[name]=fg; }
-      /* 머리 위 NPC 표시: 아래를 가리키는 작은 빨간 세모 (5·3·1칸) + 외곽선. 몸과 따로 까딱까딱 */
-      const mark = el('g',{class:'wk-mark'},g);
-      el('path',{d:'M5 -7h7v1h-7zM5 -6h1v1h-1zM11 -6h1v1h-1zM6 -5h1v1h-1zM10 -5h1v1h-1zM7 -4h1v1h-1zM9 -4h1v1h-1zM8 -3h1v1h-1z',fill:'#2b3f33'},mark);
-      el('path',{d:'M6 -6h5v1h-5zM7 -5h3v1h-3zM8 -4h1v1h-1z',fill:'#e5482f'},mark);
-      el('path',{d:'M6 -6h5v.5h-5z',fill:'#ff8a6b'},mark);
-      walkers.push({g, body, frames, mark, markB:-1, shown:null, fixed:true, x:CHIEF.x, y:CHIEF.y, ox:0, oy:0, mode:'stand', until:0, nextPause:rnd(8,16),
+      el('path',{d:SHADOW,fill:'#24382d',opacity:'.22',transform:`translate(${-SW/2},${-FEET})`},g);
+      const fs = mountFrames(g, chiefFrames(BODY, CHIEF.art), CHIEF.col);
+      /* 머리 위 NPC 표시 (content/characters/chief.json 의 mark). 몸과 따로 까딱까딱 */
+      const mark = el('g',{class:'wk-mark'},g), M = CHIEF.mark;
+      el('path',{d:M.outline,fill:M.colors.outline},mark); el('path',{d:M.fill,fill:M.colors.fill},mark); el('path',{d:M.shine,fill:M.colors.shine},mark);
+      walkers.push({g, body:fs.body, fs, mark, markB:-1, fixed:true, x:CHIEF.x, y:CHIEF.y, ox:0, oy:0, mode:'stand', until:0, nextPause:rnd(8,16),
         armed:true, front:false, waveStart:0, waveMin:0, waveEnd:0, lastT:'', lastB:''});
     })();
 
     /* ── 3c. 이장님의 강아지: 이장님 오른쪽에 앉아 꼬리를 흔들다가, 포인터가 다가오면 혀를 내밀고 깡충깡충 ──
        · 자리: 이장님에서 오른쪽으로 DOG.cells칸 (어느 줌에서나 같은 간격) · 그림은 17×18칸 격자의 아래쪽 7줄 */
-    const DOG = {cells:12, col:{o:'#2b3f33', d:'#d9a05b', w:'#fff3d6', e:'#1f2226', n:'#2a2c30', t:'#e8697a'}};
+    const DOG = DATA.characters.dog;
     (function(){
-      const head = [".....d.....d.....",".....ddddddd....."], low = [".....ddwwwddd....",".....ww...ww....."];
-      const tailA = [".....dewwwed..d..",".....dwwnwwd.d..."], tailB = [".....dewwwed.....",".....dwwnwwd.dd.."];   /* 꼬리 두 자세 */
-      const mk = (tail, chest) => { const rows = head.concat(tail, [chest], low), g = Array.from({length:SH}, () => Array(SW).fill('.'));
-        rows.forEach((r,i) => { for(let x=0;x<SW;x++) if(r[x]!=='.') g[FEET-rows.length+i][x]=r[x]; }); return outline(g); };
-      const F = { sit0:mk(tailA,"......dwwwdddd..."), sit1:mk(tailB,"......dwwwdddd..."), happy0:mk(tailA,"......dwtwdddd..."), happy1:mk(tailB,"......dwtwdddd...") };
       const g = el('g',{class:'wk wk-dog'},layer);
-      el('path',{d:'M5 15h8v1h-8zM6 16h6v1h-6z',fill:'#24382d',opacity:'.22',transform:`translate(${-SW/2},${-FEET})`},g);
-      const body = el('g',{},g), frames = {};
-      for(const name in F){ const fg = el('g',{display:'none'},body); paths(F[name], DOG.col, fg); frames[name]=fg; }
-      walkers.push({g, body, frames, shown:null, fixed:true, pet:true, dxCells:DOG.cells, x:CHIEF.x, y:CHIEF.y, ox:0, oy:0, happyUntil:0, front:false, lastT:'', lastB:''});
+      el('path',{d:DOG.shadow,fill:'#24382d',opacity:'.22',transform:`translate(${-SW/2},${-FEET})`},g);
+      const fs = mountFrames(g, dogFrames(DOG.art), DOG.col);
+      walkers.push({g, body:fs.body, fs, fixed:true, pet:true, dxCells:DOG.cells, x:CHIEF.x, y:CHIEF.y, ox:0, oy:0, happyUntil:0, front:false, lastT:'', lastB:''});
     })();
 
     function nextNode(at, from){
@@ -442,7 +392,7 @@ export function bootLegacy(DATA){
     const waveRadius = q => 40 + 12*q;
     const pixelSize = s => s<1.15 ? 1 : Math.max(2, Math.min(5, Math.round(s*.8)));   /* 스프라이트 1칸 = 화면 q픽셀 (정수 → 또렷함) */
 
-    function show(w, name){ if(w.shown===name) return; if(w.shown) w.frames[w.shown].setAttribute('display','none'); w.frames[name].removeAttribute('display'); w.shown=name; }
+    const show = (w, name) => w.fs.show(name);
 
     const CYCLE = [1,2,3,2];                         /* 디딤 → 모음(살짝 올라감) → 반대 디딤 → 모음 */
     let last = performance.now();

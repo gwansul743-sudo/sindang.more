@@ -37,6 +37,9 @@ const SNIPPET = () => ({
   비네트: !!document.querySelector('.night-vignette'),
   svg층순서: [...document.getElementById('svg').children].map(e => (e.getAttribute('class') || e.tagName).split(' ')[0]).join('>'),
   테마버튼: document.getElementById('theme')?.textContent,
+  이장님그림: [...document.querySelectorAll('.wk-chief path')].map(p => p.getAttribute('d') + p.getAttribute('fill')).join('|').length + ':' + [...document.querySelectorAll('.wk-chief path')].map(p => p.getAttribute('d') + p.getAttribute('fill')).join('|').split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7),
+  강아지그림: [...document.querySelectorAll('.wk-dog path')].map(p => p.getAttribute('d') + p.getAttribute('fill')).join('|').length + ':' + [...document.querySelectorAll('.wk-dog path')].map(p => p.getAttribute('d') + p.getAttribute('fill')).join('|').split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7),
+  주민그림칸수: [...document.querySelectorAll('.wk:not(.wk-chief):not(.wk-dog) path')].length,
   viewBox: document.getElementById('svg').getAttribute('viewBox').split(' ').map(v => Math.round(+v)).join(' '),
 });
 

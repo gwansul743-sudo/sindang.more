@@ -11,6 +11,7 @@ import wave from '../../content/characters/parts/wave.json';
 import palette from '../../content/characters/palette.json';
 import looks from '../../content/characters/looks.json';
 import chief from '../../content/characters/chief.json';
+import dog from '../../content/characters/dog.json';
 import geo from '../../content/_legacy/geo.json';
 import { loadLandmarks } from '../entities/landmark/load';
 import type { Store } from '../entities/store/types';
@@ -29,7 +30,7 @@ export function loadContent(stores: Store[]): EngineData {
     landmarks,
     pixelDefs: Object.values(landmarks.art).join('') + Object.values(decorArt).join('') + withLand(terrainDefs),
     terrain: withLand(terrain).replace('<!--PROPS-->', uses),
-    characters: { head, body, wave, palette, looks, chief },
+    characters: { head, body, wave, palette, looks, chief, dog },
     stores,
     geo,
   };

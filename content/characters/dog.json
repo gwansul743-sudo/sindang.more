@@ -1,0 +1,33 @@
+{
+ "_": "이장님의 강아지. 17칸 폭 줄 그대로(여백 없음), 아래쪽 7줄만 쓴다. cells = 이장님에서 오른쪽으로 떨어진 칸 수",
+ "cells": 12,
+ "col": {
+  "o": "#2b3f33",
+  "d": "#d9a05b",
+  "w": "#fff3d6",
+  "e": "#1f2226",
+  "n": "#2a2c30",
+  "t": "#e8697a"
+ },
+ "shadow": "M5 15h8v1h-8zM6 16h6v1h-6z",
+ "art": {
+  "head": [
+   ".....d.....d.....",
+   ".....ddddddd....."
+  ],
+  "tailA": [
+   ".....dewwwed..d..",
+   ".....dwwnwwd.d..."
+  ],
+  "tailB": [
+   ".....dewwwed.....",
+   ".....dwwnwwd.dd.."
+  ],
+  "chestSit": "......dwwwdddd...",
+  "chestHappy": "......dwtwdddd...",
+  "low": [
+   ".....ddwwwddd....",
+   ".....ww...ww....."
+  ]
+ }
+}
