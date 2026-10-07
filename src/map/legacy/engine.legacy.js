@@ -6,6 +6,11 @@
 import { createProjection } from '../projection';
 import { createViewport } from '../viewport';
 import { createLand } from '../layers/land';
+import { el } from '../svg';
+import { mountRoads } from '../layers/roads';
+import { mountTerrain } from '../layers/terrain';
+import { mountLandmarks, mountDistricts } from '../layers/landmarks';
+import { mountDots } from '../layers/dots';
 
 export function bootLegacy(DATA){
 /* ═══════════════ CORE (투영 · 팬줌 · 가게 점 · 카드 · 관리 · 인트로) ═══════════════ */
@@ -13,58 +18,24 @@ export function bootLegacy(DATA){
   const BBOX = DATA.land.bbox;
   const IG = 'https://www.instagram.com/sindang.more/';
 
-  /* 랜드마크: 8개 이내로 고정. 가게 수와 무관하게 늘리지 않습니다. */
-  const LANDMARKS = DATA.landmarks.items.map(l => ({name:l.name, lat:l.lat, lng:l.lng, icon:l.art}));   /* icon = 그림 파일 이름 */
 
   /* 투영 — map/projection.ts (4-1 ①) */
   const W = ROADS.W, H = ROADS.H;
-  const { proj, unproj } = createProjection(BBOX, W, H);
-  LANDMARKS.forEach(l => { [l.x,l.y] = proj(l.lat,l.lng); });
+  const P = createProjection(BBOX, W, H), { proj, unproj } = P;
 
+  /* 층 — map/layers/* (4-1 ③). 순서가 곧 그리는 순서: 땅 → 길 → 장식 → 권역 이름 → 랜드마크 → 가게 점 */
   const svg = document.getElementById('svg');
-  const NS = 'http://www.w3.org/2000/svg';
-  const el = (t,a={},parent) => { const e=document.createElementNS(NS,t); for(const k in a) e.setAttribute(k,a[k]); if(parent) parent.appendChild(e); return e; };
-
-  /* 도로 */
-  const gRoads = el('g',{class:'roads'},svg);
-  ['d','c','b','a'].forEach(k => el('path',{class:'rd rd-'+k, d:ROADS.p[k]},gRoads));
-
-  /* 랜드마크 손그림 — 둥글고 단순하게, 작은 얼굴 하나씩 */
-  /* [C-1] ICONS:START — PIXEL ATLAS · original inline SVG artwork, no CORE changes */
-  const PIXEL_DEFS = DATA.pixelDefs;
-  const pixelDefs = el('defs',{},svg); pixelDefs.innerHTML = PIXEL_DEFS;
-  const pixelTerrain = el('g',{class:'pixel-terrain','aria-hidden':'true'},svg);
-  pixelTerrain.innerHTML = DATA.terrain;
-  svg.insertBefore(pixelTerrain,gRoads);
-  /* Canopies and rooftops occlude decorative street strokes, as on a printed atlas. */
-  const pixelProps = pixelTerrain.querySelector('.pixel-props');
-  svg.appendChild(pixelProps);
-  const pixelLandmark = (g, name) => el('use',{href:'#px-'+name,x:-18,y:-22,width:36,height:36,'aria-hidden':'true'},g);
-  const ICONS = {}; LANDMARKS.forEach(l => { ICONS[l.icon] = g => pixelLandmark(g, l.icon); });
-  /* [C-1] ICONS:END */
-  /* 권역 라벨 두 개만 */
-  const DISTRICTS = DATA.land.districts.map(d => ({...d}));
-  DISTRICTS.forEach(d => { [d.x,d.y] = proj(d.lat,d.lng); });
-  const gDist = el('g',{},svg); DISTRICTS.forEach(d => { d.t = el('text',{class:'dist',x:d.x,y:d.y},gDist); d.t.textContent=d.name; });
-  const gLm = el('g',{class:'layer lms'},svg);
-  LANDMARKS.forEach(l => {
-    const g = el('g',{class:'lm',transform:`translate(${l.x},${l.y})`},gLm);
-    const ic = el('g',{class:'ic'},g); ICONS[l.icon](ic);
-    const t = el('text',{y:0},g); t.textContent = l.name; l.g=g; l.ic=ic; l.t=t;
-  });
+  const gRoads = mountRoads(svg, ROADS);
+  const { props: pixelProps } = mountTerrain(svg, { pixelDefs: DATA.pixelDefs, terrain: DATA.terrain }, gRoads);
+  const districts = mountDistricts(svg, P, DATA.land.districts), gDist = districts.g;
+  const lmLayer = mountLandmarks(svg, P, DATA.landmarks.items, DATA.landmarks), LANDMARKS = lmLayer.items;
+  const lmK = s => lmLayer.k(s);
 
   /* 가게 · 컬렉션 (데이터는 db에서 옴) */
   let STORES = [];
-  const gDots = el('g',{class:'layer dots hide'},svg);
+  const dots = mountDots(svg, P, it => { if(picking) return; select(STORES.find(s => s._dot===it), true); }), gDots = dots.g;
   function setStores(list){
-    STORES = list.map(s => ({...s})); STORES.forEach(s => { [s.x,s.y] = proj(s.lat,s.lng); });
-    gDots.innerHTML='';
-    STORES.forEach(s => {
-      const g = el('g',{class:'dot'+(s.status==='up'?' up':''),transform:`translate(${s.x},${s.y})`},gDots);
-      el('circle',{class:'outer',r:1},g); el('circle',{class:'core',r:1},g);
-      s.t = el('text',{},g); s.t.textContent = s.name; s.g=g;
-      g.addEventListener('click', e => { e.stopPropagation(); if(picking) return; select(s, true); });
-    });
+    STORES = dots.set(list).map(it => ({...it.store, x:it.x, y:it.y, g:it.g, t:it.t, _dot:it}));   /* 옛 모양 유지 (카드·관리 코드가 쓴다). 4-2에서 정리 */
     if(current){ const again = STORES.find(s=>s.id===current.id); current=null; if(again) select(again,false); else closeCard(); }
     document.getElementById('empty').classList.toggle('show', STORES.length===0 && !introOpen);
     renderAdminList(); apply();
@@ -72,32 +43,14 @@ export function bootLegacy(DATA){
 
   /* 뷰포트 — map/viewport.ts (4-1 ②). 그림 갱신은 render(scale)가 맡는다 */
   const map = document.getElementById('map');
-  /* 랜드마크 크기: 화면 고정 크기 대신 지도와 함께 커지고 작아짐. LM_WORLD = 아이콘 배율(지도 단위), LM_MIN_PX = 아주 멀리서 볼 때의 화면 최소 배율 */
-  const LM_WORLD = DATA.landmarks.worldScale, LM_MIN_PX = DATA.landmarks.minPx;
-  function lmK(s){ return Math.max(LM_WORLD, LM_MIN_PX/s); }
   const LAND = createLand(DATA.land.landPath, W, H);
   const V = createViewport({ map, svg, W, H, landBounds: LAND.bounds, focus: DATA.land.focus, onApply: render, onActivity: () => wake(), keepViewOnResize: () => !introOpen });
   const scale = () => V.scale(), apply = () => V.apply(), homeView = () => V.homeView(), resetHome = () => V.resetHome();
   const zoomAt = (f,cx,cy) => V.zoomAt(f,cx,cy), centerOn = (x,y,s,oy) => V.centerOn(x,y,s,oy);
   function render(s){
-    const px = v => v / s;
     document.body.classList.toggle('far', s < 3.5);
-    LANDMARKS.forEach(l => {
-      const K = lmK(s), fs = Math.min(15, Math.max(10, 9 + s*1.2));      /* REV 3: 아이콘은 지도 단위(K)로, 이름표는 화면 px로 */
-      l.ic.setAttribute('transform', `translate(0,${-12*K}) scale(${K})`);
-      l.t.setAttribute('font-size', px(fs)); l.t.setAttribute('y', 2*K + px(fs+3));
-    });
-    DISTRICTS.forEach(d => { d.t.setAttribute('font-size', px(14)); d.t.setAttribute('opacity', s<2.6?1:0); });
-    const showDots = s >= 2.2, showLabels = s >= 4.2;
-    gDots.classList.toggle('hide', !showDots); gDots.classList.toggle('labels', showLabels);
-    document.getElementById('hint').classList.toggle('hide', showDots || introOpen || STORES.length===0);
-    STORES.forEach(st => {
-      const sel = st === current, core = st.g.querySelector('.core'), outer = st.g.querySelector('.outer');
-      outer.setAttribute('r', px(sel?10:8)); outer.setAttribute('stroke-width', px(sel?3.5:2.4));
-      if(st.status==='up'){ outer.setAttribute('stroke-dasharray', `${px(2)} ${px(2)}`); core.setAttribute('stroke-width', px(1.5)); }
-      core.setAttribute('r', px(sel?4.2:3.4));
-      st.t.setAttribute('font-size', px(11)); st.t.setAttribute('y', px(24));
-    });
+    lmLayer.update(s); districts.update(s); dots.update(s);
+    document.getElementById('hint').classList.toggle('hide', s >= 2.2 || introOpen || STORES.length===0);
   }
   svg.addEventListener('click', e => {
     if(V.moved) return;
@@ -110,8 +63,7 @@ export function bootLegacy(DATA){
   const sheet = document.getElementById('sheet'), card = document.getElementById('card');
   let current = null;
   function select(s, focus){
-    if(current) current.g.classList.remove('sel');
-    current = s; s.g.classList.add('sel');
+    current = s; dots.select(s._dot);
     const up = s.status==='up', href = s.ig || IG;
     const list = STORES, idx = list.indexOf(s)+1;
     card.innerHTML = `
@@ -131,7 +83,7 @@ export function bootLegacy(DATA){
     if(focus){ const s0 = Math.max(scale(), 4.6); centerOn(s.x, s.y, s0, V.pw>=900?0:V.ph*0.24); } else apply();
   }
   function step(d){ const i=(STORES.indexOf(current)+d+STORES.length)%STORES.length; select(STORES[i], true); }
-  function closeCard(){ if(current){ current.g.classList.remove('sel'); current=null; } sheet.classList.remove('open'); document.getElementById('side').classList.remove('has'); apply(); }
+  function closeCard(){ if(current){ dots.select(null); current=null; } sheet.classList.remove('open'); document.getElementById('side').classList.remove('has'); apply(); }
   function renderInterview(text){
     if(!text || !text.trim()) return '';
     const blocks=[]; let cur=null, sec='';
@@ -251,7 +203,7 @@ export function bootLegacy(DATA){
     }
     form.latlng.value = `${hit[0]}, ${hit[1]}`;
     const [x,y] = proj(hit[0],hit[1]); centerOn(x,y,Math.max(scale(),5), V.pw<900?V.ph*0.24:0);
-    if(editing){ editing.g.setAttribute('transform',`translate(${x},${y})`); }
+    if(editing){ dots.move(editing._dot, x, y); editing.x=x; editing.y=y; }
     toast('좌표를 채웠어요' + note);
   }
   function startPick(){ picking=true; document.body.classList.add('picking'); document.getElementById('pickhint').classList.add('show'); if(V.pw<900) admin.classList.remove('open'); }
