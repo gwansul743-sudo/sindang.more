@@ -3,6 +3,8 @@
    바뀐 점은 두 가지뿐: (1) 그림·도로·좌표·파츠·가게 상수를 DATA(= content/ 와 seed)에서 받음, (2) 전체를 bootLegacy()로 감쌈.
    마크업(src/app/legacy-markup.html)이 문서에 들어간 뒤 한 번만 호출할 것. 화면의 id에 의존하므로 두 번 부르면 안 됨.
    이 파일은 폴더구조_지침 §9의 3·4·7단계에서 map/ 과 features/ 로 쪼개며 줄여 나가다가 마지막에 삭제한다. */
+import { createProjection } from '../projection';
+
 export function bootLegacy(DATA){
 /* ═══════════════ CORE (투영 · 팬줌 · 가게 점 · 카드 · 관리 · 인트로) ═══════════════ */
   const ROADS = DATA.roads;
@@ -12,12 +14,9 @@ export function bootLegacy(DATA){
   /* 랜드마크: 8개 이내로 고정. 가게 수와 무관하게 늘리지 않습니다. */
   const LANDMARKS = DATA.landmarks.items.map(l => ({name:l.name, lat:l.lat, lng:l.lng, icon:l.art}));   /* icon = 그림 파일 이름 */
 
-  /* 투영 */
+  /* 투영 — map/projection.ts (4-1 ①) */
   const W = ROADS.W, H = ROADS.H;
-  const merc = lat => Math.log(Math.tan(Math.PI/4 + lat*Math.PI/360));
-  const my0 = merc(BBOX.lat0), my1 = merc(BBOX.lat1);
-  const proj = (lat,lng) => [ (lng-BBOX.lon0)/(BBOX.lon1-BBOX.lon0)*W, (my1-merc(lat))/(my1-my0)*H ];
-  const unproj = (x,y) => { const lng = BBOX.lon0 + x/W*(BBOX.lon1-BBOX.lon0); const my = my1 - y/H*(my1-my0); const lat = (2*Math.atan(Math.exp(my)) - Math.PI/2)*180/Math.PI; return [lat,lng]; };
+  const { proj, unproj } = createProjection(BBOX, W, H);
   LANDMARKS.forEach(l => { [l.x,l.y] = proj(l.lat,l.lng); });
 
   const svg = document.getElementById('svg');
