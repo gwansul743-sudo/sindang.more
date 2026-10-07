@@ -4,6 +4,8 @@
    마크업(src/app/legacy-markup.html)이 문서에 들어간 뒤 한 번만 호출할 것. 화면의 id에 의존하므로 두 번 부르면 안 됨.
    이 파일은 폴더구조_지침 §9의 3·4·7단계에서 map/ 과 features/ 로 쪼개며 줄여 나가다가 마지막에 삭제한다. */
 import { createProjection } from '../projection';
+import { createViewport } from '../viewport';
+import { createLand } from '../layers/land';
 
 export function bootLegacy(DATA){
 /* ═══════════════ CORE (투영 · 팬줌 · 가게 점 · 카드 · 관리 · 인트로) ═══════════════ */
@@ -68,37 +70,17 @@ export function bootLegacy(DATA){
     renderAdminList(); apply();
   }
 
-  /* 뷰포트 */
+  /* 뷰포트 — map/viewport.ts (4-1 ②). 그림 갱신은 render(scale)가 맡는다 */
   const map = document.getElementById('map');
-  let vw = W, vh = H, vx = 0, vy = 0, pw = 1, ph = 1;
-  function fit(){ pw = map.clientWidth; ph = map.clientHeight; }
-  function scale(){ return pw / vw; }
-  /* REV 3 — 랜드마크 크기: 화면 고정 크기 대신 지도와 함께 커지고 작아짐 (집·나무와의 비율이 어느 줌에서나 같음).
-     LM_WORLD = 아이콘 배율(지도 단위), LM_MIN_PX = 아주 멀리서 볼 때의 화면 최소 배율 */
+  /* 랜드마크 크기: 화면 고정 크기 대신 지도와 함께 커지고 작아짐. LM_WORLD = 아이콘 배율(지도 단위), LM_MIN_PX = 아주 멀리서 볼 때의 화면 최소 배율 */
   const LM_WORLD = DATA.landmarks.worldScale, LM_MIN_PX = DATA.landmarks.minPx;
   function lmK(s){ return Math.max(LM_WORLD, LM_MIN_PX/s); }
-  /* REV 3 — 처음 화면: 땅 전체가 들어오는 줌 (좁은 화면에서는 너무 작아지지 않게 0.75배까지만) */
-  let LANDBOX = null;                                   /* REV 8: 땅(섬)의 범위 — 화면 맞춤과 이동 한계의 기준 */
-  function landBox(){
-    if(LANDBOX) return LANDBOX;
-    const d = (document.querySelector('#px-land path')||{getAttribute:()=>null}).getAttribute('d');
-    const n = d ? (d.match(/-?\d+\.?\d*/g)||[]).map(Number) : [];
-    if(n.length<6) return {x0:0, y0:0, x1:W, y1:H};
-    let x0=1e9, y0=1e9, x1=-1e9, y1=-1e9;
-    for(let i=0;i+1<n.length;i+=2){ x0=Math.min(x0,n[i]); x1=Math.max(x1,n[i]); y0=Math.min(y0,n[i+1]); y1=Math.max(y1,n[i+1]); }
-    return LANDBOX = {x0, y0, x1, y1:y1+16};
-  }
-  /* REV 21 — 처음 화면: 신당5동(신당오길)을 화면 가운데에 두고, 섬 전체가 꽉 차는 줌보다 한 단계 가깝게 */
-  const FOCUS = DATA.land.focus;
-  function homeView(){
-    const b = landBox(), fit = Math.min(pw/((b.x1-b.x0)*1.1), ph/((b.y1-b.y0)*1.1));
-    return {x:FOCUS.x, y:FOCUS.y, s:Math.max(.75, fit*1.04)};      /* REV 23: 섬의 윤곽이 다 보이도록 1.12 → 1.04 */
-  }
-  function resetHome(){ const hv = homeView(); vw = pw/(hv.s/1.12); vh = vw*ph/pw; vx = hv.x - vw/2; vy = hv.y - vh/2; clamp(); apply(); }
-  function apply(){
-    vh = vw * ph / pw;
-    svg.setAttribute('viewBox', `${vx} ${vy} ${vw} ${vh}`);
-    const s = scale(), px = v => v / s;
+  const LAND = createLand(DATA.land.landPath, W, H);
+  const V = createViewport({ map, svg, W, H, landBounds: LAND.bounds, focus: DATA.land.focus, onApply: render, onActivity: () => wake(), keepViewOnResize: () => !introOpen });
+  const scale = () => V.scale(), apply = () => V.apply(), homeView = () => V.homeView(), resetHome = () => V.resetHome();
+  const zoomAt = (f,cx,cy) => V.zoomAt(f,cx,cy), centerOn = (x,y,s,oy) => V.centerOn(x,y,s,oy);
+  function render(s){
+    const px = v => v / s;
     document.body.classList.toggle('far', s < 3.5);
     LANDMARKS.forEach(l => {
       const K = lmK(s), fs = Math.min(15, Math.max(10, 9 + s*1.2));      /* REV 3: 아이콘은 지도 단위(K)로, 이름표는 화면 px로 */
@@ -117,50 +99,9 @@ export function bootLegacy(DATA){
       st.t.setAttribute('font-size', px(11)); st.t.setAttribute('y', px(24));
     });
   }
-  /* REV 8 — 이동 한계를 '땅' 기준으로.
-     · 확대했을 때: 땅 밖(바다)은 위·아래·좌·우 똑같이 화면의 25%까지 보임 (모바일은 카드가 아래를 덮으므로 아래쪽만 2배)
-     · 축소할수록 그 여유가 줄어, 땅이 화면에 다 들어오는 풀샷에서는 땅이 화면 한가운데에 고정됨 */
-  function clampView(x, y, w){
-    const b = landBox(), bw = b.x1-b.x0, bh = b.y1-b.y0;
-    w = Math.max(W/12, Math.min(Math.max(W*1.3, bw*1.2, bh*1.2*pw/ph), w));
-    const h = w*ph/pw, k = (v, bv) => Math.max(0, Math.min(1, (1.15*bv - v)/(.55*bv)));
-    const mx = Math.max((w-bw)/2, .25*w*k(w,bw)), my = Math.max((h-bh)/2, .25*h*k(h,bh));
-    const mb = (pw<900 && my>(h-bh)/2) ? my*2 : my;
-    const lox = b.x0-mx, hix = b.x1+mx-w, loy = b.y0-my, hiy = b.y1+mb-h;
-    return [lox<hix ? Math.max(lox, Math.min(hix, x)) : (lox+hix)/2, loy<hiy ? Math.max(loy, Math.min(hiy, y)) : (loy+hiy)/2, w];
-  }
-  function clamp(){ [vx, vy, vw] = clampView(vx, vy, vw); vh = vw * ph / pw; }
-  function zoomAt(f, cx, cy){
-    const s = scale(), mx = vx + cx/s, my = vy + cy/s;
-    vw = vw / f; clamp(); const s2 = scale();
-    vx = mx - cx/s2; vy = my - cy/s2; clamp(); apply();
-  }
-  let anim = null;
-  function animateTo(tx,ty,tw,dur=700){
-    cancelAnimationFrame(anim); [tx,ty,tw] = clampView(tx,ty,tw);        /* REV 8: 도착 지점도 한계 안으로 */
-    const x0=vx,y0=vy,w0=vw,t0=performance.now(), ease = t => 1-Math.pow(1-t,3);
-    const step = now => { const t=Math.min(1,(now-t0)/dur), e=ease(t);
-      vx=x0+(tx-x0)*e; vy=y0+(ty-y0)*e; vw=w0+(tw-w0)*e; apply(); if(t<1) anim=requestAnimationFrame(step); };
-    anim=requestAnimationFrame(step);
-  }
-  function centerOn(x,y,targetScale,offsetY=0){ const tw = pw/targetScale, th = tw*ph/pw; animateTo(x - tw/2, y - th/2 + offsetY/targetScale, tw); }
-  /* 드래그·휠·핀치 */
-  const ptrs = new Map(); let lastDist=0, moved=false, downAt=null;
-  map.addEventListener('pointerdown', e => { ptrs.set(e.pointerId,[e.clientX,e.clientY]); moved=false; downAt=[e.clientX,e.clientY]; cancelAnimationFrame(anim); wake(); });
-  map.addEventListener('pointermove', e => {
-    if(!ptrs.has(e.pointerId)) return;
-    const prev = ptrs.get(e.pointerId); ptrs.set(e.pointerId,[e.clientX,e.clientY]);
-    if(ptrs.size===1){ const s=scale(); vx -= (e.clientX-prev[0])/s; vy -= (e.clientY-prev[1])/s; clamp(); apply(); }
-    else if(ptrs.size===2){ const [a,b]=[...ptrs.values()]; const d=Math.hypot(a[0]-b[0],a[1]-b[1]);
-      if(lastDist){ const r=map.getBoundingClientRect(); zoomAt(d/lastDist,(a[0]+b[0])/2-r.left,(a[1]+b[1])/2-r.top); } lastDist=d; }
-    if(!moved && Math.hypot(e.clientX-downAt[0],e.clientY-downAt[1])>6){ moved=true; try{ map.setPointerCapture(e.pointerId); }catch(_){} }
-  });
-  const up = e => { ptrs.delete(e.pointerId); if(ptrs.size<2) lastDist=0; };
-  map.addEventListener('pointerup', up); map.addEventListener('pointercancel', up);
-  map.addEventListener('wheel', e => { e.preventDefault(); const r=map.getBoundingClientRect(); zoomAt(Math.exp(-e.deltaY*0.0018), e.clientX-r.left, e.clientY-r.top); wake(); }, {passive:false});
   svg.addEventListener('click', e => {
-    if(moved) return;
-    if(picking){ const r=map.getBoundingClientRect(), s=scale(); const [lat,lng] = unproj(vx+(e.clientX-r.left)/s, vy+(e.clientY-r.top)/s);
+    if(V.moved) return;
+    if(picking){ const [lat,lng] = unproj(...V.toMap(e.clientX, e.clientY));
       form.latlng.value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`; endPick(); return; }
     if(!e.target.closest('.dot,.col-pill')) closeCard();
   });
@@ -187,7 +128,7 @@ export function bootLegacy(DATA){
       </div>
       ${renderInterview(s.interview)}`;
     sheet.classList.add('open'); document.getElementById('side').classList.add('has');
-    if(focus){ const s0 = Math.max(scale(), 4.6); centerOn(s.x, s.y, s0, pw>=900?0:ph*0.24); } else apply();
+    if(focus){ const s0 = Math.max(scale(), 4.6); centerOn(s.x, s.y, s0, V.pw>=900?0:V.ph*0.24); } else apply();
   }
   function step(d){ const i=(STORES.indexOf(current)+d+STORES.length)%STORES.length; select(STORES[i], true); }
   function closeCard(){ if(current){ current.g.classList.remove('sel'); current=null; } sheet.classList.remove('open'); document.getElementById('side').classList.remove('has'); apply(); }
@@ -209,8 +150,8 @@ export function bootLegacy(DATA){
   const esc = s => String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
   /* 칩 · 테마 · 메시지 */
-  document.getElementById('zin').onclick = () => { zoomAt(1.6, pw/2, ph/2); wake(); };
-  document.getElementById('zout').onclick = () => { zoomAt(1/1.6, pw/2, ph/2); wake(); };
+  document.getElementById('zin').onclick = () => { zoomAt(1.6, V.pw/2, V.ph/2); wake(); };
+  document.getElementById('zout').onclick = () => { zoomAt(1/1.6, V.pw/2, V.ph/2); wake(); };
   let msgT; function toast(t){ const m=document.getElementById('msg'); m.textContent=t; m.classList.add('show'); clearTimeout(msgT); msgT=setTimeout(()=>m.classList.remove('show'),2200); }
 
   /* 전시 모드: 30초 무입력 시 자동 순환 */
@@ -254,7 +195,7 @@ export function bootLegacy(DATA){
   async function connect(){
     const useEmbedded = () => { const m = mockDb(); db = m; m.collection('stores').orderBy('order').onSnapshot(snap => { if(db===m) setStores(snap.docs.map(d => ({id:d.id, ...d.data()}))); });
       assets = {upload:async f=>({id:'mock',url:URL.createObjectURL(f)}), delete:async()=>({deleted:true})};
-      canWrite = true; document.getElementById('admin-btn').classList.toggle('show', pw<900); document.getElementById('admin-top').style.display = pw>=900?'':'none'; };
+      canWrite = true; document.getElementById('admin-btn').classList.toggle('show', V.pw<900); document.getElementById('admin-top').style.display = V.pw>=900?'':'none'; };
     if(MOCK || typeof claude.use!=='function'){ useEmbedded(); return; }
     let live = null, settled = false;
     const slow = setTimeout(() => { if(!settled) useEmbedded(); }, 1500);      /* 응답이 늦으면 일단 내장 데이터로 보여주고, 진짜 db가 오면 바꿔 끼움 */
@@ -268,7 +209,7 @@ export function bootLegacy(DATA){
     assets = await claude.use('assets');
     const user = await claude.use('user');
     canWrite = (await user?.canEdit()) ?? false;
-    document.getElementById('admin-btn').classList.toggle('show', canWrite && pw<900); document.getElementById('admin-top').style.display = canWrite && pw>=900 ? '' : 'none';
+    document.getElementById('admin-btn').classList.toggle('show', canWrite && V.pw<900); document.getElementById('admin-top').style.display = canWrite && V.pw>=900 ? '' : 'none';
   }
   const openAdmin = () => { adminOpen=true; admin.classList.add('open'); clearTimeout(idleT); clearInterval(cycleT); };
   document.getElementById('admin-btn').onclick = openAdmin; document.getElementById('admin-top').onclick = openAdmin;
@@ -309,11 +250,11 @@ export function bootLegacy(DATA){
       hit = table[best.k]; note = ` (${num}번은 없어서 ${best.k}번 자리예요. 지도에서 확인하세요)`;
     }
     form.latlng.value = `${hit[0]}, ${hit[1]}`;
-    const [x,y] = proj(hit[0],hit[1]); centerOn(x,y,Math.max(scale(),5), pw<900?ph*0.24:0);
+    const [x,y] = proj(hit[0],hit[1]); centerOn(x,y,Math.max(scale(),5), V.pw<900?V.ph*0.24:0);
     if(editing){ editing.g.setAttribute('transform',`translate(${x},${y})`); }
     toast('좌표를 채웠어요' + note);
   }
-  function startPick(){ picking=true; document.body.classList.add('picking'); document.getElementById('pickhint').classList.add('show'); if(pw<900) admin.classList.remove('open'); }
+  function startPick(){ picking=true; document.body.classList.add('picking'); document.getElementById('pickhint').classList.add('show'); if(V.pw<900) admin.classList.remove('open'); }
   function endPick(){ picking=false; document.body.classList.remove('picking'); document.getElementById('pickhint').classList.remove('show'); if(adminOpen) admin.classList.add('open'); }
   async function saveStore(e){
     e.preventDefault();
@@ -336,18 +277,9 @@ export function bootLegacy(DATA){
 
   /* 시작 */
   function init(){
-    fit(); resetHome();
+    V.fit(); V.resetHome();
     connect();
   }
-  /* REV 8 — 지도 칸의 크기가 바뀌면 다시 맞춤 (창 크기 변경 + 아래의 '보이는 높이 맞춤') */
-  function relayout(){
-    const ow=pw, oh=ph, ok = ow>2 && oh>2, h0 = ok ? homeView().s : 1, s0 = ok ? scale() : 1, cx = vx+vw/2, cy = vy+vh/2;
-    fit(); if(pw<2 || ph<2){ pw=ow; ph=oh; return; } if(pw===ow && ph===oh) return;
-    if(introOpen || !ok){ resetHome(); return; }
-    vw = pw/(homeView().s*(s0/h0)); vh = vw*ph/pw; vx = cx-vw/2; vy = cy-vh/2; clamp(); apply();     /* 보던 곳과 줌 정도(풀샷 대비)를 유지 */
-  }
-  window.addEventListener('resize', relayout);
-  if('ResizeObserver' in window) new ResizeObserver(relayout).observe(map);
   document.fonts ? document.fonts.ready.then(init) : init();
 
 /* ═══════════════ WALKERS (주민 · 이장님 · 강아지) ═══════════════ */
@@ -533,7 +465,7 @@ export function bootLegacy(DATA){
 
     /* 화면에서 멀어진 주민을 화면 바로 바깥의 큰 길로 옮김 (보이지 않는 곳에서만 일어남) */
     function relocate(w, s, q, nearPx){
-      const x0=vx, y0=vy, x1=vx+pw/s, y1=vy+ph/s, m=nearPx/s, padX=(9*q+4)/s, padT=3/s, padB=(17*q+4)/s, cand=[];
+      const x0=V.x, y0=V.y, x1=V.x+V.pw/s, y1=V.y+V.ph/s, m=nearPx/s, padX=(9*q+4)/s, padT=3/s, padB=(17*q+4)/s, cand=[];
       for(const e of edges){
         const x=(nodes[e.a].x+nodes[e.b].x)/2, y=(nodes[e.a].y+nodes[e.b].y)/2;
         if(x<x0-m || x>x1+m || y<y0-m || y>y1+m) continue;                         /* 너무 멂 */
@@ -565,14 +497,14 @@ export function bootLegacy(DATA){
     function tick(now){
       requestAnimationFrame(tick);
       const dt = Math.min(.1,(now-last)/1000); last = now;
-      const s = scale(); if(!(s>0) || pw<10) return;
+      const s = scale(); if(!(s>0) || V.pw<10) return;
       const q = pixelSize(s), k = q/s, R = waveRadius(q), live = P && !STILL;
       const kiosk = (typeof KIOSK!=='undefined') && KIOSK;
       const LK = (typeof lmK==='function') ? lmK(s) : 1.35/s;      /* 랜드마크 아이콘 배율 (지도 단위) */
       const nearPx = 15*q + 50;                         /* 화면 가장자리에서 이만큼(px) 넘게 벗어나면 '멀어진' 것으로 봄 */
       for(const w of walkers){
         if(w.fixed){                                  /* 이장님: 걷지 않음. 인사 규칙은 주민과 같음 */
-          const sx=(w.x-vx)*s + (w.dxCells||0)*q, sy=(w.y-vy)*s;
+          const sx=(w.x-V.x)*s + (w.dxCells||0)*q, sy=(w.y-V.y)*s;
           const pd = live ? Math.hypot(P.x-sx, P.y-(sy-(w.pet?4:8)*q)) : Infinity, near = pd<R;
           if(w.pet){                                    /* 강아지: 평소엔 0.45초마다 꼬리, 포인터가 가까우면 혀 내밀고 깡충 */
             if(near && now-P.t<2400) w.happyUntil = now+900;
@@ -593,12 +525,12 @@ export function bootLegacy(DATA){
           place(w, sx, sy, s, q, k, 1, hop); continue;
         }
         if(!STILL){
-          const fx=(w.x-vx)*s, fy=(w.y-vy)*s;
-          w.offT = (fx<-nearPx || fx>pw+nearPx || fy<-nearPx || fy>ph+nearPx) ? w.offT+dt : 0;
+          const fx=(w.x-V.x)*s, fy=(w.y-V.y)*s;
+          w.offT = (fx<-nearPx || fx>V.pw+nearPx || fy<-nearPx || fy>V.ph+nearPx) ? w.offT+dt : 0;
           if(w.offT>w.offLimit){ relocate(w,s,q,nearPx); w.offT=0; w.offLimit=rnd(1,3.5); }
         }
         /* 포인터와의 거리(화면 px, 몸통 중심 기준) */
-        const sx=(w.x+w.ox-vx)*s, sy=(w.y+w.oy-vy)*s;
+        const sx=(w.x+w.ox-V.x)*s, sy=(w.y+w.oy-V.y)*s;
         const pd = live ? Math.hypot(P.x-sx, P.y-(sy-8*q)) : Infinity, near = pd<R;
         if(pd>R*1.4) w.armed=true;
         if(near && w.mode!=='wave' && (w.armed || (now-P.t<140 && now-w.waveEnd>700))){ w.mode='wave'; w.waveStart=now; w.waveMin=now+1200; w.armed=false; }
@@ -638,9 +570,9 @@ export function bootLegacy(DATA){
     }
     /* 화면에 놓기: 화면 밖이면 생략, 안이면 정수 픽셀에 맞춤 */
     function place(w, sx, sy, s, q, k, flip, hop){
-      const vis = sx>-60 && sx<pw+60 && sy>-20 && sy<ph+90;
+      const vis = sx>-60 && sx<V.pw+60 && sy>-20 && sy<V.ph+90;
       if(!vis){ if(w.lastT!=='off'){ w.g.setAttribute('display','none'); w.lastT='off'; } return; }
-      const tx = vx + (Math.round(sx - SW/2*q) + SW/2*q)/s, ty = vy + Math.round(sy)/s;
+      const tx = V.x + (Math.round(sx - SW/2*q) + SW/2*q)/s, ty = V.y + Math.round(sy)/s;
       const T = `translate(${tx.toFixed(3)},${ty.toFixed(3)}) scale(${k.toFixed(5)})`;
       if(T!==w.lastT){ if(w.lastT==='off') w.g.removeAttribute('display'); w.g.setAttribute('transform',T); w.lastT=T; }
       const Bt = flip+','+hop;
