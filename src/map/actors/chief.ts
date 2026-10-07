@@ -1,0 +1,46 @@
+/* 이장님 — 정해진 자리에 서 있다가, 포인터가 다가오면 폴짝 뛰고 손을 흔든 뒤 꾸벅 인사. 머리 위에 빨간 세모(NPC 표시).
+   자리와 도안·색·표시는 content/characters/chief.json. */
+import { el } from '../svg';
+import { SW, FEET, SHADOW, mountFrames, type FrameSet, type Palette } from '../sprites/compose';
+import { chiefFrames, type BodyParts, type ChiefArt } from '../sprites/frames';
+import type { Actor, Frame } from './scene';
+
+export interface ChiefData {
+  x: number; y: number; col: Palette; art: ChiefArt;
+  mark: { outline: string; fill: string; shine: string; colors: { outline: string; fill: string; shine: string } };
+}
+const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+
+export class Chief implements Actor {
+  g: SVGGElement; body: SVGGElement; fs: FrameSet; x: number; y: number; ox = 0; oy = 0; front = false; lastT = ''; lastB = '';
+  private mark: SVGGElement; private markB = -1;
+  private mode: 'stand' | 'wave' | 'bow' = 'stand'; private until = 0; private nextPause = rnd(8, 16);
+  private armed = true; private waveStart = 0; private waveMin = 0; private waveEnd = 0;
+  onClick?: () => void;
+
+  constructor(parent: SVGGElement, body: BodyParts, c: ChiefData) {
+    this.x = c.x; this.y = c.y;
+    this.g = el('g', { class: 'wk wk-chief' }, parent);
+    el('path', { d: SHADOW, fill: '#24382d', opacity: '.22', transform: `translate(${-SW / 2},${-FEET})` }, this.g);
+    this.fs = mountFrames(this.g, chiefFrames(body, c.art), c.col); this.body = this.fs.body;
+    this.mark = el('g', { class: 'wk-mark' }, this.g); const M = c.mark;
+    el('path', { d: M.outline, fill: M.colors.outline }, this.mark); el('path', { d: M.fill, fill: M.colors.fill }, this.mark); el('path', { d: M.shine, fill: M.colors.shine }, this.mark);
+  }
+
+  tick(f: Frame) {
+    const { now, dt, V, s, q, R, P, live, still, kiosk } = f;
+    const sx = (this.x - V.x) * s, sy = (this.y - V.y) * s;
+    const pd = live && P ? Math.hypot(P.x - sx, P.y - (sy - 8 * q)) : Infinity, near = pd < R;
+    if (pd > R * 1.4) this.armed = true;
+    if (near && this.mode !== 'wave' && (this.armed || (now - P!.t < 140 && now - this.waveEnd > 900))) { this.mode = 'wave'; this.waveStart = now; this.waveMin = now + 1200; this.armed = false; }
+    if (this.mode === 'wave' && now > this.waveMin && !(near && now - P!.t < 2400)) { this.mode = 'bow'; this.until = now + 650; this.waveEnd = now; }   /* 손을 내리며 꾸벅 */
+    if (this.mode === 'bow' && now > this.until) { this.mode = 'stand'; this.waveEnd = now; }
+    if (this.mode === 'stand' && kiosk && !still) { this.nextPause -= dt; if (this.nextPause <= 0) { this.mode = 'wave'; this.waveStart = now; this.waveMin = now + rnd(1500, 2400); this.nextPause = rnd(10, 22); } }   /* 전시 모드: 가끔 먼저 인사 */
+    let hop = 0;
+    if (this.mode === 'wave') { const wt = now - this.waveStart, fr = Math.floor(wt / 170) % 2; this.fs.show('wave' + fr); hop = wt < 110 ? 1 : wt < 230 ? 2 : wt < 330 ? 1 : 1 - fr; }
+    else this.fs.show(this.mode === 'bow' ? 'bow' : 'front0');
+    const mb = still ? 0 : Math.floor(now / 520) % 2;   /* 세모: 0.52초마다 한 칸 오르내림 */
+    if (mb !== this.markB) { this.mark.setAttribute('transform', `translate(${-SW / 2},${-FEET - mb})`); this.markB = mb; }
+    f.place(this, sx, sy, 1, hop);
+  }
+}

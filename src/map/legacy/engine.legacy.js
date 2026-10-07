@@ -11,8 +11,12 @@ import { mountRoads } from '../layers/roads';
 import { mountTerrain } from '../layers/terrain';
 import { mountLandmarks, mountDistricts } from '../layers/landmarks';
 import { mountDots } from '../layers/dots';
-import { SW, FEET, SHADOW, mountFrames } from '../sprites/compose';
-import { walkerFrames, chiefFrames, dogFrames } from '../sprites/frames';
+import { majorRoadPath } from '../layers/roads';
+import { buildRoadGraph } from '../actors/roadGraph';
+import { createScene } from '../actors/scene';
+import { spawnWalkers } from '../actors/walker';
+import { Chief } from '../actors/chief';
+import { Dog } from '../actors/dog';
 
 export function bootLegacy(DATA){
 /* ═══════════════ CORE (투영 · 팬줌 · 가게 점 · 카드 · 관리 · 인트로) ═══════════════ */
@@ -236,253 +240,15 @@ export function bootLegacy(DATA){
   }
   document.fonts ? document.fonts.ready.then(init) : init();
 
-/* ═══════════════ WALKERS (주민 · 이장님 · 강아지) ═══════════════ */
-  /* [C-3] WALKERS:START — 큰 길(ROADS.p.a·b, 지도에서 굵게 보이는 길)을 걸어다니는 주민들. CORE는 읽기만 하고 고치지 않습니다.
-     · 사람 수: WALKER_COUNT (지도 전체에 이만큼만 있음)
-     · 걷는 속도: WALKER_SPEED (지도 단위/초)
-     · 인원이 적어도 화면이 비지 않게, 화면에서 멀리 벗어난 주민은 화면 바로 바깥 길로 옮겨져 다시 걸어 들어옵니다 (relocate)
-     · 손 흔드는 거리: waveRadius() (화면 px)
-     캐릭터는 이 지도용으로 새로 그린 픽셀 스프라이트입니다. */
-  (function(){
-    const WALKER_COUNT = 5, WALKER_SPEED = 6.5;
-    const STILL = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const rnd = (a,b) => a + Math.random()*(b-a), pick = a => a[Math.floor(Math.random()*a.length)];
-
-    /* ── 1. 걸을 수 있는 길: 큰 길 중 땅 안쪽 구간만 ───────────────── */
-    const landNums = ((document.querySelector('#px-land path')||{getAttribute:()=>''}).getAttribute('d').match(/-?\d+\.?\d*/g)||[]).map(Number);
-    const land = []; for(let i=0;i+1<landNums.length;i+=2) land.push([landNums[i],landNums[i+1]]);
-    const inLand = (x,y) => {
-      if(land.length<3) return x>20 && y>20 && x<W-20 && y<H-20;
-      let c=false;
-      for(let i=0,j=land.length-1;i<land.length;j=i++){
-        const x1=land[i][0],y1=land[i][1],x2=land[j][0],y2=land[j][1];
-        if((y1>y)!==(y2>y) && x < (x2-x1)*(y-y1)/(y2-y1)+x1) c=!c;
-      }
-      return c;
-    };
-    const EDGE = 14;                                   /* 해안선에서 띄울 여유 */
-    const safe = (x,y) => inLand(x,y) && inLand(x-EDGE,y) && inLand(x+EDGE,y) && inLand(x,y-EDGE-8) && inLand(x,y+EDGE);
-
-    const nodes = [], nodeAt = new Map();
-    const node = (x,y) => { const k=Math.round(x*2)+','+Math.round(y*2); let i=nodeAt.get(k);
-      if(i===undefined){ i=nodes.length; nodes.push({x,y,nb:[],ok:safe(x,y),comp:-1}); nodeAt.set(k,i); } return i; };
-    const link = (a,b) => { if(a===b) return; if(!nodes[a].nb.includes(b)) nodes[a].nb.push(b); if(!nodes[b].nb.includes(a)) nodes[b].nb.push(a); };
-    (String(ROADS.p.a||'')+String(ROADS.p.b||'')).split('M').forEach(part => {
-      const n=(part.match(/-?\d+\.?\d*/g)||[]).map(Number); let prev=-1, px=0, py=0;
-      for(let i=0;i+1<n.length;i+=2){
-        const x=n[i], y=n[i+1];
-        if(prev<0){ prev=node(x,y); px=x; py=y; continue; }
-        const steps=Math.max(1,Math.ceil(Math.hypot(x-px,y-py)/12));       /* 긴 선분은 잘게 나눠 해안 판정을 촘촘히 */
-        for(let k=1;k<=steps;k++){ const cur=node(px+(x-px)*k/steps, py+(y-py)*k/steps);
-          if(nodes[prev].ok && nodes[cur].ok) link(prev,cur); prev=cur; }
-        px=x; py=y;
-      }
-    });
-    const dist = (a,b) => Math.hypot(nodes[a].x-nodes[b].x, nodes[a].y-nodes[b].y);
-    /* 짧게 끊긴 토막길은 제외 (제자리걸음 방지) */
-    const edges = []; let comps = 0; const compLen = [];
-    nodes.forEach((n,i) => { if(n.comp>=0 || !n.nb.length) return; const id=comps++; let len=0; const st=[i]; n.comp=id;
-      while(st.length){ const a=st.pop(); nodes[a].nb.forEach(b => { len+=dist(a,b)/2; if(nodes[b].comp<0){ nodes[b].comp=id; st.push(b); } }); }
-      compLen[id]=len; });
-    let total = 0;
-    nodes.forEach((n,a) => { if(n.comp<0 || compLen[n.comp]<90) return; n.nb.forEach(b => { if(b>a){ const l=dist(a,b); edges.push({a,b,l}); total+=l; } }); });
-    if(!edges.length) return;
-
-    /* ── 2. 스프라이트 — map/sprites/* (4-1 ④) ─────────────────────── */
-    const BODY = DATA.characters.body;
-    const {skin:SKIN, hair:HAIR, top:TOP, pant:PANT, shoe:SHOE, hat:HATC, bag:BAGC} = DATA.characters.palette, LOOKS = DATA.characters.looks;
-    /* ── 3. 주민 만들기 ───────────────────────────────────────────── */
-    const layer = el('g',{class:'walkers','aria-hidden':'true','pointer-events':'none'});
-    if(typeof gDist!=='undefined' && gDist.parentNode===svg) svg.insertBefore(layer,gDist); else svg.appendChild(layer);
-    /* 랜드마크 건물 '앞'을 지날 때 쓰는 층 (랜드마크 아이콘 위, 가게 점 아래). 건물 뒤를 지날 때는 원래 층에 있어 가려짐 */
-    const layerFront = el('g',{class:'walkers walkers-front','aria-hidden':'true','pointer-events':'none'});
-    if(typeof gDots!=='undefined' && gDots.parentNode===svg) svg.insertBefore(layerFront,gDots); else svg.appendChild(layerFront);
-    const LMS = (typeof LANDMARKS!=='undefined') ? LANDMARKS : [];
-    /* 랜드마크 이름표는 주민보다 위로: 이름표만 별도 층으로 옮김 (CORE가 쥐고 있는 l.t 요소 그대로라 크기·위치 갱신은 종전처럼 동작) */
-    if(LMS.length && typeof gDots!=='undefined' && gDots.parentNode===svg){
-      const lmLabels = el('g',{class:'layer lm-labels'}); svg.insertBefore(lmLabels,gDots);
-      LMS.forEach(l => { if(l.t && l.g) el('g',{class:'lm',transform:l.g.getAttribute('transform')},lmLabels).appendChild(l.t); });
-    }
-    const count = WALKER_COUNT;
-    const tops = TOP.slice().sort(() => Math.random()-.5);            /* 적은 인원이니 윗옷 색이 겹치지 않게 */
-    const home = (typeof LANDMARKS!=='undefined' && LANDMARKS[0]) || {x:W/2,y:H/2};
-    const walkers = [];
-    function spawnEdge(nearHome){
-      for(let tries=0;tries<60;tries++){
-        let r=Math.random()*total, e=edges[0]; for(const c of edges){ r-=c.l; if(r<=0){ e=c; break; } }
-        const x=(nodes[e.a].x+nodes[e.b].x)/2, y=(nodes[e.a].y+nodes[e.b].y)/2;
-        if(nearHome && Math.hypot(x-home.x,y-home.y)>210) continue;
-        if(walkers.some(w => Math.hypot(w.x-x,w.y-y) < (tries<40?46:20))) continue;
-        return e;
-      }
-      return pick(edges);
-    }
-    for(let i=0;i<count;i++){
-      const look = LOOKS[i%LOOKS.length], e = spawnEdge(i<5), flip = Math.random()<.5;
-      const top = tops[i%tops.length]; let pant = pick(PANT), hat = pick(HATC);
-      if(hat===top) hat = '#f4e8b5';
-      const col = {o:'#2b3f33', e:'#2b3028', c:'#ef9f8a', m:'#a5402f', s:pick(SKIN), h:pick(i%7===4?HAIR.slice(4):HAIR.slice(0,4)), t:top, p:pant, b:pick(SHOE), a:hat, g:pick(BAGC)};
-      const g = el('g',{class:'wk'},layer);
-      el('path',{d:SHADOW,fill:'#24382d',opacity:'.22',transform:`translate(${-SW/2},${-FEET})`},g);
-      const fs = mountFrames(g, walkerFrames(DATA.characters, look.style, look.bun, look.bag), col);
-      const a = flip?e.b:e.a, b = flip?e.a:e.b;
-      walkers.push({g, body:fs.body, fs, a, b, d:Math.random()*e.l, len:e.l, x:nodes[a].x, y:nodes[a].y, ox:0, oy:0,
-        face:'front', faceWant:'front', faceT:0, dir:1, mode:'walk', until:0, nextPause:rnd(4,16), walkT:Math.random()*4,
-        speed:WALKER_SPEED*rnd(.8,1.2), offT:0, offLimit:rnd(1,3.5), armed:true, front:false, waveStart:0, waveMin:0, waveEnd:0, dirWant:1, lastT:'', lastB:''});
-    }
-    /* ── 3b. 이장님: 정해진 자리에 가만히 서 있다가, 포인터가 다가오면 폴짝 뛰고 손을 흔든 뒤 꾸벅 인사. 머리 위에 빨간 세모(NPC 표시) ──
-       · 서 있는 자리: CHIEF.x / CHIEF.y (지도 단위, 발끝 기준)
-       · 도안: 사용자가 준 시안(갈색 헌팅캡·회색 곱슬머리·선글라스·빨간 조끼·완장·명찰)을 주민과 같은 17×18칸 규격으로 다시 그린 것.
-         CHIEF_ART의 네 장(front0·wave0·wave1·bow)과 CHIEF.col(색)만 바꾸면 교체됩니다 */
-    const CHIEF = DATA.characters.chief;
-    (function(){
-      const g = el('g',{class:'wk wk-chief'},layer);
-      el('path',{d:SHADOW,fill:'#24382d',opacity:'.22',transform:`translate(${-SW/2},${-FEET})`},g);
-      const fs = mountFrames(g, chiefFrames(BODY, CHIEF.art), CHIEF.col);
-      /* 머리 위 NPC 표시 (content/characters/chief.json 의 mark). 몸과 따로 까딱까딱 */
-      const mark = el('g',{class:'wk-mark'},g), M = CHIEF.mark;
-      el('path',{d:M.outline,fill:M.colors.outline},mark); el('path',{d:M.fill,fill:M.colors.fill},mark); el('path',{d:M.shine,fill:M.colors.shine},mark);
-      walkers.push({g, body:fs.body, fs, mark, markB:-1, fixed:true, x:CHIEF.x, y:CHIEF.y, ox:0, oy:0, mode:'stand', until:0, nextPause:rnd(8,16),
-        armed:true, front:false, waveStart:0, waveMin:0, waveEnd:0, lastT:'', lastB:''});
-    })();
-
-    /* ── 3c. 이장님의 강아지: 이장님 오른쪽에 앉아 꼬리를 흔들다가, 포인터가 다가오면 혀를 내밀고 깡충깡충 ──
-       · 자리: 이장님에서 오른쪽으로 DOG.cells칸 (어느 줌에서나 같은 간격) · 그림은 17×18칸 격자의 아래쪽 7줄 */
-    const DOG = DATA.characters.dog;
-    (function(){
-      const g = el('g',{class:'wk wk-dog'},layer);
-      el('path',{d:DOG.shadow,fill:'#24382d',opacity:'.22',transform:`translate(${-SW/2},${-FEET})`},g);
-      const fs = mountFrames(g, dogFrames(DOG.art), DOG.col);
-      walkers.push({g, body:fs.body, fs, fixed:true, pet:true, dxCells:DOG.cells, x:CHIEF.x, y:CHIEF.y, ox:0, oy:0, happyUntil:0, front:false, lastT:'', lastB:''});
-    })();
-
-    function nextNode(at, from){
-      const nb = nodes[at].nb.filter(n => n!==from && nodes[n].comp===nodes[at].comp);
-      if(!nb.length) return from;
-      if(nb.length===1) return nb[0];
-      const dx=nodes[at].x-nodes[from].x, dy=nodes[at].y-nodes[from].y, dl=Math.hypot(dx,dy)||1;
-      const wts = nb.map(n => { const ex=nodes[n].x-nodes[at].x, ey=nodes[n].y-nodes[at].y, c=(dx*ex+dy*ey)/(dl*(Math.hypot(ex,ey)||1)); return .35+Math.max(0,c)*Math.max(0,c)*1.6; });
-      let r=Math.random()*wts.reduce((p,c)=>p+c,0); for(let i=0;i<nb.length;i++){ r-=wts[i]; if(r<=0) return nb[i]; } return nb[0];
-    }
-
-    /* 화면에서 멀어진 주민을 화면 바로 바깥의 큰 길로 옮김 (보이지 않는 곳에서만 일어남) */
-    function relocate(w, s, q, nearPx){
-      const x0=V.x, y0=V.y, x1=V.x+V.pw/s, y1=V.y+V.ph/s, m=nearPx/s, padX=(9*q+4)/s, padT=3/s, padB=(17*q+4)/s, cand=[];
-      for(const e of edges){
-        const x=(nodes[e.a].x+nodes[e.b].x)/2, y=(nodes[e.a].y+nodes[e.b].y)/2;
-        if(x<x0-m || x>x1+m || y<y0-m || y>y1+m) continue;                         /* 너무 멂 */
-        if(x>x0-padX && x<x1+padX && y>y0-padT && y<y1+padB) continue;             /* 화면 안 — 눈앞에 갑자기 나타나면 안 됨 */
-        if(walkers.some(o => o!==w && Math.hypot(o.x-x,o.y-y)<24)) continue;
-        cand.push({e, d:Math.max(x0-x, x-x1, y0-y, y-y1, 0)});
-      }
-      if(!cand.length) return;
-      cand.sort((a,b) => a.d-b.d);
-      const e = cand[Math.floor(Math.random()*Math.min(8,cand.length))].e, cx=(x0+x1)/2, cy=(y0+y1)/2;
-      const da=Math.hypot(nodes[e.a].x-cx,nodes[e.a].y-cy), db=Math.hypot(nodes[e.b].x-cx,nodes[e.b].y-cy);
-      w.a = da>db?e.a:e.b; w.b = da>db?e.b:e.a; w.d=0; w.len=e.l||.01; w.ox=0; w.oy=0;      /* 화면 쪽을 향해 출발 */
-      w.x=nodes[w.a].x; w.y=nodes[w.a].y; w.mode='walk'; w.nextPause=rnd(6,16);
-    }
-
-    /* ── 4. 포인터: 가까이 오면 멈춰서 손 흔들기 ───────────────────── */
-    let P = null;
-    const track = e => { const r=map.getBoundingClientRect(); P={x:e.clientX-r.left, y:e.clientY-r.top, t:performance.now()}; };
-    map.addEventListener('pointermove', track, {passive:true});
-    map.addEventListener('pointerdown', track, {passive:true});
-    map.addEventListener('pointerleave', e => { if(e.pointerType==='mouse') P=null; });
-    const waveRadius = q => 40 + 12*q;
-    const pixelSize = s => s<1.15 ? 1 : Math.max(2, Math.min(5, Math.round(s*.8)));   /* 스프라이트 1칸 = 화면 q픽셀 (정수 → 또렷함) */
-
-    const show = (w, name) => w.fs.show(name);
-
-    const CYCLE = [1,2,3,2];                         /* 디딤 → 모음(살짝 올라감) → 반대 디딤 → 모음 */
-    let last = performance.now();
-    function tick(now){
-      requestAnimationFrame(tick);
-      const dt = Math.min(.1,(now-last)/1000); last = now;
-      const s = scale(); if(!(s>0) || V.pw<10) return;
-      const q = pixelSize(s), k = q/s, R = waveRadius(q), live = P && !STILL;
-      const kiosk = (typeof KIOSK!=='undefined') && KIOSK;
-      const LK = (typeof lmK==='function') ? lmK(s) : 1.35/s;      /* 랜드마크 아이콘 배율 (지도 단위) */
-      const nearPx = 15*q + 50;                         /* 화면 가장자리에서 이만큼(px) 넘게 벗어나면 '멀어진' 것으로 봄 */
-      for(const w of walkers){
-        if(w.fixed){                                  /* 이장님: 걷지 않음. 인사 규칙은 주민과 같음 */
-          const sx=(w.x-V.x)*s + (w.dxCells||0)*q, sy=(w.y-V.y)*s;
-          const pd = live ? Math.hypot(P.x-sx, P.y-(sy-(w.pet?4:8)*q)) : Infinity, near = pd<R;
-          if(w.pet){                                    /* 강아지: 평소엔 0.45초마다 꼬리, 포인터가 가까우면 혀 내밀고 깡충 */
-            if(near && now-P.t<2400) w.happyUntil = now+900;
-            const happy = now<w.happyUntil && !STILL, f = Math.floor(now/(happy?140:450))%2;
-            show(w, (happy?'happy':'sit') + (STILL?0:f));
-            place(w, sx, sy, s, q, k, 1, happy ? f : 0); continue;
-          }
-          if(pd>R*1.4) w.armed=true;
-          if(near && w.mode!=='wave' && (w.armed || (now-P.t<140 && now-w.waveEnd>900))){ w.mode='wave'; w.waveStart=now; w.waveMin=now+1200; w.armed=false; }
-          if(w.mode==='wave' && now>w.waveMin && !(near && now-P.t<2400)){ w.mode='bow'; w.until=now+650; w.waveEnd=now; }      /* 손을 내리며 꾸벅 */
-          if(w.mode==='bow' && now>w.until){ w.mode='stand'; w.waveEnd=now; }
-          if(w.mode==='stand' && kiosk && !STILL){ w.nextPause-=dt; if(w.nextPause<=0){ w.mode='wave'; w.waveStart=now; w.waveMin=now+rnd(1500,2400); w.nextPause=rnd(10,22); } }   /* 전시 모드: 가끔 먼저 인사 */
-          let hop=0;
-          if(w.mode==='wave'){ const wt=now-w.waveStart, f=Math.floor(wt/170)%2; show(w,'wave'+f); hop = wt<110?1 : wt<230?2 : wt<330?1 : 1-f; }
-          else show(w, w.mode==='bow' ? 'bow' : 'front0');
-          if(w.mark){ const mb = STILL ? 0 : Math.floor(now/520)%2;                 /* 세모: 0.52초마다 한 칸 오르내림 */
-            if(mb!==w.markB){ w.mark.setAttribute('transform',`translate(${-SW/2},${-FEET-mb})`); w.markB=mb; } }
-          place(w, sx, sy, s, q, k, 1, hop); continue;
-        }
-        if(!STILL){
-          const fx=(w.x-V.x)*s, fy=(w.y-V.y)*s;
-          w.offT = (fx<-nearPx || fx>V.pw+nearPx || fy<-nearPx || fy>V.ph+nearPx) ? w.offT+dt : 0;
-          if(w.offT>w.offLimit){ relocate(w,s,q,nearPx); w.offT=0; w.offLimit=rnd(1,3.5); }
-        }
-        /* 포인터와의 거리(화면 px, 몸통 중심 기준) */
-        const sx=(w.x+w.ox-V.x)*s, sy=(w.y+w.oy-V.y)*s;
-        const pd = live ? Math.hypot(P.x-sx, P.y-(sy-8*q)) : Infinity, near = pd<R;
-        if(pd>R*1.4) w.armed=true;
-        if(near && w.mode!=='wave' && (w.armed || (now-P.t<140 && now-w.waveEnd>700))){ w.mode='wave'; w.waveStart=now; w.waveMin=now+1200; w.armed=false; }
-        /* 최소 1.2초는 흔들고, 포인터가 곁에서 움직이는 동안은 계속. 포인터가 2.4초 멈춰 있으면 다시 걷기 */
-        if(w.mode==='wave' && now>w.waveMin && !(near && now-P.t<2400)){ w.mode='walk'; w.waveEnd=now; }
-        if(w.mode==='pause' && now>w.until){ w.mode='walk'; w.nextPause=rnd(9,24); }
-        if(w.mode==='walk' && !STILL){
-          w.nextPause-=dt;
-          if(w.nextPause<=0){
-            if(kiosk && Math.random()<.5){ w.mode='wave'; w.waveStart=now; w.waveMin=now+rnd(1500,2400); }   /* 전시 모드: 가끔 먼저 인사 */
-            else { w.mode='pause'; w.until=now+rnd(1200,3200); }
-            w.nextPause=rnd(9,24);
-          } else {
-            w.d+=w.speed*dt; w.walkT+=dt;
-            let guard=0; while(w.d>=w.len && guard++<8){ w.d-=w.len; const nx=nextNode(w.b,w.a); w.a=w.b; w.b=nx; w.len=dist(w.a,w.b)||.01; }
-          }
-        }
-        const A=nodes[w.a], B=nodes[w.b], t=Math.min(1,w.d/w.len), dx=B.x-A.x, dy=B.y-A.y, dl=Math.hypot(dx,dy)||1;
-        w.x=A.x+dx*t; w.y=A.y+dy*t;
-        /* 길 가운데가 아니라 진행 방향 오른쪽으로 살짝 — 마주 오는 사람과 비켜 걷기 */
-        const tox=-dy/dl*3/s, toy=dx/dl*3/s, ease=Math.min(1,dt*4); w.ox+=(tox-w.ox)*ease; w.oy+=(toy-w.oy)*ease;
-        /* 바라보는 방향 (잔떨림 방지로 0.25초 유지돼야 바뀜) */
-        const want = Math.abs(dx)>Math.abs(dy)*.9 ? 'side' : dy>0 ? 'front' : 'back', wdir = dx<0?-1:1;
-        if(want!==w.faceWant || (want==='side' && wdir!==w.dirWant)){ w.faceWant=want; w.dirWant=wdir; w.faceT=now; }
-        if((w.face!==w.faceWant || w.dir!==w.dirWant) && now-w.faceT>250){ w.face=w.faceWant; if(want==='side') w.dir=w.dirWant; }
-        /* 프레임 */
-        let hop=0;
-        if(w.mode==='wave'){ const wt=now-w.waveStart, f=Math.floor(wt/170)%2; show(w,'wave'+f); hop = wt<110?1 : wt<230?2 : wt<330?1 : 1-f; }   /* 폴짝 → 흔들며 까딱까딱 */
-        else if(w.mode==='pause' || STILL) show(w,'front0');
-        else show(w, w.face+CYCLE[Math.floor(w.walkT/.19)%4]);
-        /* 랜드마크 건물 발치(앞)에 있으면 앞 층으로 */
-        let front=false; const fx=w.x+w.ox, fy=w.y+w.oy;
-        for(const l of LMS){ if(Math.abs(fx-l.x)<18*LK+5*k && fy>l.y-2.5*LK && fy<l.y+2*LK+18*k){ front=true; break; } }
-        if(front!==w.front){ (front?layerFront:layer).appendChild(w.g); w.front=front; }
-        place(w, sx, sy, s, q, k, (w.mode==='walk' && w.face==='side' && w.dir<0) ? -1 : 1, hop);
-      }
-    }
-    /* 화면에 놓기: 화면 밖이면 생략, 안이면 정수 픽셀에 맞춤 */
-    function place(w, sx, sy, s, q, k, flip, hop){
-      const vis = sx>-60 && sx<V.pw+60 && sy>-20 && sy<V.ph+90;
-      if(!vis){ if(w.lastT!=='off'){ w.g.setAttribute('display','none'); w.lastT='off'; } return; }
-      const tx = V.x + (Math.round(sx - SW/2*q) + SW/2*q)/s, ty = V.y + Math.round(sy)/s;
-      const T = `translate(${tx.toFixed(3)},${ty.toFixed(3)}) scale(${k.toFixed(5)})`;
-      if(T!==w.lastT){ if(w.lastT==='off') w.g.removeAttribute('display'); w.g.setAttribute('transform',T); w.lastT=T; }
-      const Bt = flip+','+hop;
-      if(Bt!==w.lastB){ w.body.setAttribute('transform',`translate(${flip<0?SW/2:-SW/2},${-FEET-hop}) scale(${flip},1)`); w.lastB=Bt; }
-    }
-    requestAnimationFrame(tick);
-  })();
-  /* [C-3] WALKERS:END */
+/* ═══════════════ WALKERS — map/actors/* (4-1 ⑤) ═══════════════ */
+  const graph = buildRoadGraph(majorRoadPath(ROADS), LAND);
+  if(graph.edges.length){
+    const scene = createScene({ svg, map, V, landmarks: lmLayer, before: gDist, frontBefore: gDots, isKiosk: () => KIOSK });
+    spawnWalkers(scene, { graph, parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, count: 5, speed: 6.5, home: LANDMARKS[0] || {x:W/2, y:H/2} });
+    const chief = new Chief(scene.layer, DATA.characters.body, DATA.characters.chief); scene.add(chief);
+    scene.add(new Dog(scene.layer, DATA.characters.dog, chief));
+    scene.start();
+  }
 
 /* ═══════════════ NIGHT (밤 장식 · 낮/밤 전환) ═══════════════ */
   /* [C-4] NIGHT:START — 밤 장식: 달·구름·물비늘·얕은 물빛(바다), 땅의 픽셀 결, 큰 길 가로등과 불빛 번짐,

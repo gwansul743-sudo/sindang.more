@@ -56,6 +56,18 @@ for (const [name, vp] of [['desktop', { width: 1280, height: 800 }], ['mobile', 
     await new Promise(r => setTimeout(r, 1200));   // centerOn 애니메이션 끝
     const r = await page.evaluate(SNIPPET);
     await page.screenshot({ path: join(SHOTS, `${name}-${theme}.png`) });
+    // 동작 단언 (기준값과 비교하지 않음): 주민이 걷는지, 이장님이 손을 흔드는지
+    if (name === 'desktop') {
+      const before = await page.evaluate(() => [...document.querySelectorAll('.wk:not(.wk-chief):not(.wk-dog)')].find(w => !w.hasAttribute('display'))?.getAttribute('transform'));
+      await new Promise(r => setTimeout(r, 700));
+      const after = await page.evaluate(() => [...document.querySelectorAll('.wk:not(.wk-chief):not(.wk-dog)')].find(w => !w.hasAttribute('display'))?.getAttribute('transform'));
+      r.동작_주민걷기 = before !== after;
+      const box = await page.evaluate(() => { const b = document.querySelector('.wk-chief').getBoundingClientRect(); return [b.x + b.width / 2, b.y + b.height / 2]; });
+      if (box[0] > 0 && box[0] < vp.width) {
+        await page.mouse.move(box[0] - 5, box[1] - 5); await page.mouse.move(box[0], box[1], { steps: 3 }); await new Promise(r => setTimeout(r, 350));
+        r.동작_이장님손인사 = await page.evaluate(() => [...document.querySelector('.wk-chief > g').children].findIndex(g => !g.hasAttribute('display')));   // 0 front0 · 1,2 wave · 3 bow
+      } else r.동작_이장님손인사 = '화면 밖';
+    }
     // 가게 점 클릭 → 카드 열림·사진
     await page.evaluate(() => { const d = document.querySelector('.dot'); d.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
     await new Promise(r => setTimeout(r, 900));
@@ -84,9 +96,14 @@ if (baseline) { writeFileSync(BASE, text); console.log('기준값 저장:', BASE
 else if (existsSync(BASE)) {
   const prev = JSON.parse(readFileSync(BASE, 'utf8'));
   for (const k in results) for (const f in results[k]) {
+    if (f.startsWith('동작_')) continue;
     const a = JSON.stringify(prev[k]?.[f]), b = JSON.stringify(results[k][f]);
     if (a !== b) { failed = true; console.log(`✗ ${k} ${f}: 기준 ${a} → 지금 ${b}`); }
   }
+}
+for (const k in results) for (const f in results[k]) if (f.startsWith('동작_')) {
+  const v = results[k][f], ok = f === '동작_주민걷기' ? v === true : (v === '화면 밖' || v === 1 || v === 2);
+  if (!ok) { failed = true; console.log(`✗ ${k} ${f}: ${JSON.stringify(v)}`); }
 }
 for (const k in results) if (results[k].오류.length) { failed = true; console.log(`✗ ${k} 콘솔 오류:`, results[k].오류); }
 console.log(text);
