@@ -73,6 +73,9 @@ export function bootLegacy(DATA){
 
   /* 카드 */
   const sheet = document.getElementById('sheet'), card = document.getElementById('card');
+  const side = document.getElementById('side');   /* 데스크톱 사이드바 X 하나로: 카드가 열려 있으면 카드만 닫고, 아니면 사이드바를 접는다. 가게를 고르면 다시 열린다 */
+  document.getElementById('side-close').onclick = () => { if(current) closeCard(); else side.classList.add('closed'); };
+  document.getElementById('side-open').onclick = () => side.classList.remove('closed');
   let current = null;
   function select(s, focus){
     current = s; dots.select(s._dot);
@@ -91,7 +94,7 @@ export function bootLegacy(DATA){
         <div class="small-note">카드뉴스 전체는 인스타그램 게시물에서 볼 수 있습니다.</div>
       </div>
       ${renderInterview(s.interview)}`;
-    sheet.classList.add('open'); document.getElementById('side').classList.add('has');
+    sheet.classList.add('open'); side.classList.add('has'); side.classList.remove('closed');
     if(focus){ const s0 = Math.max(scale(), 4.6); centerOn(s.x, s.y, s0, V.pw>=900?0:V.ph*0.24); } else apply();
   }
   function step(d){ const i=(STORES.indexOf(current)+d+STORES.length)%STORES.length; select(STORES[i], true); }
@@ -119,23 +122,23 @@ export function bootLegacy(DATA){
   let msgT; function toast(t){ const m=document.getElementById('msg'); m.textContent=t; m.classList.add('show'); clearTimeout(msgT); msgT=setTimeout(()=>m.classList.remove('show'),2200); }
 
   /* 전시 모드: 30초 무입력 시 자동 순환 */
-  let idleT=null, cycleT=null;
+  /* 전시 모드: 켜면 카메라가 전시용 구역(KIOSK_VIEW)으로 이동하고 거기 머문다. 가게를 자동으로 넘기던 기능은 10-14에 뺐다.
+     KIOSK_VIEW 는 지도 좌표(x,y)와 배율(s). 지도 좌표는 콘솔에서 document.getElementById('svg').getAttribute('viewBox') 로 읽을 수 있다. */
+  const KIOSK_VIEW = { x: DATA.land.focus.x, y: DATA.land.focus.y, s: 2.2 };   // TODO 전시 사진의 블러 없는 구역으로 맞출 것
   let KIOSK = new URLSearchParams(location.search).has('kiosk');
   const kioskBtn = document.getElementById('kiosk');
   function renderKiosk(){ kioskBtn.textContent = '전시 모드 ' + (KIOSK?'ON':'OFF'); kioskBtn.setAttribute('aria-pressed', KIOSK); }
-  kioskBtn.onclick = () => { KIOSK=!KIOSK; renderKiosk(); if(KIOSK){ closeCard(); startCycle(); } else wake(); };
+  function kioskView(){ centerOn(KIOSK_VIEW.x, KIOSK_VIEW.y, KIOSK_VIEW.s, 0); }
+  kioskBtn.onclick = () => { KIOSK=!KIOSK; renderKiosk(); if(KIOSK){ closeCard(); kioskView(); } };
   renderKiosk();
-  function wake(){ clearTimeout(idleT); clearInterval(cycleT); cycleT=null; if(KIOSK && !adminOpen) idleT=setTimeout(startCycle, 30000); }
-  function startCycle(){ clearInterval(cycleT); const pubs = STORES.filter(s=>s.status==='pub'); if(!pubs.length) return; let i = current? pubs.indexOf(current) : -1;
-    const next = () => { i=(i+1)%pubs.length; select(pubs[i], true); }; next(); cycleT = setInterval(next, 6000); }
-  document.addEventListener('pointerdown', wake, true); document.addEventListener('keydown', wake, true);
+  function wake(){}   /* 예전엔 30초 뒤 자동 전환을 다시 걸었다. 호출 자리는 남겨 둔다 */
 
   /* 인트로 (펼침) */
   let introOpen = true, introT=null;
   const intro = document.getElementById('intro');
   function endIntro(){ if(!introOpen) return; introOpen=false; intro.classList.add('done'); apply();
     document.getElementById('empty').classList.toggle('show', STORES.length===0); wake();
-    setTimeout(()=>{ const hv=homeView(); centerOn(hv.x, hv.y, hv.s, 0); }, 100); }
+    setTimeout(()=>{ if(KIOSK){ kioskView(); return; } const hv=homeView(); centerOn(hv.x, hv.y, hv.s, 0); }, 100); }
   function openMap(){ if(intro.classList.contains('open')) return; intro.classList.add('open'); clearTimeout(introT); introT=setTimeout(endIntro, +intro.dataset.ms || 1900); }
   function playIntro(){ introOpen=true; closeCard(); clearTimeout(introT); intro.classList.remove('open'); intro.classList.remove('done'); apply();
     document.getElementById('empty').classList.remove('show');
@@ -146,7 +149,7 @@ export function bootLegacy(DATA){
 
   /* ── 데이터 (db) · 관리자 ──────────────────────────────── */
   let gate = null, canWrite = false, authEmail = null, adminOpen = false, picking = false, editing = null, photoPending = null, photoRemove = false;
-  const admin = document.getElementById('admin'), form = document.getElementById('form'), listWrap = document.getElementById('alist-wrap');
+  const admin = document.getElementById('admin'), form = document.getElementById('form'), listWrap = document.getElementById('alist-wrap'), delConfirm = document.getElementById('del-confirm');
   /* 데이터는 entities/store/api 가 준다 (DB가 있으면 Supabase, 없으면 씨앗). 처음 목록은 App.tsx 가 이미 읽어 DATA.stores 로 넘겼다. */
   async function reload(){ setStores(await storeApi.listStores()); document.documentElement.dataset.store = storeApi.storeSource(); }
   function applyWrite(){
@@ -195,7 +198,7 @@ export function bootLegacy(DATA){
       wasAdmin = st.admin; });
     if(wantAdmin) setTimeout(openAdmin, 0);
   }
-  const openAdmin = () => { adminOpen=true; admin.classList.add('open'); clearTimeout(idleT); clearInterval(cycleT); renderLogin(); };
+  const openAdmin = () => { adminOpen=true; admin.classList.add('open'); renderLogin(); };
   gate = mountHoldGate(document.getElementById('admin-top'), { holdMs: 2000, canOpen: () => canWrite, onOpen: openAdmin });
   function closeAdmin(){ adminOpen=false; admin.classList.remove('open'); cancelEdit(); wake(); }
   function renderAdminList(){
@@ -208,14 +211,15 @@ export function bootLegacy(DATA){
     if(s){ form.name.value=s.name; form.issue.value=s.issue||''; form.status.value=s.status; form.ig.value=s.ig||''; form.interview.value=s.interview||''; form.addr.value=s.addr||''; form.latlng.value=`${s.lat}, ${s.lng}`; select(s,true); }
     photoPending=null; photoRemove=false; form.photo.value='';
     setPhotoPrev(s?.photoUrl || null);
-    form.photo.disabled = !storeApi.canUpload(); document.getElementById('photo-note').textContent = storeApi.canUpload() ? '없으면 레드 포스터로 표시됩니다.' : '이 화면에서는 사진 업로드가 지원되지 않아요.';
+    form.photo.disabled = !storeApi.canUpload(); document.getElementById('photo-note').textContent = storeApi.canUpload() ? '없으면 기본 이미지로 표시됩니다.' : '이 화면에서는 사진 업로드가 지원되지 않아요.';
     document.getElementById('delbtn').style.display = s?'':'none';
+    cancelDelete();
     form.classList.add('open'); renderLogin(); admin.scrollTop = 0;
   }
   function setPhotoPrev(url){ const p=document.getElementById('photo-prev'); p.classList.toggle('empty',!url); p.style.backgroundImage = url?`url('${url}')`:''; document.getElementById('photo-rm').style.display = url?'':'none'; }
   form.photo.addEventListener('change', () => { const f=form.photo.files[0]; if(!f) return; if(f.size>20*1024*1024){ toast('20MB 이하로 올려주세요'); form.photo.value=''; return; } photoPending=f; photoRemove=false; setPhotoPrev(URL.createObjectURL(f)); });
   function removePhoto(){ photoPending=null; photoRemove=true; form.photo.value=''; setPhotoPrev(null); }
-  function cancelEdit(){ endPick(); form.classList.remove('open'); editing=null; renderLogin(); }
+  function cancelEdit(){ endPick(); cancelDelete(); form.classList.remove('open'); editing=null; renderLogin(); }
   /* 주소 → 좌표: 카카오 지도 JS geocoder (shared/lib/geocode.ts). 버튼, 주소 칸의 Enter, 포커스 이탈 때 돈다 */
   let geoSeq = 0;
   async function geocode(){
@@ -252,7 +256,10 @@ export function bootLegacy(DATA){
       await reload(); toast('저장했어요'); cancelEdit(); }
     catch(err){ toast('저장 실패: '+(err.message||err.code||err)); }
   }
-  async function deleteStore(){ if(!editing || !confirm(`'${editing.name}'을(를) 지울까요?`)) return;
+  /* 삭제는 두 단계: '삭제' → 패널 안 확인 상자 → '영구 삭제'를 눌러야만 실제로 지운다. 브라우저 confirm() 은 환경에 따라 안 뜨기도 해서 쓰지 않는다 */
+  function deleteStore(){ if(!editing) return; document.getElementById('del-confirm-title').textContent = `정말 '${editing.name}' 가게를 삭제하시겠습니까?`; delConfirm.classList.add('open'); delConfirm.scrollIntoView({ block: 'nearest' }); }
+  function cancelDelete(){ delConfirm.classList.remove('open'); }
+  async function confirmDelete(){ if(!editing) return; cancelDelete();
     try{ await storeApi.deleteStore(editing); await reload(); toast('지웠어요'); cancelEdit(); } catch(err){ toast('삭제 실패: '+(err.message||err.code||err)); } }
 
   /* 시작 */
@@ -279,6 +286,6 @@ export function bootLegacy(DATA){
   setTheme(currentTheme(), false);
 
   /* 마크업·카드 템플릿의 on* 속성이 부르는 함수들 (컴포넌트로 옮기면 필요 없어짐) */
-  Object.assign(window, {cancelEdit, closeAdmin, closeCard, deleteStore, editStore, geocode, removePhoto, saveStore, startPick, step});
+  Object.assign(window, {cancelDelete, cancelEdit, closeAdmin, closeCard, confirmDelete, deleteStore, editStore, geocode, removePhoto, saveStore, startPick, step});
   return { centerOn, select, setTheme, getStores: () => STORES, proj, unproj };
 }
