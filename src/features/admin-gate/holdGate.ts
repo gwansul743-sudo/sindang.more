@@ -2,7 +2,8 @@ import './gate.css';
 
 /* 관리자 입구 — 상단바의 작은 네모 버튼.
    · 로그인돼 있으면: 누르면 바로 가게 관리 패널.
-   · 아니면: 꾹 누르고 있으면 버튼 아래에 작은 톱니바퀴와 링이 돌고, 링이 다 차면(기본 5초) 로그인 상자가 열린다. 중간에 손을 떼면 취소.
+   · 아니면: 꾹 누르고 있으면 버튼 아래에 자판을 두드리는 픽셀 고양이와 '관리자 로그인' 글자, 그 밑의 가로 바가 매끄럽게 차오르고(기본 3초),
+     다 차면 로그인 상자가 열린다. 중간에 손을 떼면 취소.
    방문객에게는 그냥 작은 네모 하나로 보인다. */
 export interface HoldGateOptions {
   holdMs?: number;
@@ -11,21 +12,72 @@ export interface HoldGateOptions {
   label?: string;
 }
 
-const GEAR_A = 'M6 0h4v2h2v2h2v4h-2v2h-2v2h-4v-2h-2v-2h-2v-4h2v-2h2zM6 6h4v4h-4z';     // 이빨이 상하좌우
-const GEAR_B = 'M5 1h2v2h2v-2h2v2h2v2h2v2h-2v2h2v2h-2v2h-2v2h-2v-2h-2v2h-2v-2h-2v-2h-2v-2h2v-2h-2v-2h2v-2h2zM6 6h4v4h-4z';   // 이빨이 대각선
+/* 픽셀 고양이 24×15칸, 두 프레임(왼발·오른발 번갈아 자판을 침, 화면 글자도 바뀜). 글자 = 아래 팔레트 키, '.' = 비움 */
+const PAL: Record<string, string> = {
+  k: '#2b2a2a', w: '#f3ecd8', p: '#c9ad7c', m: '#3b4046', s: '#1c2c2c', g: '#7fdc8a',
+  d: '#8a5a2b', b: '#5c6166', B: '#9aa0a6', r: '#d6432b', n: '#e39a9a',
+};
+const FRAME_A = [
+  '........................',
+  '..............k....k....',
+  '.............kwk..kwk...',
+  '.............kwwkkwwk...',
+  '..mmmmmmm....kwwwwwwk...',
+  '..msssssm....kwkwwkwk...',
+  '..msggsgm....kwwwnwwk...',
+  '..mssssgm....kkwwwwkk...',
+  '..msgsssm.....kwwwwk....',
+  '..mmmmmmm....kwwppwwk.k.',
+  '.....mm......kwwwwkppkk.',
+  '....mmmm.....kwwwwwwkkrr',
+  '..bBbBbBbBbBbkppkBbBbBrr',
+  'dddddddddddddddddddddddd',
+  'dddddddddddddddddddddddd',
+];
+const FRAME_B = [
+  '........................',
+  '..............k....k....',
+  '.............kwk..kwk...',
+  '.............kwwkkwwk...',
+  '..mmmmmmm....kwwwwwwk...',
+  '..msssssm....kwkwwkwk...',
+  '..msgsggm....kwwwnwwk...',
+  '..msggssm....kkwwwwkk...',
+  '..mssgssm.....kwwwwk....',
+  '..mmmmmmm....kwwppwwk.k.',
+  '.....mm......kppkwwwwkk.',
+  '....mmmm.....kwwwwwwkkrr',
+  '..bBbBbBbBbBbBbBbkppkbrr',
+  'dddddddddddddddddddddddd',
+  'dddddddddddddddddddddddd',
+];
+
+function frameSvg(rows: string[], cls: string): string {
+  let out = '';
+  rows.forEach((row, y) => {
+    for (let x = 0; x < row.length;) {
+      const c = row[x];
+      if (!PAL[c]) { x++; continue; }
+      const x0 = x;
+      while (x < row.length && row[x] === c) x++;
+      out += `<rect x="${x0}" y="${y}" width="${x - x0}" height="1" fill="${PAL[c]}"/>`;
+    }
+  });
+  return `<g class="${cls}">${out}</g>`;
+}
 
 export function mountHoldGate(btn: HTMLElement, o: HoldGateOptions): { refresh(): void } {
-  const holdMs = o.holdMs ?? 5000;
+  const holdMs = o.holdMs ?? 3000;
   const pop = document.createElement('div');
   pop.className = 'hold-gate';
   pop.setAttribute('aria-hidden', 'true');
   pop.innerHTML =
-    `<svg class="hold-gate__ring" viewBox="0 0 36 36" shape-rendering="geometricPrecision"><circle class="bg" cx="18" cy="18" r="15"/><circle class="fg" cx="18" cy="18" r="15"/></svg>` +
-    `<svg class="hold-gate__gear" viewBox="0 0 16 16" shape-rendering="crispEdges"><path class="a" fill-rule="evenodd" d="${GEAR_A}"/><path class="b" fill-rule="evenodd" d="${GEAR_B}"/></svg>` +
-    `<span class="hold-gate__label">${o.label ?? 'LOGIN'}</span>`;
+    `<svg class="hold-gate__cat" viewBox="0 0 24 15" shape-rendering="crispEdges">${frameSvg(FRAME_A, 'a')}${frameSvg(FRAME_B, 'b')}</svg>` +
+    `<span class="hold-gate__label">${o.label ?? '관리자 로그인'}</span>` +
+    `<span class="hold-gate__bar"><i></i></span>`;
   btn.style.position = 'relative';
   btn.appendChild(pop);
-  (pop.querySelector('.fg') as SVGElement).style.animationDuration = holdMs + 'ms';
+  (pop.querySelector('.hold-gate__bar i') as HTMLElement).style.animationDuration = holdMs + 'ms';
 
   let timer: number | null = null;
   const stop = () => { if (timer !== null) { clearTimeout(timer); timer = null; } pop.classList.remove('hold-gate--on'); };

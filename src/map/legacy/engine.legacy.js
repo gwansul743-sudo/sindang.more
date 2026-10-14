@@ -195,7 +195,7 @@ export function bootLegacy(DATA){
     if(wantAdmin) setTimeout(openAdmin, 0);
   }
   const openAdmin = () => { adminOpen=true; admin.classList.add('open'); clearTimeout(idleT); clearInterval(cycleT); renderLogin(); };
-  gate = mountHoldGate(document.getElementById('admin-top'), { holdMs: 5000, canOpen: () => canWrite, onOpen: openAdmin });
+  gate = mountHoldGate(document.getElementById('admin-top'), { holdMs: 3000, canOpen: () => canWrite, onOpen: openAdmin });
   function closeAdmin(){ adminOpen=false; admin.classList.remove('open'); cancelEdit(); wake(); }
   function renderAdminList(){
     const l = document.getElementById('alist'); l.innerHTML='';

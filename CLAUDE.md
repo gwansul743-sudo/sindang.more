@@ -22,7 +22,7 @@
 
 ## 이미 확인된 사실
 - **좌표는 실제 위경도.** 가게 11곳·랜드마크·도로(OpenStreetMap)가 모두 실좌표이고, `proj()`가 웹 메르카토르로 투영한다. 지도 클릭 → 위경도 역변환도 있음. 장식용 집·나무·지형만 일러스트(실제 건물과 무관).
-- **저장은 Supabase로 된다(10-14).** `src/entities/store/api.ts`가 stores 표를 읽고 쓰고, DB가 없거나 비면 `supabase/seed.stores.json`으로 읽기 전용 표시. 관리자 입구는 상단바 오른쪽 끝의 작은 네모 버튼(`#admin-top`, `src/features/admin-gate/`): **5초 꾹 누르면** 톱니·링 팝오버가 차오르고 로그인 창(이메일+비밀번호, `admins` 표의 이메일만)이 열린다. 로그인된 관리자는 클릭 한 번으로 가게 관리. 주소 `?admin=1`도 그대로 되고, 전시 모드에서는 버튼이 숨는다(10-14). 배포 주소 https://sindang-more.pages.dev (Cloudflare Pages, main 푸시 → 자동 배포). 키는 `.env`(git 무시)에, 자세한 건 `다음_작업_지침.md` §4-2.
+- **저장은 Supabase로 된다(10-14).** `src/entities/store/api.ts`가 stores 표를 읽고 쓰고, DB가 없거나 비면 `supabase/seed.stores.json`으로 읽기 전용 표시. 관리자 입구는 상단바 오른쪽 끝의 작은 네모 버튼(`#admin-top`, `src/features/admin-gate/`): **3초 꾹 누르면** 자판 치는 픽셀 고양이와 가로 바가 차오르고 로그인 창(이메일+비밀번호, `admins` 표의 이메일만)이 열린다. 로그인된 관리자는 클릭 한 번으로 가게 관리. 주소 `?admin=1`도 그대로 되고, 전시 모드에서는 버튼이 숨는다(10-14). 배포 주소 https://sindang-more.pages.dev (Cloudflare Pages, main 푸시 → 자동 배포). 키는 `.env`(git 무시)에, 자세한 건 `다음_작업_지침.md` §4-2.
 - 가게 데이터: 11곳이 `supabase/seed.sql`·`seed.stores.json`에, 사진 4장은 `public/seed-photos/`에 풀려 있다. 주소→좌표는 `src/shared/lib/geocode.ts`(카카오 지도 JS geocoder)가 찾는다(10-14). 키는 `.env`의 `VITE_KAKAO_JS_KEY`(카카오 콘솔 앱 ID 1607868, 도메인 제한), Pages 환경 변수에도 같은 값.
 - 캐릭터: 주민 5명(파츠 조합 스프라이트, 격자는 좌우 여백 포함 17×18칸·그리는 폭 15칸), 이장님+강아지. 파츠·팔레트·이장님·강아지 도안은 전부 `content/characters/`. 움직임은 `src/map/actors/`.
 - 그림 색: 랜드마크는 색 한 벌. 나무·집·땅(`content/map/decor/`, `terrain.svg.txt`)은 `fill="밤 색" data-df="낮 색"` 두 벌이라 고칠 때 둘 다 고친다(§4-B에서 한 벌로 줄일 예정).
