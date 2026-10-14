@@ -20,7 +20,7 @@ import { Dog } from '../actors/dog';
 import { mountNight } from '../night';
 import { setTheme, bindThemeButton, currentTheme } from '../../features/theme-toggle/mountThemes';
 import * as storeApi from '../../entities/store/api';
-import { watchAuth, sendLoginLink, signOut } from '../../shared/lib/auth';
+import { watchAuth, signInWithPassword, setPassword, sendLoginLink, signOut } from '../../shared/lib/auth';
 
 export function bootLegacy(DATA){
 /* ═══════════════ CORE (투영 · 팬줌 · 가게 점 · 카드 · 관리 · 인트로) ═══════════════ */
@@ -146,7 +146,7 @@ export function bootLegacy(DATA){
   let canWrite = false, authEmail = null, adminOpen = false, picking = false, editing = null, photoPending = null, photoRemove = false;
   const admin = document.getElementById('admin'), form = document.getElementById('form'), listWrap = document.getElementById('alist-wrap');
   /* 데이터는 entities/store/api 가 준다 (DB가 있으면 Supabase, 없으면 씨앗). 처음 목록은 App.tsx 가 이미 읽어 DATA.stores 로 넘겼다. */
-  async function reload(){ setStores(await storeApi.listStores()); }
+  async function reload(){ setStores(await storeApi.listStores()); document.documentElement.dataset.store = storeApi.storeSource(); }
   function applyWrite(){
     document.getElementById('admin-btn').classList.toggle('show', canWrite && V.pw<900);
     document.getElementById('admin-top').style.display = canWrite && V.pw>=900 ? '' : 'none';
@@ -157,24 +157,33 @@ export function bootLegacy(DATA){
   const wantAdmin = new URLSearchParams(location.search).get('admin') === '1';
   const loginBox = document.createElement('div'); loginBox.id = 'login'; loginBox.style.cssText = 'display:none;flex-direction:column;gap:8px;padding:8px 0 14px;border-bottom:1px solid var(--line);margin-bottom:10px;font-size:12px';
   admin.insertBefore(loginBox, listWrap);
-  let loginKey = null;   /* 같은 상태면 다시 그리지 않는다 — 탭을 떠났다 돌아올 때 Supabase가 SIGNED_IN 을 또 쏘는데, 그때마다 입력 중인 이메일이 지워지면 안 된다 */
+  const IN = 'padding:8px;border:1px solid var(--line);background:transparent;color:inherit;font:inherit;width:100%;box-sizing:border-box';
   function renderLogin(){
-    listWrap.style.display = canWrite && !form.classList.contains('open') ? '' : 'none';   /* 편집 중이면 목록을 다시 켜지 않는다 */
-    const key = `${storeApi.hasDb()}|${authEmail}|${canWrite}`; if(key===loginKey) return; loginKey = key;
+    if(!storeApi.hasDb()){ loginBox.style.display='none'; return; }
     loginBox.style.display = 'flex';
-    if(!storeApi.hasDb()){ loginBox.innerHTML = `<div>DB가 연결돼 있지 않아요. ${import.meta.env.DEV?'저장·삭제는 이 화면에서만 흉내 냅니다.':'저장·삭제를 할 수 없습니다.'}</div>`; }
-    else if(authEmail){ loginBox.innerHTML = `<div>${esc(authEmail)}${canWrite?'':' — <b>관리자 아님</b> (Supabase의 admins 표에 이 이메일이 있어야 합니다)'}</div><button type="button" class="btn" id="logout">로그아웃</button>`;
+    if(authEmail){
+      loginBox.innerHTML = `<div>${esc(authEmail)}${canWrite?'':' — <b>관리자 아님</b> (Supabase의 admins 표에 이 이메일이 있어야 합니다)'}</div>
+        <div style="display:flex;gap:6px"><input id="pw-new" type="password" placeholder="새 비밀번호 (8자 이상)" autocomplete="new-password" style="${IN}"><button type="button" class="btn" id="pw-set">설정</button></div>
+        <button type="button" class="btn" id="logout">로그아웃</button>`;
+      document.getElementById('pw-set').onclick = async () => { const pw = document.getElementById('pw-new').value; try{ await setPassword(pw); document.getElementById('pw-new').value=''; toast('비밀번호를 저장했어요'); }catch(e){ toast('실패: '+(e.message||e)); } };
       document.getElementById('logout').onclick = async () => { await signOut(); };
-    } else { loginBox.innerHTML = `<div>관리자 이메일로 로그인 링크를 보냅니다.</div><input id="login-email" type="email" placeholder="email@example.com" style="padding:8px;border:1px solid var(--line);background:transparent;color:inherit"><button type="button" class="btn pri" id="login-send">로그인 링크 보내기</button>`;
-      document.getElementById('login-send').onclick = async () => { const em = document.getElementById('login-email').value.trim(); if(!em) return; try{ await sendLoginLink(em); toast('메일함에서 링크를 눌러 주세요'); }catch(e){ toast('실패: '+(e.message||e)); } };
+    } else {
+      loginBox.innerHTML = `<div>관리자 로그인</div>
+        <input id="login-email" type="email" placeholder="이메일" autocomplete="username" style="${IN}">
+        <input id="login-pw" type="password" placeholder="비밀번호" autocomplete="current-password" style="${IN}">
+        <button type="button" class="btn pri" id="login-go">로그인</button>
+        <button type="button" class="btn" id="login-link" style="font-size:11px">비밀번호를 잊었어요 — 메일로 로그인 링크 받기</button>`;
+      const go = async () => { const em = document.getElementById('login-email').value.trim(), pw = document.getElementById('login-pw').value; if(!em||!pw) return; try{ await signInWithPassword(em, pw); toast('로그인했어요'); }catch(e){ toast(e.message||String(e)); } };
+      document.getElementById('login-go').onclick = go;
+      document.getElementById('login-pw').addEventListener('keydown', e => { if(e.key==='Enter') go(); });
+      document.getElementById('login-link').onclick = async () => { const em = document.getElementById('login-email').value.trim(); if(!em){ toast('이메일을 먼저 적어 주세요'); return; } try{ await sendLoginLink(em); toast('메일함에서 링크를 눌러 주세요'); }catch(e){ toast('실패: '+(e.message||e)); } };
     }
+    listWrap.style.display = canWrite ? '' : 'none';
   }
   window.addEventListener('resize', () => applyWrite());
   function connect(){
-    let wasAdmin = false;
-    watchAuth(st => { authEmail = st.email; canWrite = storeApi.canWrite() && (storeApi.storeSource()==='db' ? st.admin : true); applyWrite();
-      if(st.admin && !wasAdmin) reload();   /* 관리자가 된 순간에만 다시 읽는다. 탭 복귀마다 읽으면 편집 중인 가게 객체가 낡은 것이 된다 */
-      wasAdmin = st.admin; });
+    document.documentElement.dataset.store = storeApi.storeSource();   /* seed 일 때만 관리 패널에 안내문 (CSS) */
+    watchAuth(st => { authEmail = st.email; canWrite = storeApi.canWrite() && (storeApi.storeSource()==='db' ? st.admin : true); applyWrite(); if(st.admin) reload(); });
     if(wantAdmin) setTimeout(openAdmin, 0);
   }
   const openAdmin = () => { adminOpen=true; admin.classList.add('open'); clearTimeout(idleT); clearInterval(cycleT); renderLogin(); };
@@ -197,7 +206,7 @@ export function bootLegacy(DATA){
   function setPhotoPrev(url){ const p=document.getElementById('photo-prev'); p.classList.toggle('empty',!url); p.style.backgroundImage = url?`url('${url}')`:''; document.getElementById('photo-rm').style.display = url?'':'none'; }
   form.photo.addEventListener('change', () => { const f=form.photo.files[0]; if(!f) return; if(f.size>20*1024*1024){ toast('20MB 이하로 올려주세요'); form.photo.value=''; return; } photoPending=f; photoRemove=false; setPhotoPrev(URL.createObjectURL(f)); });
   function removePhoto(){ photoPending=null; photoRemove=true; form.photo.value=''; setPhotoPrev(null); }
-  function cancelEdit(){ endPick(); form.classList.remove('open'); listWrap.style.display = canWrite ? '' : 'none'; editing=null; }
+  function cancelEdit(){ endPick(); form.classList.remove('open'); listWrap.style.display=''; editing=null; }
   const GEO = DATA.geo;   /* 임시: 카카오 geocoder로 바꾸면 삭제 */
   function geocode(){
     const raw = form.addr.value.trim().replace(/\s+/g,' ');

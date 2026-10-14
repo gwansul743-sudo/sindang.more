@@ -22,7 +22,7 @@
 
 ## 이미 확인된 사실
 - **좌표는 실제 위경도.** 가게 11곳·랜드마크·도로(OpenStreetMap)가 모두 실좌표이고, `proj()`가 웹 메르카토르로 투영한다. 지도 클릭 → 위경도 역변환도 있음. 장식용 집·나무·지형만 일러스트(실제 건물과 무관).
-- **저장은 Supabase로 된다(10-14).** `src/entities/store/api.ts`가 stores 표를 읽고 쓰고, DB가 없거나 비면 `supabase/seed.stores.json`으로 읽기 전용 표시. 관리자는 주소 `?admin=1` → 이메일 매직링크 로그인(`admins` 표의 이메일만). 키는 `.env`(git 무시)에, 자세한 건 `다음_작업_지침.md` §4-2.
+- **저장은 Supabase로 된다(10-14).** `src/entities/store/api.ts`가 stores 표를 읽고 쓰고, DB가 없거나 비면 `supabase/seed.stores.json`으로 읽기 전용 표시. 관리자는 주소 `?admin=1` → 이메일+비밀번호 로그인(`admins` 표의 이메일만). 배포 주소 https://sindang-more.pages.dev (Cloudflare Pages, main 푸시 → 자동 배포). 키는 `.env`(git 무시)에, 자세한 건 `다음_작업_지침.md` §4-2.
 - 가게 데이터: 11곳이 `supabase/seed.sql`·`seed.stores.json`에, 사진 4장은 `public/seed-photos/`에 풀려 있다. 주소 입력은 아직 `content/_legacy/geo.json`(내장 좌표표) 조회 → `src/shared/lib/geocode.ts`(카카오 geocoder, 준비됨)로 교체 예정.
 - 캐릭터: 주민 5명(파츠 조합 스프라이트, 격자는 좌우 여백 포함 17×18칸·그리는 폭 15칸), 이장님+강아지. 파츠·팔레트·이장님·강아지 도안은 전부 `content/characters/`. 움직임은 `src/map/actors/`.
 - 그림 색: 랜드마크는 색 한 벌. 나무·집·땅(`content/map/decor/`, `terrain.svg.txt`)은 `fill="밤 색" data-df="낮 색"` 두 벌이라 고칠 때 둘 다 고친다(§4-B에서 한 벌로 줄일 예정).
@@ -58,8 +58,8 @@
 1. ~~Vite 골격 + tokens~~ — 됨
 2. ~~`content/` 추출~~ — 됨
 3. ~~`map/` 엔진 조각 ①~⑥~~ — 됨 (10-07 커밋). ⑦은 전시 뒤
-4. GitHub 푸시 → Cloudflare Pages 배포(§4-1) — **여기서부터 시작**
-5. ~~Supabase 연결(§4-2)~~ — 코드 끝(10-14), 사용자 확인 남음 → 카카오 주소(§4-3)
+4. ~~GitHub 푸시 → Cloudflare Pages 배포(§4-1)~~ — 됨 (10-14, https://sindang-more.pages.dev)
+5. ~~Supabase 연결(§4-2)~~ — 됨 (10-14) → 카카오 주소(§4-3) — **여기서부터 시작**
 6. 전시 기능: 주민 클릭·이장님 영상·구글폼·이스터에그(§4-4)
 7. 전시 뒤: ⑦ 조립, 화면 React 부품화, 스타일 정리, 밤 색 계산(§4-5)
 
