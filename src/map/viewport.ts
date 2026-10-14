@@ -28,6 +28,7 @@ export interface Viewport {
   resetHome(): void;
   clampView(x: number, y: number, w: number): [number, number, number];
   zoomAt(f: number, cx: number, cy: number): void;
+  zoomSmooth(f: number, cx: number, cy: number, dur?: number): void;   // zoomAt 과 같되 부드럽게 (+/− 버튼)
   animateTo(tx: number, ty: number, tw: number, dur?: number): void;
   centerOn(x: number, y: number, targetScale: number, offsetY?: number): void;
   toMap(clientX: number, clientY: number): [number, number];   // 화면 px → 지도 좌표
@@ -71,8 +72,24 @@ export function createViewport(o: ViewportOptions): Viewport {
     vw = vw / f; clamp(); const s2 = scale();
     vx = mx - cx / s2; vy = my - cy / s2; clamp(); apply();
   }
+  /* 버튼 줌: 화면의 (cx, cy) 점을 고정한 채 배율이 시간에 따라 기하급수(로그 공간)로 변해 균일하게 보인다. 누르는 중에 또 누르면 현재 상태에서 이어진다 */
+  let zoomGoal: number | null = null;                                      // 연타 중이면 '가려던 폭'에서 다시 곱한다 (한 번에 1.6배씩 정확히)
+  function zoomSmooth(f: number, cx: number, cy: number, dur = 420) {
+    cancelAnimationFrame(anim);
+    const s0 = scale(), mx = vx + cx / s0, my = vy + cy / s0;              // 고정할 지도 점
+    const w0 = vw, tw = clampView(vx, vy, (zoomGoal ?? vw) / f)[2], t0 = performance.now();
+    zoomGoal = tw;
+    const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+    const step = (now: number) => {
+      const t = Math.min(1, (now - t0) / dur), e = ease(t);
+      vw = w0 * Math.pow(tw / w0, e); vh = (vw * ph) / pw;
+      const s = scale(); vx = mx - cx / s; vy = my - cy / s; clamp(); apply();
+      if (t < 1) anim = requestAnimationFrame(step); else zoomGoal = null;
+    };
+    anim = requestAnimationFrame(step);
+  }
   function animateTo(tx: number, ty: number, tw: number, dur = 700) {
-    cancelAnimationFrame(anim); [tx, ty, tw] = clampView(tx, ty, tw);
+    cancelAnimationFrame(anim); zoomGoal = null; [tx, ty, tw] = clampView(tx, ty, tw);
     const x0 = vx, y0 = vy, w0 = vw, t0 = performance.now(), ease = (t: number) => 1 - Math.pow(1 - t, 3);
     const step = (now: number) => {
       const t = Math.min(1, (now - t0) / dur), e = ease(t);
@@ -92,7 +109,7 @@ export function createViewport(o: ViewportOptions): Viewport {
 
   /* 드래그·휠·핀치 */
   const ptrs = new Map<number, [number, number]>(); let lastDist = 0, downAt: [number, number] = [0, 0];
-  const onDown = (e: PointerEvent) => { ptrs.set(e.pointerId, [e.clientX, e.clientY]); moved = false; downAt = [e.clientX, e.clientY]; cancelAnimationFrame(anim); o.onActivity?.(); };
+  const onDown = (e: PointerEvent) => { ptrs.set(e.pointerId, [e.clientX, e.clientY]); moved = false; downAt = [e.clientX, e.clientY]; cancelAnimationFrame(anim); zoomGoal = null; o.onActivity?.(); };
   const onMove = (e: PointerEvent) => {
     if (!ptrs.has(e.pointerId)) return;
     const prev = ptrs.get(e.pointerId)!; ptrs.set(e.pointerId, [e.clientX, e.clientY]);
@@ -105,7 +122,7 @@ export function createViewport(o: ViewportOptions): Viewport {
     if (!moved && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) { moved = true; try { map.setPointerCapture(e.pointerId); } catch { /* 지원 안 함 */ } }
   };
   const onUp = (e: PointerEvent) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) lastDist = 0; };
-  const onWheel = (e: WheelEvent) => { e.preventDefault(); const r = map.getBoundingClientRect(); zoomAt(Math.exp(-e.deltaY * 0.0018), e.clientX - r.left, e.clientY - r.top); o.onActivity?.(); };
+  const onWheel = (e: WheelEvent) => { e.preventDefault(); cancelAnimationFrame(anim); zoomGoal = null; const r = map.getBoundingClientRect(); zoomAt(Math.exp(-e.deltaY * 0.0018), e.clientX - r.left, e.clientY - r.top); o.onActivity?.(); };
   map.addEventListener('pointerdown', onDown); map.addEventListener('pointermove', onMove);
   map.addEventListener('pointerup', onUp); map.addEventListener('pointercancel', onUp);
   map.addEventListener('wheel', onWheel, { passive: false });
@@ -129,6 +146,6 @@ export function createViewport(o: ViewportOptions): Viewport {
   return {
     get x() { return vx; }, get y() { return vy; }, get w() { return vw; }, get h() { return vh; },
     get pw() { return pw; }, get ph() { return ph; }, get moved() { return moved; },
-    scale, apply, fit, homeView, resetHome, clampView, zoomAt, animateTo, centerOn, toMap, relayout, destroy,
+    scale, apply, fit, homeView, resetHome, clampView, zoomAt, zoomSmooth, animateTo, centerOn, toMap, relayout, destroy,
   };
 }

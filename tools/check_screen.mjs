@@ -78,11 +78,11 @@ for (const [name, vp] of [['desktop', { width: 1280, height: 800 }], ['mobile', 
     // 테마 버튼 → 바뀌는지
     await page.click('#theme'); await new Promise(r => setTimeout(r, 400));
     r.버튼후테마 = await page.evaluate(() => document.documentElement.dataset.theme);
-    // 팬·줌: 휠 → 드래그 → 확대 버튼 뒤의 viewBox (즉시 반영되는 동작만)
+    // 팬·줌: 휠 → 드래그 → 확대 버튼 뒤의 viewBox (휠·드래그는 즉시, 버튼은 애니메이션 뒤)
     const vb = () => page.evaluate(() => document.getElementById('svg').getAttribute('viewBox').split(' ').map(v => Math.round(+v)).join(' '));
     await page.mouse.move(200, 300); await page.mouse.wheel({ deltaY: -300 }); r.휠후 = await vb();
     await page.mouse.move(300, 300); await page.mouse.down(); await page.mouse.move(340, 280, { steps: 4 }); await page.mouse.move(380, 260, { steps: 4 }); await page.mouse.up(); r.드래그후 = await vb();
-    await page.click('#zin'); r.확대버튼후 = await vb();
+    await page.click('#zin'); await new Promise(res => setTimeout(res, 700)); r.확대버튼후 = await vb();   // +버튼은 0.42초 애니메이션이라 끝난 뒤 읽는다
     r.오류 = errors;
     results[`${name}/${theme}`] = r;
     await page.close();

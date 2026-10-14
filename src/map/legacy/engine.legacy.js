@@ -58,7 +58,7 @@ export function bootLegacy(DATA){
   const LAND = createLand(DATA.land.landPath, W, H);
   const V = createViewport({ map, svg, W, H, landBounds: LAND.bounds, focus: DATA.land.focus, onApply: render, onActivity: () => wake(), keepViewOnResize: () => !introOpen });
   const scale = () => V.scale(), apply = () => V.apply(), homeView = () => V.homeView(), resetHome = () => V.resetHome();
-  const zoomAt = (f,cx,cy) => V.zoomAt(f,cx,cy), centerOn = (x,y,s,oy) => V.centerOn(x,y,s,oy);
+  const centerOn = (x,y,s,oy) => V.centerOn(x,y,s,oy);
   function render(s){
     document.body.classList.toggle('far', s < 3.5);
     lmLayer.update(s); districts.update(s); dots.update(s);
@@ -114,8 +114,8 @@ export function bootLegacy(DATA){
   const esc = s => String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
   /* 칩 · 테마 · 메시지 */
-  document.getElementById('zin').onclick = () => { zoomAt(1.6, V.pw/2, V.ph/2); wake(); };
-  document.getElementById('zout').onclick = () => { zoomAt(1/1.6, V.pw/2, V.ph/2); wake(); };
+  document.getElementById('zin').onclick = () => { V.zoomSmooth(1.6, V.pw/2, V.ph/2); wake(); };
+  document.getElementById('zout').onclick = () => { V.zoomSmooth(1/1.6, V.pw/2, V.ph/2); wake(); };
   let msgT; function toast(t){ const m=document.getElementById('msg'); m.textContent=t; m.classList.add('show'); clearTimeout(msgT); msgT=setTimeout(()=>m.classList.remove('show'),2200); }
 
   /* 전시 모드: 30초 무입력 시 자동 순환 */
@@ -195,7 +195,7 @@ export function bootLegacy(DATA){
     if(wantAdmin) setTimeout(openAdmin, 0);
   }
   const openAdmin = () => { adminOpen=true; admin.classList.add('open'); clearTimeout(idleT); clearInterval(cycleT); renderLogin(); };
-  gate = mountHoldGate(document.getElementById('admin-top'), { holdMs: 3000, canOpen: () => canWrite, onOpen: openAdmin });
+  gate = mountHoldGate(document.getElementById('admin-top'), { holdMs: 2000, canOpen: () => canWrite, onOpen: openAdmin });
   function closeAdmin(){ adminOpen=false; admin.classList.remove('open'); cancelEdit(); wake(); }
   function renderAdminList(){
     const l = document.getElementById('alist'); l.innerHTML='';
