@@ -22,6 +22,7 @@ import { setTheme, bindThemeButton, currentTheme } from '../../features/theme-to
 import * as storeApi from '../../entities/store/api';
 import { watchAuth, signInWithPassword, setPassword, sendLoginLink, signOut } from '../../shared/lib/auth';
 import { geocode as kakaoGeocode } from '../../shared/lib/geocode';
+import { mountHoldGate } from '../../features/admin-gate/holdGate';
 
 export function bootLegacy(DATA){
 /* ═══════════════ CORE (투영 · 팬줌 · 가게 점 · 카드 · 관리 · 인트로) ═══════════════ */
@@ -121,7 +122,7 @@ export function bootLegacy(DATA){
   let idleT=null, cycleT=null;
   let KIOSK = new URLSearchParams(location.search).has('kiosk');
   const kioskBtn = document.getElementById('kiosk');
-  function renderKiosk(){ kioskBtn.textContent = '전시 모드 ' + (KIOSK?'ON':'OFF'); kioskBtn.setAttribute('aria-pressed', KIOSK); }
+  function renderKiosk(){ kioskBtn.textContent = '전시 모드 ' + (KIOSK?'ON':'OFF'); kioskBtn.setAttribute('aria-pressed', KIOSK); document.getElementById('admin-top').style.display = KIOSK ? 'none' : ''; }
   kioskBtn.onclick = () => { KIOSK=!KIOSK; renderKiosk(); if(KIOSK){ closeCard(); startCycle(); } else wake(); };
   renderKiosk();
   function wake(){ clearTimeout(idleT); clearInterval(cycleT); cycleT=null; if(KIOSK && !adminOpen) idleT=setTimeout(startCycle, 30000); }
@@ -144,13 +145,14 @@ export function bootLegacy(DATA){
   document.getElementById('replay').onclick = playIntro;
 
   /* ── 데이터 (db) · 관리자 ──────────────────────────────── */
-  let canWrite = false, authEmail = null, adminOpen = false, picking = false, editing = null, photoPending = null, photoRemove = false;
+  let gate = null, canWrite = false, authEmail = null, adminOpen = false, picking = false, editing = null, photoPending = null, photoRemove = false;
   const admin = document.getElementById('admin'), form = document.getElementById('form'), listWrap = document.getElementById('alist-wrap');
   /* 데이터는 entities/store/api 가 준다 (DB가 있으면 Supabase, 없으면 씨앗). 처음 목록은 App.tsx 가 이미 읽어 DATA.stores 로 넘겼다. */
   async function reload(){ setStores(await storeApi.listStores()); document.documentElement.dataset.store = storeApi.storeSource(); }
   function applyWrite(){
-    document.getElementById('admin-btn').classList.toggle('show', canWrite && V.pw<900);
-    document.getElementById('admin-top').style.display = canWrite && V.pw>=900 ? '' : 'none';
+    /* 입구 버튼은 늘 보인다(작은 네모). 전시 모드에서는 숨긴다. 로그인 전엔 꾹 눌러야 열린다(features/admin-gate) */
+    document.getElementById('admin-top').style.display = KIOSK ? 'none' : '';
+    gate?.refresh();
     if(!canWrite && adminOpen && !wantAdmin) closeAdmin();
     renderLogin();
   }
@@ -193,7 +195,7 @@ export function bootLegacy(DATA){
     if(wantAdmin) setTimeout(openAdmin, 0);
   }
   const openAdmin = () => { adminOpen=true; admin.classList.add('open'); clearTimeout(idleT); clearInterval(cycleT); renderLogin(); };
-  document.getElementById('admin-btn').onclick = openAdmin; document.getElementById('admin-top').onclick = openAdmin;
+  gate = mountHoldGate(document.getElementById('admin-top'), { holdMs: 5000, canOpen: () => canWrite, onOpen: openAdmin });
   function closeAdmin(){ adminOpen=false; admin.classList.remove('open'); cancelEdit(); wake(); }
   function renderAdminList(){
     const l = document.getElementById('alist'); l.innerHTML='';

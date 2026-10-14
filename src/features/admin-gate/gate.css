@@ -1,0 +1,23 @@
+/* 관리자 입구 버튼(#admin-top)을 글자 없는 작은 네모로, 꾹 누를 때의 팝오버 */
+#topbar #admin-top{width:32px;min-width:32px;height:32px;padding:0;justify-content:center;font-size:0;touch-action:none;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
+#topbar #admin-top::before{margin:0;display:block}
+#topbar #admin-top.is-admin::before{opacity:1}
+
+.hold-gate{position:absolute;top:calc(100% + 7px);right:0;display:none;align-items:center;gap:6px;padding:5px 8px 5px 5px;
+  background:var(--bar,#072230);color:var(--ink,#f4e3b5);border:1px solid currentColor;box-shadow:2px 2px 0 #0000004d;white-space:nowrap;z-index:60;pointer-events:none;
+  font:600 9px/1 var(--font-pixel);letter-spacing:.12em}
+.hold-gate--on{display:flex;animation:hold-gate-in .18s steps(3) both}
+.hold-gate__ring{position:absolute;left:1px;top:1px;width:26px;height:26px;transform:rotate(-90deg)}
+.hold-gate__ring .bg{fill:none;stroke:currentColor;stroke-opacity:.22;stroke-width:3}
+.hold-gate__ring .fg{fill:none;stroke:currentColor;stroke-width:3;stroke-dasharray:94.2;stroke-dashoffset:94.2;animation:hold-gate-fill 5s steps(20,end) forwards}
+.hold-gate--on .hold-gate__ring .fg{animation-play-state:running}
+.hold-gate__gear{width:18px;height:18px;margin:4px;fill:currentColor}
+.hold-gate__gear .b{display:none}
+.hold-gate--on .hold-gate__gear .a{animation:hold-gate-tick .5s steps(1,end) infinite}
+.hold-gate--on .hold-gate__gear .b{display:block;animation:hold-gate-tock .5s steps(1,end) infinite}
+.hold-gate__label{padding-right:2px}
+@keyframes hold-gate-fill{to{stroke-dashoffset:0}}
+@keyframes hold-gate-tick{0%,49%{opacity:1}50%,100%{opacity:0}}
+@keyframes hold-gate-tock{0%,49%{opacity:0}50%,100%{opacity:1}}
+@keyframes hold-gate-in{from{transform:translateY(-3px);opacity:0}to{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){.hold-gate--on .hold-gate__gear .a,.hold-gate--on .hold-gate__gear .b{animation:none}.hold-gate__gear .b{display:none!important}.hold-gate__gear .a{opacity:1!important}}
