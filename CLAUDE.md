@@ -1,6 +1,6 @@
 # sindang.more 지도 — 프로젝트 맥락
 
-> 2026-10-07 작성, 10-14 '배포 먼저'로 순서 변경. 새 세션은 **이 파일 → `폴더구조_지침.md` → `다음_작업_지침.md`** 순으로 읽는다. 디자인 규칙은 `../초안 기능 정리/DESIGN_BRIEF.md`.
+> 2026-10-07 작성, 10-14 '배포 먼저'로 순서 변경. 새 세션은 **이 파일 → `다음_작업_지침.md`** 순으로 읽는다. (`폴더구조_지침.md`는 10-14에 `다음_작업_지침.md` 7·8장으로 합치고 지웠다.) 디자인 규칙은 `../초안 기능 정리/DESIGN_BRIEF.md`.
 
 ## 무엇을 만드나
 - 신당동 인스타그램 매거진 **sindang.more**(@morethan.sd)가 인터뷰한 가게들을 보여주는 지도 웹사이트.
@@ -10,11 +10,10 @@
 
 ## 이 폴더에 있는 것
 **이 폴더(`sindang.more/`)가 Vite + React 프로젝트 본체다.** `npm install && npm run dev`로 옛 HTML과 같은 화면이 뜬다(2026-10-14 재확인: 빌드·`check_screen` 통과).
-- `폴더구조_지침.md` — 목표 폴더 구조, 블록별 이전 위치, 데이터 모델, 구글폼→캐릭터 파이프라인, 이전 순서(§9).
 - `다음_작업_지침.md` — **진행 상황의 정본.** 지금 상태(§1), 폴더 지도(§2), 확인 방법(§3), 다음 할 일 순서(§4), 하지 말 것(§5), 이미 결정된 것(§6).
 - `content/` — 그림·도로·좌표·파츠(코드 아님). `src/` — app / features / entities / shared / map. `supabase/` — schema·seed. `tools/check_screen.mjs` — 화면 자동 확인. `tools/extract_from_html.py` — 옛 HTML을 이 구조로 푸는 스크립트(**재실행하면 content/와 임시 엔진을 덮어쓴다**).
 - 옛 한 장짜리 HTML 변주들은 **`../디자인모음/`**으로 옮겼다. 기준 파일은 `게임_낮밤_초안.html`(REV 28). `../초안 기능 정리/`에 `DESIGN_BRIEF.md`, `check_core.py`, 뼈대 `sindang-more-map.html`이 있다. 옛 HTML은 참고용이며 더 고치지 않는다.
-- `다음_작업_지침.md` §3의 "지침서와 다르게 한 것"(파츠 JSON, looks.json, decor/, `_legacy/geo.json`, seed.stores.json, slug·issue 컬럼, published=false='다음 호', 테마 CSS 2벌 등)은 **전부 받아들이기로 결정**(2026-10-07). 지침서 표현과 다르면 실제 파일 쪽이 맞다.
+- 옛 지침서와 다르게 한 것(파츠 JSON, looks.json, decor/, `_legacy/geo.json`, seed.stores.json, slug·issue 컬럼, published=false='다음 호', 테마 CSS 2벌 등)은 **전부 받아들이기로 결정**(2026-10-07). 지침서 표현과 다르면 실제 파일 쪽이 맞다.
 
 ## 개발 환경
 - Node는 fnm으로 설치돼 있다(v24). 셸에 fnm 환경이 안 잡혀 있으면 `eval "$(fnm env)"` 후 npm을 쓴다. `node_modules`는 macOS용이라 다른 OS에서 이 폴더를 마운트해 빌드하면 rollup 네이티브 오류가 난다 — 그땐 `git archive`로 복사해 그쪽에서 `npm install`.
@@ -33,7 +32,7 @@
 | 역할 | 도구 | 비고 |
 |---|---|---|
 | 프론트 | **Vite + React + TypeScript** | 정적 빌드. Next.js는 과함 |
-| 구조 | FSD 4층 (`app / features / entities / shared`) + `map/` 엔진 + `content/` | 상세는 `폴더구조_지침.md` |
+| 구조 | FSD 4층 (`app / features / entities / shared`) + `map/` 엔진 + `content/` | 상세는 `다음_작업_지침.md` §2 |
 | 스타일 | CSS Modules + 디자인 토큰(CSS 변수) | 기존 스킨 CSS 이식. Tailwind 안 씀 |
 | UI 동작 | Radix Primitives | 모양 없이 접근성만 |
 | 모션 | motion (구 Framer Motion) | UI 레이어만. 지도 애니메이션은 엔진 안에서 |
