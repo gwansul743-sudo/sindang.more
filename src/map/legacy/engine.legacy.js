@@ -21,6 +21,7 @@ import { mountNight } from '../night';
 import { setTheme, bindThemeButton, currentTheme } from '../../features/theme-toggle/mountThemes';
 import * as storeApi from '../../entities/store/api';
 import { watchAuth, signInWithPassword, setPassword, sendLoginLink, signOut } from '../../shared/lib/auth';
+import { geocode as kakaoGeocode } from '../../shared/lib/geocode';
 
 export function bootLegacy(DATA){
 /* ═══════════════ CORE (투영 · 팬줌 · 가게 점 · 카드 · 관리 · 인트로) ═══════════════ */
@@ -158,8 +159,11 @@ export function bootLegacy(DATA){
   const loginBox = document.createElement('div'); loginBox.id = 'login'; loginBox.style.cssText = 'display:none;flex-direction:column;gap:8px;padding:8px 0 14px;border-bottom:1px solid var(--line);margin-bottom:10px;font-size:12px';
   admin.insertBefore(loginBox, listWrap);
   const IN = 'padding:8px;border:1px solid var(--line);background:transparent;color:inherit;font:inherit;width:100%;box-sizing:border-box';
+  let loginKey = null;   /* 같은 상태면 다시 그리지 않는다 — 탭을 떠났다 돌아오면 Supabase가 SIGNED_IN 을 또 쏘는데, 그때마다 입력 중인 칸이 지워지면 안 된다 */
   function renderLogin(){
+    listWrap.style.display = canWrite && !form.classList.contains('open') ? '' : 'none';   /* 편집 중이면 목록을 다시 켜지 않는다 */
     if(!storeApi.hasDb()){ loginBox.style.display='none'; return; }
+    const key = `${authEmail}|${canWrite}`; if(key===loginKey) return; loginKey = key;
     loginBox.style.display = 'flex';
     if(authEmail){
       loginBox.innerHTML = `<div>${esc(authEmail)}${canWrite?'':' — <b>관리자 아님</b> (Supabase의 admins 표에 이 이메일이 있어야 합니다)'}</div>
@@ -178,12 +182,14 @@ export function bootLegacy(DATA){
       document.getElementById('login-pw').addEventListener('keydown', e => { if(e.key==='Enter') go(); });
       document.getElementById('login-link').onclick = async () => { const em = document.getElementById('login-email').value.trim(); if(!em){ toast('이메일을 먼저 적어 주세요'); return; } try{ await sendLoginLink(em); toast('메일함에서 링크를 눌러 주세요'); }catch(e){ toast('실패: '+(e.message||e)); } };
     }
-    listWrap.style.display = canWrite ? '' : 'none';
   }
   window.addEventListener('resize', () => applyWrite());
   function connect(){
     document.documentElement.dataset.store = storeApi.storeSource();   /* seed 일 때만 관리 패널에 안내문 (CSS) */
-    watchAuth(st => { authEmail = st.email; canWrite = storeApi.canWrite() && (storeApi.storeSource()==='db' ? st.admin : true); applyWrite(); if(st.admin) reload(); });
+    let wasAdmin = false;
+    watchAuth(st => { authEmail = st.email; canWrite = storeApi.canWrite() && (storeApi.storeSource()==='db' ? st.admin : true); applyWrite();
+      if(st.admin && !wasAdmin) reload();   /* 관리자가 된 순간에만 다시 읽는다. 탭 복귀마다 읽으면 편집 중인 가게 객체가 낡은 것이 된다 */
+      wasAdmin = st.admin; });
     if(wantAdmin) setTimeout(openAdmin, 0);
   }
   const openAdmin = () => { adminOpen=true; admin.classList.add('open'); clearTimeout(idleT); clearInterval(cycleT); renderLogin(); };
@@ -206,29 +212,29 @@ export function bootLegacy(DATA){
   function setPhotoPrev(url){ const p=document.getElementById('photo-prev'); p.classList.toggle('empty',!url); p.style.backgroundImage = url?`url('${url}')`:''; document.getElementById('photo-rm').style.display = url?'':'none'; }
   form.photo.addEventListener('change', () => { const f=form.photo.files[0]; if(!f) return; if(f.size>20*1024*1024){ toast('20MB 이하로 올려주세요'); form.photo.value=''; return; } photoPending=f; photoRemove=false; setPhotoPrev(URL.createObjectURL(f)); });
   function removePhoto(){ photoPending=null; photoRemove=true; form.photo.value=''; setPhotoPrev(null); }
-  function cancelEdit(){ endPick(); form.classList.remove('open'); listWrap.style.display=''; editing=null; }
-  const GEO = DATA.geo;   /* 임시: 카카오 geocoder로 바꾸면 삭제 */
-  function geocode(){
+  function cancelEdit(){ endPick(); form.classList.remove('open'); listWrap.style.display = canWrite ? '' : 'none'; editing=null; }
+  /* 주소 → 좌표: 카카오 지도 JS geocoder (shared/lib/geocode.ts). 버튼, 주소 칸의 Enter, 포커스 이탈 때 돈다 */
+  let geoSeq = 0;
+  async function geocode(){
     const raw = form.addr.value.trim().replace(/\s+/g,' ');
-    const m = raw.match(/([가-힣A-Za-z0-9]+(?:로|길)(?:\s?\d+(?:번)?길)?)\s*(\d+(?:-\d+)?)/);
-    if(!m){ toast('도로명 주소 형식으로 적어주세요 (예: 퇴계로87길 15)'); return; }
-    const street = m[1].replace(/\s/g,''), num = m[2];
-    const table = GEO[street];
-    if(!table){ toast(`'${street}'은 이 지도 범위에 없어요. 지도에서 찍어주세요.`); return; }
-    let hit = table[num], note='';
-    if(!hit){
-      const want = parseInt(num,10), odd = want%2;
-      const cands = Object.keys(table).map(k=>({k, n:parseInt(k,10)})).filter(c=>!isNaN(c.n));
-      cands.sort((x,y)=> (Math.abs(x.n-want)+(x.n%2!==odd?4:0)) - (Math.abs(y.n-want)+(y.n%2!==odd?4:0)));
-      if(!cands.length){ toast('번지를 못 찾았어요. 지도에서 찍어주세요.'); return; }
-      const best = cands[0]; if(Math.abs(best.n-want) > 40){ toast(`${street} ${num}번 근처 번지가 자료에 없어요. 지도에서 찍어주세요.`); return; }
-      hit = table[best.k]; note = ` (${num}번은 없어서 ${best.k}번 자리예요. 지도에서 확인하세요)`;
-    }
-    form.latlng.value = `${hit[0]}, ${hit[1]}`;
-    const [x,y] = proj(hit[0],hit[1]); centerOn(x,y,Math.max(scale(),5), V.pw<900?V.ph*0.24:0);
+    if(!raw){ toast('주소를 적어주세요'); return; }
+    const seq = ++geoSeq; toast('주소 찾는 중…');
+    let hit, note='';
+    try{
+      hit = await kakaoGeocode(raw);
+      const m = !hit && raw.match(/^(.*\d+)-\d+$/);          /* "49-1" 같은 부번지가 카카오 자료에 없으면 본번지 "49"로 한 번 더 */
+      if(m){ hit = await kakaoGeocode(m[1]); if(hit) note = ' (부번지는 없어서 본번지 자리예요)'; }
+    } catch(e){ toast('주소 찾기를 쓸 수 없어요 ('+(e.message||e)+'). 지도에서 찍어주세요.'); return; }
+    if(seq!==geoSeq || picking) return;   /* 그 사이 다시 찾기 시작했거나 지도에서 찍는 중이면 버린다 */
+    if(!hit){ toast('주소를 못 찾았어요. 도로명·지번으로 다시 적거나 지도에서 찍어주세요.'); return; }
+    if(hit.lat<BBOX.lat0||hit.lat>BBOX.lat1||hit.lng<BBOX.lon0||hit.lng>BBOX.lon1){ toast('지도 범위 밖 주소예요 ('+hit.address+'). 지도에서 찍어주세요.'); return; }
+    form.latlng.value = `${hit.lat.toFixed(5)}, ${hit.lng.toFixed(5)}`;
+    const [x,y] = proj(hit.lat,hit.lng); centerOn(x,y,Math.max(scale(),5), V.pw<900?V.ph*0.24:0);
     if(editing){ dots.move(editing._dot, x, y); editing.x=x; editing.y=y; }
-    toast('좌표를 채웠어요' + note);
+    toast('좌표를 채웠어요: '+hit.address+note+'. 지도에서 자리를 확인하세요');
   }
+  form.addr.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); geocode(); } });
+  form.addr.addEventListener('change', () => { if(form.addr.value.trim()) geocode(); });
   function startPick(){ picking=true; document.body.classList.add('picking'); document.getElementById('pickhint').classList.add('show'); if(V.pw<900) admin.classList.remove('open'); }
   function endPick(){ picking=false; document.body.classList.remove('picking'); document.getElementById('pickhint').classList.remove('show'); if(adminOpen) admin.classList.add('open'); }
   async function saveStore(e){

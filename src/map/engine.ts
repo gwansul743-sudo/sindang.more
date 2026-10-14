@@ -14,7 +14,6 @@ export interface EngineData {
   terrain: string;
   characters: Record<string, unknown>;
   stores: unknown[];
-  geo: unknown;
 }
 
 export interface Engine {

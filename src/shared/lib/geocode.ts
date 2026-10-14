@@ -1,6 +1,6 @@
-/* 주소 → 좌표 (6단계에서 연결).
-   지금 관리 화면은 content/_legacy/geo.json(내장 주소표)을 쓰고 있다. 아래 함수로 바꾸고 그 파일을 지운다.
-   카카오 지도 JS SDK의 geocoder는 브라우저에서 돌고, JS 키는 배포 도메인에 묶인다. REST 키는 쓰지 않는다. */
+/* 주소 → 좌표. 임시 엔진의 geocode()가 부른다 (10-14 연결).
+   카카오 지도 JS SDK의 geocoder는 브라우저에서 돌고, JS 키(VITE_KAKAO_JS_KEY)는 카카오 콘솔에 등록한 도메인에서만 먹는다. REST 키는 쓰지 않는다.
+   콘솔(앱 ID 1607868): 앱 → 플랫폼 키 → JavaScript 키 → JavaScript SDK 도메인에 localhost:5173 · localhost:4199 · 배포 주소. 제품 설정 → 카카오맵 활성화 ON. */
 declare global { interface Window { kakao?: any } }
 
 let sdk: Promise<void> | null = null;
@@ -16,11 +16,11 @@ function loadSdk(): Promise<void> {
   }));
 }
 
-export async function geocode(address: string): Promise<{ lat: number; lng: number } | null> {
+export async function geocode(address: string): Promise<{ lat: number; lng: number; address: string } | null> {
   await loadSdk();
   return new Promise((resolve) => {
     new window.kakao.maps.services.Geocoder().addressSearch(address, (result: any[], status: string) => {
-      resolve(status === window.kakao.maps.services.Status.OK && result[0] ? { lat: +result[0].y, lng: +result[0].x } : null);
+      resolve(status === window.kakao.maps.services.Status.OK && result[0] ? { lat: +result[0].y, lng: +result[0].x, address: result[0].address_name as string } : null);
     });
   });
 }
