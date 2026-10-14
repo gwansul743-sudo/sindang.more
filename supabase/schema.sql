@@ -1,10 +1,9 @@
--- sindang.more 지도 — 테이블과 RLS (폴더구조_지침 §3)
--- 지침의 컬럼에 더해 두 가지를 넣었다: slug(옛 id 보존용), issue('6호' 표시). 화면이 지금 쓰고 있는 값이다.
+-- sindang.more 지도 — 테이블과 RLS
 -- published=false 는 지금 화면에서 '다음 호'(점선 점)로 보인다. 완전히 숨기는 상태가 필요해지면 status 컬럼으로 바꿀 것.
 
 create table if not exists stores (
   id            uuid primary key default gen_random_uuid(),
-  slug          text unique,
+  slug          text unique, -- 옛 id 보존용
   name          text not null,
   addr          text,
   lat           double precision not null,
@@ -12,7 +11,7 @@ create table if not exists stores (
   ig_url        text,
   photo_path    text,
   interview_md  text,
-  issue         text,
+  issue         text, -- '6호' 표시
   "order"       integer not null default 0,
   published     boolean not null default true,
   created_at    timestamptz not null default now()

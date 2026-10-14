@@ -19,6 +19,8 @@ import { Chief } from '../actors/chief';
 import { Dog } from '../actors/dog';
 import { mountNight } from '../night';
 import { setTheme, bindThemeButton, currentTheme } from '../../features/theme-toggle/mountThemes';
+import * as storeApi from '../../entities/store/api';
+import { watchAuth, sendLoginLink, signOut } from '../../shared/lib/auth';
 
 export function bootLegacy(DATA){
 /* ═══════════════ CORE (투영 · 팬줌 · 가게 점 · 카드 · 관리 · 인트로) ═══════════════ */
@@ -77,7 +79,7 @@ export function bootLegacy(DATA){
     card.innerHTML = `
       <button class="x" aria-label="닫기" onclick="closeCard()">✕</button>
       <div class="ig-meta"><span class="account">@sindang.more</span><span class="num">${idx} / ${list.length}</span></div>
-      <div class="poster ${up?'up':''} ${(s.photoUrl||s.photo)?'photo':''}" ${(s.photoUrl||s.photo)?`style="background-image:url('${s.photoUrl||('/_blob/'+esc(s.photo))}')"`:''}><div class="grid"></div><div class="poster-brand">MORE · SINDANG</div><div class="poster-tag">${esc(s.issue||'')}</div><div class="poster-title">${up?'Coming<br>soon':esc(s.name)}</div></div>
+      <div class="poster ${up?'up':''} ${s.photoUrl?'photo':''}" ${s.photoUrl?`style="background-image:url('${s.photoUrl}')"`:''}><div class="grid"></div><div class="poster-brand">MORE · SINDANG</div><div class="poster-tag">${esc(s.issue||'')}</div><div class="poster-title">${up?'Coming<br>soon':esc(s.name)}</div></div>
       <div class="detail">
         <h3>${esc(s.name)}</h3>
         ${up?'<p class="copy">인터뷰가 끝나면 이 자리에 카드뉴스가 올라옵니다.</p>':''}
@@ -141,37 +143,36 @@ export function bootLegacy(DATA){
   document.getElementById('replay').onclick = playIntro;
 
   /* ── 데이터 (db) · 관리자 ──────────────────────────────── */
-  let db = null, assets = null, canWrite = false, adminOpen = false, picking = false, editing = null, photoPending = null, photoRemove = false;
+  let canWrite = false, authEmail = null, adminOpen = false, picking = false, editing = null, photoPending = null, photoRemove = false;
   const admin = document.getElementById('admin'), form = document.getElementById('form'), listWrap = document.getElementById('alist-wrap');
-  /* [C-2] EMBEDDED-DATA — 내장 가게 데이터(사진 포함). claude.ai 밖에서 열면 이 데이터로 동작. 수정 금지 */
-  const EMBEDDED_STORES = DATA.stores;
-  /* 목업 모드: claude.ai 밖(로컬 파일, 다른 호스팅)에서 열면 내장 데이터로 동작.
-     REV 2: claude.ai 안이어도 이 페이지에 db가 연결돼 있지 않으면(디자인 시안 미리보기) 내장 데이터로 동작 */
-  const MOCK = !window.claude;
-  function mockDb(){
-    const docs=EMBEDDED_STORES;
-    return {collection:()=>({orderBy:()=>({onSnapshot:(f)=>{ setTimeout(()=>f({docs:docs.map(d=>({id:d.id,data:()=>d}))}),200); }}),doc:()=>({set:async()=>{toast('목업 모드: 저장은 흉내만 냅니다');},delete:async()=>{}})})};
+  /* 데이터는 entities/store/api 가 준다 (DB가 있으면 Supabase, 없으면 씨앗). 처음 목록은 App.tsx 가 이미 읽어 DATA.stores 로 넘겼다. */
+  async function reload(){ setStores(await storeApi.listStores()); }
+  function applyWrite(){
+    document.getElementById('admin-btn').classList.toggle('show', canWrite && V.pw<900);
+    document.getElementById('admin-top').style.display = canWrite && V.pw>=900 ? '' : 'none';
+    if(!canWrite && adminOpen && !wantAdmin) closeAdmin();
+    renderLogin();
   }
-  async function connect(){
-    const useEmbedded = () => { const m = mockDb(); db = m; m.collection('stores').orderBy('order').onSnapshot(snap => { if(db===m) setStores(snap.docs.map(d => ({id:d.id, ...d.data()}))); });
-      assets = {upload:async f=>({id:'mock',url:URL.createObjectURL(f)}), delete:async()=>({deleted:true})};
-      canWrite = true; document.getElementById('admin-btn').classList.toggle('show', V.pw<900); document.getElementById('admin-top').style.display = V.pw>=900?'':'none'; };
-    if(MOCK || typeof claude.use!=='function'){ useEmbedded(); return; }
-    let live = null, settled = false;
-    const slow = setTimeout(() => { if(!settled) useEmbedded(); }, 1500);      /* 응답이 늦으면 일단 내장 데이터로 보여주고, 진짜 db가 오면 바꿔 끼움 */
-    try{ live = await claude.use('db'); }catch(_){}
-    settled = true; clearTimeout(slow);
-    if(!live){ if(!db) useEmbedded(); return; }
-    db = live;
-    db.collection('stores').orderBy('order').onSnapshot(snap => {
-      setStores(snap.docs.map(d => ({id:d.id, ...d.data()})));
-    }, e => toast('데이터를 불러오지 못했어요: '+e.code));
-    assets = await claude.use('assets');
-    const user = await claude.use('user');
-    canWrite = (await user?.canEdit()) ?? false;
-    document.getElementById('admin-btn').classList.toggle('show', canWrite && V.pw<900); document.getElementById('admin-top').style.display = canWrite && V.pw>=900 ? '' : 'none';
+  /* 관리자 로그인 상자 (#admin 안). 주소에 ?admin=1 을 붙이면 로그인 전에도 패널이 열린다 */
+  const wantAdmin = new URLSearchParams(location.search).get('admin') === '1';
+  const loginBox = document.createElement('div'); loginBox.id = 'login'; loginBox.style.cssText = 'display:none;flex-direction:column;gap:8px;padding:8px 0 14px;border-bottom:1px solid var(--line);margin-bottom:10px;font-size:12px';
+  admin.insertBefore(loginBox, listWrap);
+  function renderLogin(){
+    if(!storeApi.hasDb()){ loginBox.style.display='none'; return; }
+    loginBox.style.display = 'flex';
+    if(authEmail){ loginBox.innerHTML = `<div>${esc(authEmail)}${canWrite?'':' — <b>관리자 아님</b> (Supabase의 admins 표에 이 이메일이 있어야 합니다)'}</div><button type="button" class="btn" id="logout">로그아웃</button>`;
+      document.getElementById('logout').onclick = async () => { await signOut(); };
+    } else { loginBox.innerHTML = `<div>관리자 이메일로 로그인 링크를 보냅니다.</div><input id="login-email" type="email" placeholder="email@example.com" style="padding:8px;border:1px solid var(--line);background:transparent;color:inherit"><button type="button" class="btn pri" id="login-send">로그인 링크 보내기</button>`;
+      document.getElementById('login-send').onclick = async () => { const em = document.getElementById('login-email').value.trim(); if(!em) return; try{ await sendLoginLink(em); toast('메일함에서 링크를 눌러 주세요'); }catch(e){ toast('실패: '+(e.message||e)); } };
+    }
+    listWrap.style.display = canWrite ? '' : 'none';
   }
-  const openAdmin = () => { adminOpen=true; admin.classList.add('open'); clearTimeout(idleT); clearInterval(cycleT); };
+  window.addEventListener('resize', () => applyWrite());
+  function connect(){
+    watchAuth(st => { authEmail = st.email; canWrite = storeApi.canWrite() && (storeApi.storeSource()==='db' ? st.admin : true); applyWrite(); if(st.admin) reload(); });
+    if(wantAdmin) setTimeout(openAdmin, 0);
+  }
+  const openAdmin = () => { adminOpen=true; admin.classList.add('open'); clearTimeout(idleT); clearInterval(cycleT); renderLogin(); };
   document.getElementById('admin-btn').onclick = openAdmin; document.getElementById('admin-top').onclick = openAdmin;
   function closeAdmin(){ adminOpen=false; admin.classList.remove('open'); cancelEdit(); wake(); }
   function renderAdminList(){
@@ -183,8 +184,8 @@ export function bootLegacy(DATA){
     editing = s; form.reset();
     if(s){ form.name.value=s.name; form.issue.value=s.issue||''; form.status.value=s.status; form.ig.value=s.ig||''; form.interview.value=s.interview||''; form.addr.value=s.addr||''; form.latlng.value=`${s.lat}, ${s.lng}`; select(s,true); }
     photoPending=null; photoRemove=false; form.photo.value='';
-    setPhotoPrev(s?.photoUrl || (s?.photo ? '/_blob/'+s.photo : null));
-    form.photo.disabled = !assets; document.getElementById('photo-note').textContent = assets ? '없으면 레드 포스터로 표시됩니다.' : '이 화면에서는 사진 업로드가 지원되지 않아요.';
+    setPhotoPrev(s?.photoUrl || null);
+    form.photo.disabled = !storeApi.canUpload(); document.getElementById('photo-note').textContent = storeApi.canUpload() ? '없으면 레드 포스터로 표시됩니다.' : '이 화면에서는 사진 업로드가 지원되지 않아요.';
     document.getElementById('delbtn').style.display = s?'':'none';
     listWrap.style.display='none'; form.classList.add('open');
   }
@@ -221,23 +222,20 @@ export function bootLegacy(DATA){
     const m = form.latlng.value.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/); if(!m){ toast('위치는 "위도, 경도" 형식으로'); return; }
     const lat=+m[1], lng=+m[2];
     if(lat<BBOX.lat0||lat>BBOX.lat1||lng<BBOX.lon0||lng>BBOX.lon1){ toast('지도 범위 밖 좌표예요'); return; }
-    const data = {name:form.name.value.trim(), issue:form.issue.value.trim(), status:form.status.value,
-      line:(editing&&editing.line)||'', quote:(editing&&editing.quote)||'', ig:form.ig.value.trim(), interview:form.interview.value.trim(), addr:form.addr.value.trim(), lat, lng, order: editing?.order ?? (Date.now())};
-    let photo = editing?.photo || '';
+    const input = {name:form.name.value.trim(), issue:form.issue.value.trim(), status:form.status.value, ig:form.ig.value.trim(), interview:form.interview.value.trim(), addr:form.addr.value.trim(), lat, lng};
     try{
-      if(photoPending){ if(!assets){ toast('사진 업로드가 지원되지 않는 화면이에요'); return; }
-        toast('사진 올리는 중…'); const up = await assets.upload(photoPending); if(photo && photo!==up.id){ try{ await assets.delete(photo); }catch(_){} } photo = up.id; }
-      else if(photoRemove && photo){ try{ await assets.delete(photo); }catch(_){} photo=''; }
-      data.photo = photo;
-      await db.collection('stores').doc(editing?.id).set(data); toast('저장했어요'); cancelEdit(); }
-    catch(err){ toast('저장 실패: '+err.code); }
+      if(photoPending) toast('사진 올리는 중…');
+      await storeApi.saveStore(editing, input, photoPending, photoRemove);
+      await reload(); toast('저장했어요'); cancelEdit(); }
+    catch(err){ toast('저장 실패: '+(err.message||err.code||err)); }
   }
   async function deleteStore(){ if(!editing || !confirm(`'${editing.name}'을(를) 지울까요?`)) return;
-    try{ await db.collection('stores').doc(editing.id).delete(); toast('지웠어요'); cancelEdit(); } catch(err){ toast('삭제 실패: '+err.code); } }
+    try{ await storeApi.deleteStore(editing); await reload(); toast('지웠어요'); cancelEdit(); } catch(err){ toast('삭제 실패: '+(err.message||err.code||err)); } }
 
   /* 시작 */
   function init(){
     V.fit(); V.resetHome();
+    setStores(DATA.stores);
     connect();
   }
   document.fonts ? document.fonts.ready.then(init) : init();

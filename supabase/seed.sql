@@ -1,4 +1,4 @@
--- 현재 내장 가게 11곳 (게임_낮밤_초안.html의 EMBEDDED_STORES). photo_path는 Storage에 올린 뒤 경로를 맞출 것
+-- 현재 내장 가게 11곳 (게임_낮밤_초안.html의 EMBEDDED_STORES). 사진 4장은 사이트의 정적 파일(/seed-photos/…)을 그대로 가리킨다. schema.sql → storage.sql 뒤에 한 번 실행.
 insert into stores (slug, name, addr, lat, lng, ig_url, photo_path, interview_md, issue, "order", published) values
   ('nadal', '나달케이크', null, 37.5663, 127.0205, 'https://www.instagram.com/p/DdlDZTUGE-e/?img_index=1', '/seed-photos/nadal.jpg', '슬라이드 2 — 소개 
 Q. 사장님과 가게 소개 부탁드려요. 
