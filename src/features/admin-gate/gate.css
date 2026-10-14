@@ -1,7 +1,9 @@
 /* 관리자 입구 버튼(#admin-top)을 글자 없는 작은 네모로, 꾹 누를 때의 팝오버 */
-#topbar #admin-top{width:32px;min-width:32px;height:32px;padding:0;justify-content:center;font-size:0;touch-action:none;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
-#topbar #admin-top::before{margin:0;display:block}
+#topbar #admin-top{touch-action:none;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
+#topbar #admin-top:not(.is-admin){width:32px;min-width:32px;height:32px;padding:0;justify-content:center;font-size:0}
+#topbar #admin-top:not(.is-admin)::before{margin:0;display:block}
 #topbar #admin-top.is-admin::before{opacity:1}
+#topbar #admin-top.is-admin::after{content:"가게 관리"}
 
 /* 팝오버: 자판 치는 픽셀 고양이 → '관리자 로그인' → 가로 바(매끄럽게 차오름) */
 .hold-gate{position:absolute;top:calc(100% + 7px);right:0;display:none;flex-direction:column;align-items:stretch;gap:5px;padding:6px 7px 7px;

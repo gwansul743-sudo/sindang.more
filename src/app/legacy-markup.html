@@ -51,7 +51,7 @@
 <!-- [B-1] INTRO:END -->
 
 <aside id="admin">
-  <h3><span>가게 관리</span><button class="xbtn" aria-label="닫기" onclick="closeAdmin()">✕</button></h3>
+  <h3><button class="xbtn" id="aback" aria-label="목록으로" title="목록으로" onclick="cancelEdit()" style="display:none">‹</button><span style="margin-right:auto">가게 관리</span><button class="xbtn" aria-label="닫기" onclick="closeAdmin()">✕</button></h3>
   <div id="alist-wrap" style="display:flex;flex-direction:column;flex:1;min-height:0">
     <button class="btn pri" onclick="editStore(null)">+ 새 가게</button>
     <div class="list" id="alist"></div>

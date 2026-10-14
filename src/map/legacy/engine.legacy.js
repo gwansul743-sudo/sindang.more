@@ -122,7 +122,7 @@ export function bootLegacy(DATA){
   let idleT=null, cycleT=null;
   let KIOSK = new URLSearchParams(location.search).has('kiosk');
   const kioskBtn = document.getElementById('kiosk');
-  function renderKiosk(){ kioskBtn.textContent = '전시 모드 ' + (KIOSK?'ON':'OFF'); kioskBtn.setAttribute('aria-pressed', KIOSK); document.getElementById('admin-top').style.display = KIOSK ? 'none' : ''; }
+  function renderKiosk(){ kioskBtn.textContent = '전시 모드 ' + (KIOSK?'ON':'OFF'); kioskBtn.setAttribute('aria-pressed', KIOSK); }
   kioskBtn.onclick = () => { KIOSK=!KIOSK; renderKiosk(); if(KIOSK){ closeCard(); startCycle(); } else wake(); };
   renderKiosk();
   function wake(){ clearTimeout(idleT); clearInterval(cycleT); cycleT=null; if(KIOSK && !adminOpen) idleT=setTimeout(startCycle, 30000); }
@@ -150,8 +150,7 @@ export function bootLegacy(DATA){
   /* 데이터는 entities/store/api 가 준다 (DB가 있으면 Supabase, 없으면 씨앗). 처음 목록은 App.tsx 가 이미 읽어 DATA.stores 로 넘겼다. */
   async function reload(){ setStores(await storeApi.listStores()); document.documentElement.dataset.store = storeApi.storeSource(); }
   function applyWrite(){
-    /* 입구 버튼은 늘 보인다(작은 네모). 전시 모드에서는 숨긴다. 로그인 전엔 꾹 눌러야 열린다(features/admin-gate) */
-    document.getElementById('admin-top').style.display = KIOSK ? 'none' : '';
+    /* 입구 버튼은 늘 보인다. 로그인 전엔 작은 네모(꾹 눌러야 열림), 관리자로 로그인하면 '가게 관리' 글자 버튼(features/admin-gate 의 is-admin) */
     gate?.refresh();
     if(!canWrite && adminOpen && !wantAdmin) closeAdmin();
     renderLogin();
@@ -163,10 +162,12 @@ export function bootLegacy(DATA){
   const IN = 'padding:8px;border:1px solid var(--line);background:transparent;color:inherit;font:inherit;width:100%;box-sizing:border-box';
   let loginKey = null;   /* 같은 상태면 다시 그리지 않는다 — 탭을 떠났다 돌아오면 Supabase가 SIGNED_IN 을 또 쏘는데, 그때마다 입력 중인 칸이 지워지면 안 된다 */
   function renderLogin(){
-    listWrap.style.display = canWrite && !form.classList.contains('open') ? '' : 'none';   /* 편집 중이면 목록을 다시 켜지 않는다 */
-    if(!storeApi.hasDb()){ loginBox.style.display='none'; return; }
+    const editingNow = form.classList.contains('open');   /* 가게 하나를 열면 그 수정 폼만 보인다 — 목록·로그인 상자는 숨기고 제목 왼쪽에 ‹ 뒤로 */
+    listWrap.style.display = canWrite && !editingNow ? '' : 'none';
+    loginBox.style.display = storeApi.hasDb() && !editingNow ? 'flex' : 'none';
+    document.getElementById('aback').style.display = editingNow ? '' : 'none';
+    if(!storeApi.hasDb()) return;
     const key = `${authEmail}|${canWrite}`; if(key===loginKey) return; loginKey = key;
-    loginBox.style.display = 'flex';
     if(authEmail){
       loginBox.innerHTML = `<div>${esc(authEmail)}${canWrite?'':' — <b>관리자 아님</b> (Supabase의 admins 표에 이 이메일이 있어야 합니다)'}</div>
         <div style="display:flex;gap:6px"><input id="pw-new" type="password" placeholder="새 비밀번호 (8자 이상)" autocomplete="new-password" style="${IN}"><button type="button" class="btn" id="pw-set">설정</button></div>
@@ -209,12 +210,12 @@ export function bootLegacy(DATA){
     setPhotoPrev(s?.photoUrl || null);
     form.photo.disabled = !storeApi.canUpload(); document.getElementById('photo-note').textContent = storeApi.canUpload() ? '없으면 레드 포스터로 표시됩니다.' : '이 화면에서는 사진 업로드가 지원되지 않아요.';
     document.getElementById('delbtn').style.display = s?'':'none';
-    listWrap.style.display='none'; form.classList.add('open');
+    form.classList.add('open'); renderLogin(); admin.scrollTop = 0;
   }
   function setPhotoPrev(url){ const p=document.getElementById('photo-prev'); p.classList.toggle('empty',!url); p.style.backgroundImage = url?`url('${url}')`:''; document.getElementById('photo-rm').style.display = url?'':'none'; }
   form.photo.addEventListener('change', () => { const f=form.photo.files[0]; if(!f) return; if(f.size>20*1024*1024){ toast('20MB 이하로 올려주세요'); form.photo.value=''; return; } photoPending=f; photoRemove=false; setPhotoPrev(URL.createObjectURL(f)); });
   function removePhoto(){ photoPending=null; photoRemove=true; form.photo.value=''; setPhotoPrev(null); }
-  function cancelEdit(){ endPick(); form.classList.remove('open'); listWrap.style.display = canWrite ? '' : 'none'; editing=null; }
+  function cancelEdit(){ endPick(); form.classList.remove('open'); editing=null; renderLogin(); }
   /* 주소 → 좌표: 카카오 지도 JS geocoder (shared/lib/geocode.ts). 버튼, 주소 칸의 Enter, 포커스 이탈 때 돈다 */
   let geoSeq = 0;
   async function geocode(){
