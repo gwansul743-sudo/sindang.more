@@ -15,8 +15,6 @@
   <div id="credit">© OpenStreetMap contributors</div>
   <button id="admin-btn">가게 관리</button>
   <div id="empty">아직 올라온 가게가 없어요.<br>관리자가 추가하면 여기에 점이 생깁니다.</div>
-  <div id="pickhint">지도에서 가게 위치를 탭하세요</div>
-  <div id="msg"></div>
 </div>
 <aside id="side">
   <div id="side-empty"><div class="big">우리가 만난<br>신당의 가게들.</div><p>지도를 확대해 점을 누르면 그 가게의 카드뉴스가 여기에 펼쳐집니다.</p></div>
@@ -89,4 +87,7 @@
     </div>
   </form>
 </aside>
+<!-- 안내문구는 #app 맨 끝(최상위)에 둔다 — #stage(isolation) 안에 있으면 #admin·#topbar 밑에 깔린다 -->
+<div id="pickhint">지도에서 가게 위치를 탭하세요</div>
+<div id="msg"></div>
 </div>
