@@ -12,6 +12,8 @@ import palette from '../../content/characters/palette.json';
 import looks from '../../content/characters/looks.json';
 import chief from '../../content/characters/chief.json';
 import dog from '../../content/characters/dog.json';
+import kioskArea from '../../content/map/kiosk-area.json';
+import chiefTalk from '../../content/characters/chief-talk.json';
 import { loadLandmarks } from '../entities/landmark/load';
 import type { Store } from '../entities/store/types';
 import type { EngineData } from '../map/engine';
@@ -31,5 +33,7 @@ export function loadContent(stores: Store[]): EngineData {
     terrain: withLand(terrain).replace('<!--PROPS-->', uses),
     characters: { head, body, wave, palette, looks, chief, dog },
     stores,
+    kioskArea: { name: kioskArea.name, polygon: kioskArea.polygon.map(([lat, lng]) => [lat, lng] as [number, number]) },
+    chiefTalk: { name: chiefTalk.name, portrait: chiefTalk.portrait, pages: chiefTalk.pages },
   };
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* 화면 확인 자동화 — 다음_작업_지침 §5를 헤드리스 Chrome으로 돌린다.
+/* 화면 확인 자동화 — CLAUDE.md §4의 확인 항목을 헤드리스 Chrome으로 돌린다.
    사용: node tools/check_screen.mjs [--baseline]  (먼저 npm run build)
    · vite preview 를 띄우고, 데스크톱(1280×800)·모바일(390×844)에서 인트로를 넘긴 뒤 숫자를 센다.
    · --baseline 이면 tools/.baseline.json 에 저장, 아니면 그 파일과 비교해 다르면 종료 코드 1.

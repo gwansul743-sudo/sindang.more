@@ -14,6 +14,8 @@ export interface EngineData {
   terrain: string;
   characters: Record<string, unknown>;
   stores: unknown[];
+  kioskArea?: { name: string; polygon: [number, number][] };   // 전시 모드에서 강조할 구역 (content/map/kiosk-area.json)
+  chiefTalk?: { name: string; portrait: string; pages: string[][] };   // 이장님 인터뷰 대본 (content/characters/chief-talk.json)
 }
 
 export interface Engine {

@@ -1,11 +1,12 @@
-/* 이장님 — 정해진 자리에 서 있다가, 포인터가 다가오면 폴짝 뛰고 손을 흔든 뒤 꾸벅 인사. 머리 위에 빨간 세모(NPC 표시).
-   자리와 도안·색·표시는 content/characters/chief.json. */
+/* 이장님 — 정해진 자리에 서 있다가, 포인터가 다가오면 폴짝 뛰고 손을 흔든 뒤 꾸벅 인사. 머리 위에 빨간 세모(NPC 표시), 발밑에 이름표(랜드마크 이름표와 같은 모양).
+   자리와 도안·색·표시·이름은 content/characters/chief.json. */
 import { el } from '../svg';
 import { SW, FEET, SHADOW, mountFrames, type FrameSet, type Palette } from '../sprites/compose';
 import { chiefFrames, type BodyParts, type ChiefArt } from '../sprites/frames';
 import type { Actor, Frame } from './scene';
 
 export interface ChiefData {
+  name?: string;   // 발밑 이름표 (없으면 안 그림)
   x: number; y: number; col: Palette; art: ChiefArt;
   mark: { outline: string; fill: string; shine: string; colors: { outline: string; fill: string; shine: string } };
 }
@@ -14,6 +15,7 @@ const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 export class Chief implements Actor {
   g: SVGGElement; body: SVGGElement; fs: FrameSet; x: number; y: number; ox = 0; oy = 0; front = false; lastT = ''; lastB = '';
   private mark: SVGGElement; private markB = -1;
+  private label: SVGTextElement | null = null; private labelQ = 0;
   private mode: 'stand' | 'wave' | 'bow' = 'stand'; private until = 0; private nextPause = rnd(8, 16);
   private armed = true; private waveStart = 0; private waveMin = 0; private waveEnd = 0;
   onClick?: () => void;
@@ -25,6 +27,7 @@ export class Chief implements Actor {
     this.fs = mountFrames(this.g, chiefFrames(body, c.art), c.col); this.body = this.fs.body;
     this.mark = el('g', { class: 'wk-mark' }, this.g); const M = c.mark;
     el('path', { d: M.outline, fill: M.colors.outline }, this.mark); el('path', { d: M.fill, fill: M.colors.fill }, this.mark); el('path', { d: M.shine, fill: M.colors.shine }, this.mark);
+    if (c.name) { this.label = el('text', { class: 'wk-name', x: 0, 'text-anchor': 'middle' }, this.g); this.label.textContent = c.name; }
   }
 
   tick(f: Frame) {
@@ -41,6 +44,8 @@ export class Chief implements Actor {
     else this.fs.show(this.mode === 'bow' ? 'bow' : 'front0');
     const mb = still ? 0 : Math.floor(now / 520) % 2;   /* 세모: 0.52초마다 한 칸 오르내림 */
     if (mb !== this.markB) { this.mark.setAttribute('transform', `translate(${-SW / 2},${-FEET - mb})`); this.markB = mb; }
+    /* 이름표: g 안의 1단위 = 화면 q px 이므로 px/q 로 환산. 랜드마크 이름표와 같은 글자 크기 공식 */
+    if (this.label && q !== this.labelQ) { const fs = Math.min(15, Math.max(10, 9 + s * 1.2)); this.label.setAttribute('font-size', String(fs / q)); this.label.setAttribute('y', String((fs + 4) / q)); this.labelQ = q; }
     f.place(this, sx, sy, 1, hop);
   }
 }

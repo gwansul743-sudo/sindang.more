@@ -1,71 +1,135 @@
-# sindang.more 지도 — 프로젝트 맥락
+# sindang.more 지도 — 프로젝트 맥락 (단일 정본)
 
-> 2026-10-07 작성, 10-14 '배포 먼저'로 순서 변경. 새 세션은 **이 파일 → `다음_작업_지침.md`** 순으로 읽는다. (`폴더구조_지침.md`는 10-14에 `다음_작업_지침.md` 7·8장으로 합치고 지웠다.) 디자인 규칙은 `../초안 기능 정리/DESIGN_BRIEF.md`.
+> 2026-10-07 작성, 10-14 '배포 먼저'로 순서 변경, 10-16 `다음_작업_지침.md`를 이 파일로 합치고 지웠다. 새 세션은 **이 파일 하나만** 읽는다. 디자인 규칙은 `../초안 기능 정리/DESIGN_BRIEF.md`.
 
-## 무엇을 만드나
+## 1. 무엇을 만드나
 - 신당동 인스타그램 매거진 **sindang.more**(@morethan.sd)가 인터뷰한 가게들을 보여주는 지도 웹사이트.
 - 인스타 프로필 링크로 들어오는 방문객(대부분 폰) + 전시장 대형 화면용.
 - 가게를 누르면 **사진 → 인스타 게시물 링크 → 인터뷰 전문** 카드가 열린다. 관리자는 가게 추가·수정·사진 업로드.
-- 지금까지는 claude.ai 아티팩트로 바이브코딩했고, 이제 **실제 배포 환경으로 옮기는 단계**.
+- 옛날에는 지도가 HTML 파일 한 장이었다. 그걸 `content/`·`src/map/`으로 나누는 일은 7조각 중 6조각까지 끝났고, 화면은 옛날과 똑같다. 지금은 **배포된 상태에서 전시 기능을 붙이는 단계**.
 
-## 이 폴더에 있는 것
-**이 폴더(`sindang.more/`)가 Vite + React 프로젝트 본체다.** `npm install && npm run dev`로 옛 HTML과 같은 화면이 뜬다(2026-10-14 재확인: 빌드·`check_screen` 통과).
-- `다음_작업_지침.md` — **진행 상황의 정본.** 지금 상태(§1), 폴더 지도(§2), 확인 방법(§3), 다음 할 일 순서(§4), 하지 말 것(§5), 이미 결정된 것(§6).
-- `content/` — 그림·도로·좌표·파츠(코드 아님). `src/` — app / features / entities / shared / map. `supabase/` — schema·seed. `tools/check_screen.mjs` — 화면 자동 확인. (옛 HTML→이 구조 추출 스크립트는 10-14에 지웠다. 필요하면 git 역사의 `tools/extract_from_html.py`.)
-- 옛 한 장짜리 HTML 변주들은 **`../디자인모음/`**으로 옮겼다. 기준 파일은 `게임_낮밤_초안.html`(REV 28). `../초안 기능 정리/`에 `DESIGN_BRIEF.md`, `check_core.py`, 뼈대 `sindang-more-map.html`이 있다. 옛 HTML은 참고용이며 더 고치지 않는다.
-- 옛 지침서와 다르게 한 것(파츠 JSON, looks.json, decor/, seed.stores.json, slug·issue 컬럼, published=false='다음 호', 테마 CSS 2벌 등)은 **전부 받아들이기로 결정**(2026-10-07). 지침서 표현과 다르면 실제 파일 쪽이 맞다.
-
-## 개발 환경
-- Node는 fnm으로 설치돼 있다(v24). 셸에 fnm 환경이 안 잡혀 있으면 `eval "$(fnm env)"` 후 npm을 쓴다. `node_modules`는 macOS용이라 다른 OS에서 이 폴더를 마운트해 빌드하면 rollup 네이티브 오류가 난다 — 그땐 `git archive`로 복사해 그쪽에서 `npm install`.
-- `npm run build` = 타입 검사 + 빌드. 오류 0이어야 다음 단계로 간다. 화면 확인은 `node tools/check_screen.mjs`(헤드리스 Chrome, 마지막 줄 "통과"). 기준값 `tools/.baseline.json`은 일부러 화면을 바꿨을 때만 `--baseline`으로 다시 찍는다.
-- git 저장소와 GitHub 푸시는 사용자가 직접 관리한다. 커밋은 단계마다.
-
-## 이미 확인된 사실
-- **좌표는 실제 위경도.** 가게 11곳·랜드마크·도로(OpenStreetMap)가 모두 실좌표이고, `proj()`가 웹 메르카토르로 투영한다. 지도 클릭 → 위경도 역변환도 있음. 장식용 집·나무·지형만 일러스트(실제 건물과 무관).
-- **저장은 Supabase로 된다(10-14).** `src/entities/store/api.ts`가 stores 표를 읽고 쓰고, DB가 없거나 비면 `supabase/seed.stores.json`으로 읽기 전용 표시. 관리자 입구는 상단바 오른쪽 끝의 작은 네모 버튼(`#admin-top`, `src/features/admin-gate/`): **2초 꾹 누르면** 자판 치는 픽셀 고양이와 가로 바가 차오르고 로그인 창(이메일+비밀번호, `admins` 표의 이메일만)이 열린다. 로그인된 관리자에게는 같은 버튼이 '가게 관리' 글자 버튼으로 바뀌고 클릭 한 번으로 열린다(전시 모드와 무관). 가게 하나를 열면 목록·로그인 상자는 숨고 수정 폼만 보이며 제목 왼쪽 ‹ 로 돌아온다. 주소 `?admin=1`도 그대로 된다(10-14). 배포 주소 https://sindang-more.pages.dev (Cloudflare Pages, main 푸시 → 자동 배포). 키는 `.env`(git 무시)에, 자세한 건 `다음_작업_지침.md` §4-2.
-- 가게 데이터: 11곳이 `supabase/seed.sql`·`seed.stores.json`에, 사진 4장은 `public/seed-photos/`에 풀려 있다. 주소→좌표는 `src/shared/lib/geocode.ts`(카카오 지도 JS geocoder)가 찾는다(10-14). 키는 `.env`의 `VITE_KAKAO_JS_KEY`(카카오 콘솔 앱 ID 1607868, 도메인 제한), Pages 환경 변수에도 같은 값.
-- 캐릭터: 주민 5명(파츠 조합 스프라이트, 격자는 좌우 여백 포함 17×18칸·그리는 폭 15칸), 이장님+강아지. 파츠·팔레트·이장님·강아지 도안은 전부 `content/characters/`. 움직임은 `src/map/actors/`.
-- 그림 색: 랜드마크는 색 한 벌. 나무·집·땅(`content/map/decor/`, `terrain.svg.txt`)은 `fill="밤 색" data-df="낮 색"` 두 벌이라 고칠 때 둘 다 고친다(§4-B에서 한 벌로 줄일 예정).
-- 관련 자료: `~/Documents/경관데이터/dashboard/` (경관 대시보드)에 같은 위경도 체계의 건물 1만 동·상가 8,033곳·인터뷰 21건이 있어 그대로 올릴 수 있다. 단 거기의 `config.json`에는 과금 API 키가 평문으로 있으니 **절대 복사하지 말 것**.
-
-## 결정된 스택 (소규모·과금 상한 고정·빌드 단순)
-| 역할 | 도구 | 비고 |
+## 2. 지금 어디까지 왔나
+| 순서 | 하는 일 | 상태 |
 |---|---|---|
-| 프론트 | **Vite + React + TypeScript** | 정적 빌드. Next.js는 과함 |
-| 구조 | FSD 4층 (`app / features / entities / shared`) + `map/` 엔진 + `content/` | 상세는 `다음_작업_지침.md` §2 |
-| 스타일 | CSS Modules + 디자인 토큰(CSS 변수) | 기존 스킨 CSS 이식. Tailwind 안 씀 |
-| UI 동작 | Radix Primitives | 모양 없이 접근성만 |
-| 모션 | motion (구 Framer Motion) | UI 레이어만. 지도 애니메이션은 엔진 안에서 |
-| 폰트 | Pretendard(본문) + 세리프 서브셋, self-host | |
-| 호스팅 | **Cloudflare Pages** | GitHub 푸시 → 자동 배포. 대역폭 무제한 무료 |
-| DB·로그인·사진 | **Supabase Free** | DB 500MB·스토리지 1GB. 자동 과금 없음. 1주 무요청 시 일시정지 → 주간 핑 |
-| 주소→좌표 | 카카오 지도 JS SDK geocoder (브라우저, 도메인 제한) | 서버 없음 |
-| 인터뷰 접수 | 구글폼 → Apps Script → Supabase REST | 서버 없음 |
-| 코드 저장 | GitHub | |
+| 1 | Vite + React 골격, 디자인 토큰 | ✅ |
+| 2 | 그림·도로·캐릭터 파츠를 `content/`로 추출 | ✅ |
+| 3 | 지도 엔진 조각내기 `src/map/` ①~⑥ | ✅ 10-07. **⑦ 조립은 전시 뒤(§7)** |
+| 4 | GitHub 푸시 → Cloudflare Pages | ✅ 10-14. https://sindang-more.pages.dev |
+| 5 | Supabase 저장·관리자 로그인 | ✅ 10-14 |
+| 6 | 카카오 주소 → 좌표 | ✅ 10-14 |
+| 7 | **전시 기능** (주민 클릭·이장님 영상·구글폼·이스터에그) | ⬜ **다음 할 일 (§6)** |
+| 8 | 전시 뒤 정리 (⑦ 조립, React 부품화, 스타일, 밤 색) | ⬜ (§7) |
 
-- 지도 엔진(팬·줌·주민 걷기·호버)은 **React 밖 독립 모듈**(`src/map/`)로 두고, React는 ref로 마운트해 이벤트만 주고받는다.
-- AI 챗봇·V-World 키는 v1에서 제외. 나중에 필요하면 Cloudflare Functions 프록시 뒤에.
-- 공유용 가게별 페이지(OG 미리보기)가 필요해지면 그때 Astro 검토. 지도 모듈과 컴포넌트는 재사용 가능.
+**사용자가 직접 할 일(남음)**: Cloudflare Pages 환경 변수에 `VITE_KAKAO_JS_KEY` 넣기. 배포 주소에서 `?admin=1` 로그인 → 가게 수정·저장 → 새로고침 후 남아 있는지 → 사진 업로드 한 번 확인. -> 완료함
 
-## 예정 기능
-- 가게 관리: 관리자가 `/admin`에서 채우면 바로 반영. 주소만 넣으면 좌표 자동.
-- 인터뷰이 캐릭터: 전시 쿠폰 → 구글폼 인터뷰 → 승인 → 랜덤 외형 주민으로 걸어다님. hover 손인사 유지, 클릭 시 인터뷰 표시.
-- 이장님: 클릭 시 영상 재생 + 동물의 숲식 자막 상자.
-- 이스터에그: 상단 "MORE" 5회 클릭 → 경관 대시보드(별도 Cloudflare Pages 프로젝트)로 이동.
+끝난 조각 ①~⑥: 투영 `projection.ts` · 뷰포트 `viewport.ts` · 층 `layers/`(roads·terrain·land·landmarks·dots) · 스프라이트 `sprites/`(compose·frames) · 배우 `actors/`(roadGraph·scene·walker·chief·dog) · 밤 `night.ts` + `features/theme-toggle/`. 옛 스크립트 `src/map/legacy/engine.legacy.js`는 776줄 → 약 290줄(카드·관리 폼·인트로·전시 모드만 남음).
 
-## 작업 순서와 현재 위치 (상세는 `다음_작업_지침.md` §4)
-**10-14 결정: 배포 먼저.** 엔진 조각내기는 ①~⑥까지 끝난 상태(빌드·화면 확인 통과)에서 멈추고, 마지막 ⑦ 조립과 React 부품화는 전시 뒤로 미룬다. 코드는 되돌리지 않는다.
-1. ~~Vite 골격 + tokens~~ — 됨
-2. ~~`content/` 추출~~ — 됨
-3. ~~`map/` 엔진 조각 ①~⑥~~ — 됨 (10-07 커밋). ⑦은 전시 뒤
-4. ~~GitHub 푸시 → Cloudflare Pages 배포(§4-1)~~ — 됨 (10-14, https://sindang-more.pages.dev)
-5. ~~Supabase 연결(§4-2)~~ — 됨 (10-14). ~~카카오 주소(§4-3)~~ — 됨 (10-14). Pages 환경 변수 `VITE_KAKAO_JS_KEY`만 사용자가 넣을 것
-6. 전시 기능: 주민 클릭·이장님 영상·구글폼·이스터에그(§4-4) — **여기서부터 시작**
-7. 전시 뒤: ⑦ 조립, 화면 React 부품화, 스타일 정리, 밤 색 계산(§4-5)
+## 3. 폴더 지도
+```
+sindang.more/
+├─ content/            ★ 그림·좌표·파츠. 코드 아님. 정본(옛 HTML에서 다시 추출하지 않음)
+│  ├─ landmarks/       랜드마크 그림(*.pixel.txt) + landmarks.json
+│  ├─ characters/      parts/*.json, palette.json, looks.json(주민 조합), chief.json, dog.json
+│  └─ map/             roads.json, land.json, props.json, terrain*.svg.txt, decor/(나무·집)
+├─ src/
+│  ├─ map/             ★ 지도 엔진. React·Supabase·features 모름(`shared`만 본다)
+│  │  ├─ engine.ts     바깥 얼굴(아직 임시 엔진을 켜기만 함 → ⑦에서 진짜 조립)
+│  │  ├─ projection.ts · viewport.ts · night.ts · svg.ts · layers/ · sprites/ · actors/
+│  │  └─ legacy/engine.legacy.js   남은 옛 코드(부품화 끝나면 삭제)
+│  ├─ features/theme-toggle/   낮밤 버튼
+│  ├─ features/admin-gate/     관리자 입구(holdGate.ts, gate.css)
+│  ├─ entities/        가게·랜드마크·캐릭터 타입. store/api.ts = Supabase 읽기·쓰기, DB 없으면 seed JSON
+│  ├─ app/             App.tsx(조립), content.ts(content/ 읽기), legacy-markup.html(옛 마크업)
+│  └─ shared/          styles/(tokens·낮·밤 CSS), lib/(supabase.ts·auth.ts·geocode.ts)
+├─ supabase/           schema.sql · storage.sql · seed.sql · seed.stores.json
+├─ public/seed-photos/ 가게 사진 4장
+├─ tools/              check_screen.mjs(화면 자동 확인) · night_palette.reference.json(밤 색 변환표)
+└─ .github/workflows/supabase-ping.yml   매주 월요일 Supabase 핑(일시정지 방지)
+```
+옛 한 장짜리 HTML들은 `../디자인모음/`(기준 `게임_낮밤_초안.html`, REV 28). `../초안 기능 정리/`에 `DESIGN_BRIEF.md`, `check_core.py`, 뼈대 HTML. 옛 HTML은 참고용이며 더 고치지 않는다.
 
-하지 말 것: 임시 엔진을 한 번에 다시 쓰기, 전시 전에 ⑦·부품화 시작하기, `bootLegacy()` 두 번 부르기, `legacy-markup.html`의 id·class 바꾸기, 키를 저장소에 올리기(`다음_작업_지침.md` §5).
-
-## 디자인 원칙 (요약)
-- 친숙하고 감각적. 복잡해 보이면 실패. 상시 글자는 랜드마크 6 + 권역 2가 상한.
+## 4. 개발 환경과 확인 방법
+- Node는 fnm(v24). 셸에 안 잡혀 있으면 `eval "$(fnm env)"` 후 npm. `node_modules`는 macOS용 — 다른 OS에서 빌드하려면 `git archive`로 복사해 그쪽에서 `npm install`.
+- 한 단계 = 커밋 1개 + 아래 확인. git·GitHub 푸시는 사용자가 관리한다(Claude는 로컬 커밋만, 푸시 안 함).
+```bash
+npm run build                 # 타입 검사 + 빌드. 오류 0
+node tools/check_screen.mjs   # 헤드리스 Chrome. 마지막 줄 "통과"
+```
+- `check_screen.mjs`가 보는 것: 데스크톱·모바일 × 낮·밤 4화면에서 숫자(가게점 11 · 주민 7 · 장식 217 · 가로등 53 · 랜드마크 6 · 권역 2 · 도로 4), 이장님·강아지 path 해시, SVG 층 순서, viewBox, 가게 점 클릭 → 카드·사진, 테마 버튼, 휠·드래그·확대, 주민이 걷는지, 이장님 호버 손인사, 콘솔 오류 0.
+- 기준값 `tools/.baseline.json`(git 무시)은 **일부러 화면을 바꿨을 때만** `--baseline`으로 다시 찍는다. 빌드 로그의 "chunk 600KB" 경고는 무시.
+- **전시 직전 점검(한 번)**: 전체화면 장시간 실행(전시 모드 30초 무입력 → 6초 순환), 네트워크 끊김 뒤 복구, 사진 로딩 실패, 핀치 확대, 새로고침, 절전 복귀, 가게 0개, 아주 긴 인터뷰, 인스타 URL 없음, 테마 전환 후 새로고침.
 - 모바일 390px 폭에서 먼저 확인. 인스타 버튼은 항상 눈에 띄게.
-- AI가 즉흥으로 새 색·간격을 넣지 않도록 토큰만 쓴다.
+
+## 5. 연결된 서비스 설정 메모 (키는 전부 `.env`, git 무시)
+**Cloudflare Pages** — GitHub main 푸시 → 자동 배포. 빌드 `npm run build`, 출력 `dist`. 환경 변수 `NODE_VERSION=22`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` 등록됨. `VITE_KAKAO_JS_KEY`는 사용자가 넣을 것. 파일당 25MB 제한.
+
+**Supabase** (프로젝트 `sindang.more`, Seoul, Free) — `schema.sql`·`storage.sql`(버킷 photos)·`seed.sql`(가게 11곳, 사진은 `/seed-photos/` 정적 경로) 실행됨. `admins` 표의 이메일만 쓰기 가능(RLS). `.env`의 `VITE_SUPABASE_ANON_KEY` = Publishable key.
+- 로그인: 이메일+비밀번호(`shared/lib/auth.ts`, `is_admin()`). 세션은 브라우저에 남는다. 비밀번호 변경·처음 설정은 관리 패널 안에서. 잊었을 때만 메일 링크 — Authentication → URL Configuration: Site URL = 배포 주소, Redirect URLs에 `http://localhost:5173/**`, `https://sindang-more.pages.dev/**`.
+- fallback: DB 조회 실패나 표가 비면 `seed.stores.json` 읽기 전용. DB 없이 `npm run dev`일 때만 메모리 목업 저장.
+- 핑 워크플로는 GitHub Secrets `SUPABASE_URL`, `SUPABASE_ANON_KEY` 필요.
+
+**카카오 지도** — 앱 "Gwansul - sindang.more"(ID 1607868), JavaScript 키 "sindang-more", SDK 도메인 `http://localhost:5173`·`http://localhost:4199`·`https://sindang-more.pages.dev`. `shared/lib/geocode.ts`가 가게 주소의 "좌표 찾기" 버튼·주소 칸 Enter치거나 포커스 이탈할 때 돈다. 지도 범위 밖이면 거절, 못 찾으면 "지도에서 찍기" 안내.
+
+**관련 자료**: `~/Documents/경관데이터/dashboard/`(경관 대시보드)에 같은 위경도 체계의 건물 1만 동·상가 8,033곳·인터뷰 21건. 단 거기의 `config.json`에는 과금 API 키가 평문으로 있으니 **절대 복사하지 말 것**.
+
+## 6. 다음 할 일: 전시 기능 (서로 독립, 기능 하나 → 확인 → 커밋)
+우선순위는 전시 기획에 따른다.
+- **주민 클릭 → 인터뷰 카드**: 주민은 `src/map/actors/walker.ts`. 클릭을 `engine.ts`의 `on('character:click')`으로 올리고, 카드는 `features/walkers/`(가게 카드와 같은 틀). 손인사는 그대로.
+- **이장님 영상·자막**: `actors/chief.ts`의 이장님 `g`에 클릭(`pointer-events` 켜기) → `features/chief/`가 `<video>`와 동물의 숲식 자막 상자를 띄운다. 영상 `public/chief/chief.mp4` 20MB 이하, 자막 `content/chief/subtitles.json`.
+- **구글폼 → 캐릭터**: §9. service role 키는 Apps Script 속성에만.
+- **이스터에그**: 상단 "MORE" 5회 클릭 → 경관 대시보드(별도 Pages 프로젝트). `features/easter-egg/`.
+
+## 7. 전시 뒤 (화면이 안 바뀌는 정리)
+**⑦ `engine.ts` 진짜 조립**: `createEngine(host, data)`가 projection → land → viewport → layers → scene → night 순으로 만든다(임시 엔진 앞부분의 투영·층·뷰포트·render가 옮겨갈 내용). 바깥 API: `setStores`, `select(id)`, `centerOn`, `homeView`, `zoom(f)`, `toLatLng(clientX, clientY)`, `on('store:select'|'chief:click'|'character:click')`, `destroy()`. 이때 `Object.assign(window, …)`를 없애고 `onclick="…"`을 `addEventListener`로.
+
+**화면을 React 부품으로** (`legacy-markup.html`을 구역별로 잘라 옮기고, 옮긴 구역은 마크업·임시 엔진에서 지운다):
+| 구역 | 갈 곳 | 임시 엔진에서 같이 빠지는 것 |
+|---|---|---|
+| 상단바 (MORE · 버튼 4개) | `app/App.tsx` | 전시 모드 토글, 인트로 다시 보기 |
+| 인트로 | `features/intro/` | openMap · endIntro · playIntro |
+| 가게 카드 (사이드/바텀시트) | `features/store-card/` | select · step · closeCard · renderInterview |
+| 관리 패널 + 폼 | `features/admin-stores/` | editStore · saveStore · geocode · startPick · 사진 미리보기 |
+| 전시 모드 자동 순환 | `features/kiosk/` | wake · startCycle |
+끝나면 `legacy-markup.html`·`engine.legacy.js` 삭제, 문구는 `content/copy.ko.json`으로.
+
+**스타일 정리**: 낮·밤 CSS 두 벌은 색만 다르다. 공통은 `shared/styles/base.css`, 색은 `tokens.css`의 `[data-theme]` 변수로. 옆 패널 섬 그림(CSS 안 data URI 약 100KB×2)은 파일로.
+**밤 색을 계산으로(선택)**: 나무·집·땅의 `fill="밤" data-df="낮"` 두 벌을 낮 한 벌로 줄이고 밤은 `tools/night_palette.reference.json` 규칙으로.
+
+## 8. 하지 말 것
+- 임시 엔진을 한 번에 다시 쓰기. 조각 하나 → 확인 → 커밋. 한 번에 두 기능 작업 금지.
+- 전시 전에 ⑦ 조립·React 부품화 시작하기.
+- `bootLegacy()` 두 번 부르기(문서 id 의존). `App.tsx`의 `booted` 가드와 StrictMode 미사용은 그래서다.
+- `legacy-markup.html`의 id·class 바꾸기(임시 엔진이 참조). 컴포넌트로 옮긴 구역만.
+- 옛 HTML에서 `content/` 다시 추출하기(추출 스크립트는 git 역사의 `tools/extract_from_html.py`).
+- 화면이 달라진 이유를 모르는데 `--baseline` 덮어쓰기.
+- `.env`, service role 키, 카카오 REST 키를 저장소에 올리기.
+- `src/map/`에서 React·Supabase·features 가져오기.
+- AI가 즉흥으로 새 색·간격 넣기 — 토큰만 쓴다. 상시 글자는 랜드마크 6 + 권역 2가 상한.
+
+## 9. 이미 결정된 것 · 확인된 사실
+**스택** (소규모·과금 상한 고정): Vite + React + TS(정적 빌드) · FSD 4층(`app/features/entities/shared`) + `map/` 엔진 + `content/` · CSS Modules + 토큰(Tailwind 안 씀) · Radix Primitives · motion(UI만) · Pretendard + 세리프 서브셋 · Cloudflare Pages · Supabase Free · 카카오 JS geocoder(서버 없음) · 구글폼 → Apps Script → Supabase REST · GitHub. AI 챗봇·V-World 키는 v1 제외(필요하면 Cloudflare Functions 뒤). 공유용 가게별 OG 페이지가 필요해지면 Astro 검토.
+- 지도 엔진은 React 밖 독립 모듈. React는 ref로 마운트해 이벤트만 주고받는다.
+- **좌표는 실제 위경도**. 가게 11곳·랜드마크·도로(OSM) 모두 실좌표, `proj()`가 웹 메르카토르로. 장식용 집·나무·지형만 일러스트.
+- 관리자 입구: 상단바 오른쪽 끝 작은 네모 버튼 `#admin-top`을 **2초 꾹**(자판 치는 픽셀 고양이 + 가로 바, 도안은 `holdGate.ts`의 FRAME_A/B). 로그인된 관리자에겐 `is-admin` 클래스로 '가게 관리' 글자 버튼이 되어 한 번 클릭. `?admin=1`도 된다. 가게 하나를 열면 목록·로그인 상자는 숨고 수정 폼만, 제목 왼쪽 `#aback` ‹ 로 돌아온다. 호수 배지는 픽셀 폰트에 한글이 없어 본문 폰트.
+- 캐릭터: 주민 5명(파츠 조합, 격자 17×18칸 = 그리는 폭 15 + 양옆 여백 1, 발끝 16번째 줄), 이장님+강아지. 파츠는 `.json`, 머리카락은 `head.json`의 머리 모양(short·bob·hat)에 포함.
+- 그림 색: 랜드마크는 한 벌. 나무·집·땅은 `fill="밤" data-df="낮"` 두 벌 — 고칠 때 둘 다.
+- stores 표에 `slug`(옛 id)·`issue`('6호') 컬럼. `published=false` = '다음 호'(점선 점). `seed.stores.json`은 fallback용으로 남긴다.
+- 옛 지침서와 다르게 한 것(파츠 JSON, looks.json, decor/, seed.stores.json, slug·issue, 테마 CSS 2벌 등)은 전부 수용(10-07). 지침서 표현과 다르면 실제 파일 쪽이 맞다.
+- **배포 먼저, 쪼개기는 전시 뒤**(10-14). ①~⑥은 되돌리지 않는다.
+
+**데이터 모델** (실제 정의는 `supabase/schema.sql`):
+```
+stores       가게      id, slug, name, addr, lat, lng, ig_url, photo_path, interview_md, issue, order, published
+characters   인터뷰이  id, nickname, look(json: 파츠·색 seed), interview_id, status(pending|approved|hidden), created_at
+interviews   인터뷰    id, source(form|shop), answers(json), summary_md, store_id?, created_at
+```
+- 읽기 누구나, 쓰기는 `admins` 이메일만(RLS). `characters.look`은 **파츠 조합 결과만** 저장(그림은 `content/characters/`). 랜드마크·도로·장식은 DB에 넣지 않는다(git 이력이 더 유용).
+
+**구글폼 → 캐릭터 파이프라인** (서버·크론 없음):
+```
+구글폼 제출 → 연결된 구글시트 행 추가 → Apps Script onFormSubmit
+  → Supabase REST로 interviews + characters(status=pending) INSERT  (service role 키는 Apps Script 속성에만)
+  → 관리자가 승인 → 앱이 approved 캐릭터를 불러와 walkers로 스폰 → 클릭 시 인터뷰 카드
+```
+- 외형은 look을 비워 두고 앱이 처음 볼 때 seed로 랜덤 생성(더 단순). 쿠폰 코드 검증이 필요하면 폼 항목 + Apps Script 대조.
+- 이장님: 클릭 시 영상 재생 + 동물의 숲식 자막 상자. 이스터에그: MORE 5회 클릭 → 경관 대시보드.

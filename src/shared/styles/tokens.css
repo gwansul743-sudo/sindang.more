@@ -6,3 +6,11 @@
   --font-pixel:"Pixelify Sans","IBM Plex Sans KR",monospace;
   --cut:polygon(0 5px,5px 5px,5px 0,calc(100% - 5px) 0,calc(100% - 5px) 5px,100% 5px,100% calc(100% - 5px),calc(100% - 5px) calc(100% - 5px),calc(100% - 5px) 100%,5px 100%,5px calc(100% - 5px),0 calc(100% - 5px));
 }
+
+/* UI 배율 — 창이 1250px 보다 훨씬 넓어지면 상단바·사이드바·말풍선·대화 패널·제목 블록을 같이 키운다(CSS zoom). 지도 자체는 안 건드린다.
+   전시장 대형 화면(2300px 안팎)에서 1250px 창과 비슷한 비율로 보이게 하는 것이 목적. 1280px 이하는 1배 그대로 */
+:root{--ui:1}
+@media(min-width:1500px){:root{--ui:1.2}}
+@media(min-width:1800px){:root{--ui:1.45}}
+@media(min-width:2100px){:root{--ui:1.7}}
+@media(min-width:2500px){:root{--ui:2}}
