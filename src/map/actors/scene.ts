@@ -41,7 +41,7 @@ export function createScene(o: SceneOptions): Scene {
   const leave = (e: PointerEvent) => { if (e.pointerType === 'mouse') P = null; };
   map.addEventListener('pointermove', track, { passive: true }); map.addEventListener('pointerdown', track, { passive: true }); map.addEventListener('pointerleave', leave);
 
-  const waveRadius = (q: number) => 40 + 12 * q;
+  const waveRadius = (q: number) => 36 + 11 * q;   /* 손 흔들기 판정 반지름(px). 10-16 조금 줄임(전 40+12q) */
   const pixelSize = (s: number) => (s < 1.15 ? 1 : Math.max(2, Math.min(5, Math.round(s * 0.8))));   /* 정수 → 또렷함 */
   const actors: Actor[] = [];
 
