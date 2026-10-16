@@ -76,7 +76,7 @@ for (const [name, vp] of [['desktop', { width: 1280, height: 800 }], ['mobile', 
     r.카드제목 = await page.evaluate(() => document.querySelector('#card h3')?.textContent);
     await page.screenshot({ path: join(SHOTS, `${name}-${theme}-card.png`) });
     // 테마 버튼 → 바뀌는지
-    await page.click('#theme'); await new Promise(r => setTimeout(r, 400));
+    await page.click('#theme'); await new Promise(r => setTimeout(r, 900));   /* 커튼 전환(.25s 덮기 → 교체 → .32s 걷기) */
     r.버튼후테마 = await page.evaluate(() => document.documentElement.dataset.theme);
     // 팬·줌: 휠 → 드래그 → 확대 버튼 뒤의 viewBox (휠·드래그는 즉시, 버튼은 애니메이션 뒤)
     const vb = () => page.evaluate(() => document.getElementById('svg').getAttribute('viewBox').split(' ').map(v => Math.round(+v)).join(' '));

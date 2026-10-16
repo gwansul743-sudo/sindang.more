@@ -1,0 +1,9 @@
+/* 낮/밤 전환 커튼 — 전환하는 동안 화면 전체를 목표 테마의 바탕색으로 덮어, 스타일시트 교체·SVG 재래스터화의
+   중간 프레임(폰에서 지지직거림)이 보이지 않게 한다. 색은 두 테마의 body 바탕색(theme.day.css --paper · theme.night.css body)과 같다. */
+.theme-curtain{position:fixed;inset:0;z-index:2147483000;pointer-events:none;opacity:0;transition:opacity .25s ease-in;background:#04202d}
+.theme-curtain[data-to="day"]{background:#f5f2e6}
+.theme-curtain.on{opacity:1}
+.theme-curtain.out{transition:opacity .32s ease-out}
+/* 바뀌는 순간에는 요소마다 걸린 색·투명도 전환(가게 점 fill .18s, 길 opacity .2s 등)을 꺼서 잔상이 남지 않게 */
+html.theme-switching *,html.theme-switching *::before,html.theme-switching *::after{transition:none!important}
+@media(prefers-reduced-motion:reduce){.theme-curtain,.theme-curtain.out{transition:none}}
