@@ -1,14 +1,19 @@
-/* 전시 모드 '신당 5길' 천 조각 — 점선 구역의 바닥만 펠트 천으로. 연출·무늬는 features/kiosk-patch/patch.ts */
+/* 전시 모드 '신당 5길' 천 조각 — 점선 구역의 바닥만 올리브색 거친 직물로, 가장자리는 실로 감아 꿰맨(휘프 스티치) 두꺼운 박음질. 연출·무늬는 patch.ts
+   천은 길 층 '아래'라 길은 그대로 보이고, 구역 안의 길은 굵은 복사본(.patch-rd)이 겹쳐 더 두껍다. */
 .patch{pointer-events:none;opacity:0;transition:opacity .5s ease}
 .patch.on{opacity:1}
 .patch.sewing{transition:none}
-.patch-cloth{fill:url(#patch-cloth)}
-.patch-base{fill:#e6d9b3}.patch-hi{fill:#fbf2d9;fill-opacity:.55}.patch-lo{fill:#c6b084;fill-opacity:.35}
-/* 테두리: 갈색 실 띠(바늘을 따라 그려짐) 위에 크림색 점선 박음질(완료 뒤 드러남) */
-.patch-edge{fill:none;stroke:#8f7a4e;stroke-linejoin:round;stroke-linecap:round}
-.patch-stitch{fill:none;stroke:#fff6dc;stroke-linecap:butt;opacity:0;transition:opacity .35s ease}
-.patch.stitched .patch-stitch{opacity:.9}
+/* 직물(삼베): 가로·세로 실(mid)이 격자로 교차하고(교차점 light), 실 사이 틈(dark). 대비는 낮게 — 멀리선 고른 올리브색 */
+.patch-w-dark{fill:#606c3a}.patch-w-mid{fill:#7c894f}.patch-w-light{fill:#93a05f}
+.patch-speck{fill:#bcc77d;fill-opacity:.42}
+.patch-shadow{fill:#1d2412;fill-opacity:.32}
+.patch-inset{fill:none;stroke:#1d2412;stroke-opacity:.26}
+.patch-cord{fill:none;stroke:#b8a16a;stroke-linejoin:round;stroke-linecap:round}
+.patch-st-under{stroke:#4d3e22;stroke-opacity:.5;stroke-linecap:round}
+.patch-st{stroke:#dcc893;stroke-linecap:round}
+.patch-st-hi{stroke:#f3e6bb;stroke-opacity:.55;stroke-linecap:round}
 .patch-needle{fill:#fff9ea;stroke:#4a3c22;display:none}
-html[data-theme="night"] .patch-base{fill:#5f5641}html[data-theme="night"] .patch-hi{fill:#8c7f5f}html[data-theme="night"] .patch-lo{fill:#3d3527}
-html[data-theme="night"] .patch-edge{stroke:#2b2416}html[data-theme="night"] .patch-stitch{stroke:#d9c99a}
-@media(prefers-reduced-motion:reduce){.patch,.patch-stitch{transition:none}}
+html[data-theme="night"] .patch-w-dark{fill:#323c22}html[data-theme="night"] .patch-w-mid{fill:#45532e}html[data-theme="night"] .patch-w-light{fill:#56653a}
+html[data-theme="night"] .patch-speck{fill:#76884a}
+html[data-theme="night"] .patch-cord{stroke:#a38d5c}html[data-theme="night"] .patch-st{stroke:#cdb77f}html[data-theme="night"] .patch-st-hi{stroke:#e6d6a4}html[data-theme="night"] .patch-st-under{stroke:#0e0b05}
+@media(prefers-reduced-motion:reduce){.patch{transition:none}}

@@ -49,7 +49,7 @@ export function bootLegacy(DATA){
   const districts = mountDistricts(svg, P, DATA.land.districts), gDist = districts.g;
   const lmLayer = mountLandmarks(svg, P, DATA.landmarks.items, DATA.landmarks), LANDMARKS = lmLayer.items;
   const area = DATA.kioskArea ? mountArea(svg, P, DATA.kioskArea) : null;   /* 전시 구역(신당 5길) 외곽선·이름표. 전시 모드에서만 보인다 */
-  const patch = DATA.kioskArea ? mountPatch({ svg, after: gRoads, polygon: DATA.kioskArea.polygon.map(([lat, lng]) => proj(lat, lng)) }) : null;   /* 전시 구역 바닥의 천 조각(길 위·장식 아래). 전시 모드 봉제 연출 → 와펜 */
+  const patch = DATA.kioskArea ? mountPatch({ svg, before: gRoads, polygon: DATA.kioskArea.polygon.map(([lat, lng]) => proj(lat, lng)), roads: ROADS.p }) : null;   /* 전시 구역 바닥의 천 조각(길 아래, 구역 안 길은 굵은 복사본). 전시 모드 봉제 연출 → 와펜 */
   const lmK = s => lmLayer.k(s);
 
   /* 가게 · 컬렉션 (데이터는 db에서 옴) */
