@@ -104,7 +104,7 @@ export function bootLegacy(DATA){
     if(V.moved) return;
     if(picking){ const [lat,lng] = unproj(...V.toMap(e.clientX, e.clientY));
       form.latlng.value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`; endPick(); return; }
-    if(!e.target.closest('.dot,.col-pill,.cluster')) { closeCluster(); closeCard(); }
+    if(!e.target.closest('.dot,.col-pill,.cluster')) { closeCluster(); collapseSide(); }   /* 카드가 열려 있으면 카드만, 아니면 빈 사이드바도 접는다 (10-21) */
   });
 
   /* 카드 */
