@@ -10,7 +10,7 @@ import type { Store } from './types';
 type Row = {
   id: string; slug: string | null; name: string; addr: string | null; lat: number; lng: number;
   ig_url: string | null; photo_path: string | null; interview_md: string | null; issue: string | null;
-  order: number; published: boolean;
+  order: number; published: boolean; video_url?: string | null;   // video_url 은 10-21 추가 컬럼(없는 DB 도 읽힌다)
 };
 
 export type StoreSource = 'db' | 'seed';
@@ -28,7 +28,7 @@ function photoUrl(path: string | null): string | undefined {
   return supabase!.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 function rowToStore(r: Row): Store {
-  return { id: r.id, name: r.name, addr: r.addr ?? '', lat: r.lat, lng: r.lng, ig: r.ig_url ?? '', photoUrl: photoUrl(r.photo_path),
+  return { id: r.id, name: r.name, addr: r.addr ?? '', lat: r.lat, lng: r.lng, ig: r.ig_url ?? '', video: r.video_url ?? '', photoUrl: photoUrl(r.photo_path),
     interview: r.interview_md ?? '', issue: r.issue ?? '', order: r.order, status: r.published ? 'pub' : 'up', photoPath: r.photo_path ?? undefined };
 }
 
@@ -46,7 +46,7 @@ export async function listStores(): Promise<Store[]> {
   return mock.map((s) => ({ ...s }));
 }
 
-export type StoreInput = Pick<Store, 'name' | 'addr' | 'lat' | 'lng' | 'ig' | 'interview' | 'issue' | 'status'>;
+export type StoreInput = Pick<Store, 'name' | 'addr' | 'lat' | 'lng' | 'ig' | 'video' | 'interview' | 'issue' | 'status'>;
 
 /* 저장. editing 이 있으면 수정, 없으면 추가. photo: 새 사진 파일, removePhoto: 기존 사진 지우기 */
 export async function saveStore(editing: Store | null, input: StoreInput, photo: File | null, removePhoto: boolean): Promise<void> {
@@ -74,10 +74,14 @@ export async function saveStore(editing: Store | null, input: StoreInput, photo:
     const { data } = await db.from('stores').select('order').order('order', { ascending: false }).limit(1);
     order = ((data?.[0] as { order: number } | undefined)?.order ?? 0) + 1;
   }
-  const row = { name: input.name, addr: input.addr || null, lat: input.lat, lng: input.lng, ig_url: input.ig || null, photo_path,
-    interview_md: input.interview || null, issue: input.issue || null, order, published: input.status === 'pub' };
-  const q = editing ? db.from('stores').update(row).eq('id', editing.id) : db.from('stores').insert(row);
-  const { error } = await q;
+  const row: Record<string, unknown> = { name: input.name, addr: input.addr || null, lat: input.lat, lng: input.lng, ig_url: input.ig || null, photo_path,
+    interview_md: input.interview || null, issue: input.issue || null, order, published: input.status === 'pub', video_url: input.video || null };
+  const write = (r: Record<string, unknown>) => (editing ? db.from('stores').update(r).eq('id', editing.id) : db.from('stores').insert(r));
+  let { error } = await write(row);
+  if (error && /video_url/.test(error.message)) {   /* DB 에 아직 video_url 컬럼이 없으면(schema.sql 의 alter 미실행) 영상 빼고 저장 */
+    delete row.video_url; ({ error } = await write(row));
+    if (!error) throw new Error('저장됐지만 영상 주소는 빠졌어요. Supabase SQL 에서 alter table stores add column video_url text; 를 한 번 실행하세요.');
+  }
   if (error) throw error;
 }
 

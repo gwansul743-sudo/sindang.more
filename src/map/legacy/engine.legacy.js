@@ -142,6 +142,7 @@ export function bootLegacy(DATA){
         <div class="navs"><button class="nav" aria-label="이전" onclick="step(-1)">‹</button><button class="nav" aria-label="다음" onclick="step(1)">›</button></div>
         <div class="small-note">카드뉴스 전체는 인스타그램 게시물에서 볼 수 있습니다.</div>
       </div>
+      ${renderVideo(s.video)}
       ${renderInterview(s.interview)}`;
     sheet.classList.add('open'); side.classList.add('has'); side.classList.remove('closed');
     /* 폰 바텀시트는 'INTERVIEW' 제목까지만 보이는 높이로 연다(나머지는 시트 안에서 스크롤). 인터뷰가 없으면 기본 높이 */
@@ -151,6 +152,17 @@ export function bootLegacy(DATA){
   }
   function step(d){ const i=(STORES.indexOf(current)+d+STORES.length)%STORES.length; select(STORES[i], true); }
   function closeCard(){ closeCluster(); if(current){ dots.select(null); current=null; } sheet.classList.remove('open'); document.getElementById('side').classList.remove('has'); apply(); }
+  /* 영상: 구글 드라이브(공유 링크) → 미리보기 iframe, 유튜브 → embed, mp4/webm 주소 → <video>, 그 밖엔 링크 버튼 (10-21) */
+  function renderVideo(url){
+    url = (url||'').trim(); if(!url) return '';
+    const drive = url.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([\w-]+)/);
+    const yt = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([\w-]+)/);
+    const frame = (src) => `<div class="card-video"><iframe src="${esc(src)}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy" title="영상"></iframe></div>`;
+    if(drive) return frame(`https://drive.google.com/file/d/${drive[1]}/preview`);
+    if(yt) return frame(`https://www.youtube.com/embed/${yt[1]}?rel=0&playsinline=1`);
+    if(/\.(mp4|webm|mov|m4v)(\?|$)/i.test(url)) return `<div class="card-video"><video src="${esc(url)}" controls playsinline preload="metadata"></video></div>`;
+    return `<a class="ig-link video-link" href="${esc(url)}" target="_blank" rel="noopener"><span>영상 보기</span><span>↗</span></a>`;
+  }
   function renderInterview(text){
     if(!text || !text.trim()) return '';
     const blocks=[]; let cur=null, sec='';
@@ -300,7 +312,7 @@ export function bootLegacy(DATA){
   }
   function editStore(s){
     editing = s; form.reset();
-    if(s){ form.name.value=s.name; form.issue.value=s.issue||''; form.status.value=s.status; form.ig.value=s.ig||''; form.interview.value=s.interview||''; form.addr.value=s.addr||''; form.latlng.value=`${s.lat}, ${s.lng}`; select(s,true); }
+    if(s){ form.name.value=s.name; form.issue.value=s.issue||''; form.status.value=s.status; form.ig.value=s.ig||''; form.video.value=s.video||''; form.interview.value=s.interview||''; form.addr.value=s.addr||''; form.latlng.value=`${s.lat}, ${s.lng}`; select(s,true); }
     photoPending=null; photoRemove=false; form.photo.value='';
     setPhotoPrev(s?.photoUrl || null);
     form.photo.disabled = !storeApi.canUpload(); document.getElementById('photo-note').textContent = storeApi.canUpload() ? '없으면 기본 이미지로 표시됩니다.' : '이 화면에서는 사진 업로드가 지원되지 않아요.';
@@ -341,7 +353,7 @@ export function bootLegacy(DATA){
     const m = form.latlng.value.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/); if(!m){ toast('위치는 "위도, 경도" 형식으로'); return; }
     const lat=+m[1], lng=+m[2];
     if(lat<BBOX.lat0||lat>BBOX.lat1||lng<BBOX.lon0||lng>BBOX.lon1){ toast('지도 범위 밖 좌표예요'); return; }
-    const input = {name:form.name.value.trim(), issue:form.issue.value.trim(), status:form.status.value, ig:form.ig.value.trim(), interview:form.interview.value.trim(), addr:form.addr.value.trim(), lat, lng};
+    const input = {name:form.name.value.trim(), issue:form.issue.value.trim(), status:form.status.value, ig:form.ig.value.trim(), video:form.video.value.trim(), interview:form.interview.value.trim(), addr:form.addr.value.trim(), lat, lng};
     try{
       if(photoPending) toast('사진 올리는 중…');
       await storeApi.saveStore(editing, input, photoPending, photoRemove);

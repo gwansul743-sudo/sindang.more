@@ -10,6 +10,7 @@ create table if not exists stores (
   lng           double precision not null,
   ig_url        text,
   photo_path    text,
+  video_url     text, -- 영상 주소(유튜브·구글 드라이브·mp4). 10-21 추가. 기존 DB: alter table stores add column if not exists video_url text;
   interview_md  text,
   issue         text, -- '6호' 표시
   "order"       integer not null default 0,
