@@ -14,3 +14,8 @@
 @media(min-width:1800px){:root{--ui:1.45}}
 @media(min-width:2100px){:root{--ui:1.7}}
 @media(min-width:2500px){:root{--ui:2}}
+
+/* 이장님·고양이는 전시 모드에서 스탬프 → 두 번째 줌인이 끝난 뒤에만 보인다 (엔진이 body.chief-hidden 을 뗀다, 10-21) */
+body.chief-hidden .wk-chief,body.chief-hidden .wk-cat{display:none}
+.wk-chief.appear,.wk-cat.appear{animation:chief-appear .45s ease-out both}
+@keyframes chief-appear{from{opacity:0}to{opacity:1}}

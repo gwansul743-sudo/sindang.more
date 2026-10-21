@@ -201,11 +201,13 @@ export function bootLegacy(DATA){
   });
   const CHIEF_LINES = ['오호! 처음 보는 얼굴이구먼!\n**신당 5길**에 어서와!!', '잠깐 이야기 좀 듣고 갈 텐가?'];
   const stamps = mountStamps(stage, { map, target: () => area ? area.labelCenter() : null, onArrive: () => area?.pulse(),
-    onDone: () => { if(!KIOSK) return; centerOn(V.x + V.w / 2, V.y + V.h / 2, scale() * 1.6, 0, () => { if(KIOSK) speech.say(CHIEF_LINES); }); } });   /* 지금 화면 가운데 그대로 ×1.6 (10-21: 이장님 쪽으로 옮기지 않는다) */
+    onDone: () => { if(!KIOSK) return; centerOn(V.x + V.w / 2, V.y + V.h / 2, scale() * 1.6, 0, () => { if(KIOSK){ showChief(true); speech.say(CHIEF_LINES); } }); } });   /* 지금 화면 가운데 그대로 ×1.6 (10-21: 이장님 쪽으로 옮기지 않는다) */
   function kioskView(){ const d = desktop(), s = d ? homeView().s * 1.6 ** 5 : homeView().s * 1.6, c = DATA.characters.chief, x = d ? c.x : KIOSK_VIEW.x, y = d ? c.y - 6 : KIOSK_VIEW.y;   /* 데스크톱: 줌 + 5번 누른 배율, 카메라는 이장님(신당 5길)보다 조금 위를 본다 (10-21) */
     withSide(true, () => centerOn(x, y, s, 0, () => { if(KIOSK) stamps.play(); })); }
   function goHome(){ withSide(false, () => { const hv = homeView(); centerOn(hv.x, hv.y, hv.s, 0); }); }
-  kioskBtn.onclick = () => { KIOSK=!KIOSK; renderKiosk(); if(KIOSK){ closeCard(); kioskView(); } else { stamps.cancel(); speech.hide(); talk.hide(); goHome(); } };
+  /* 이장님·고양이는 평소엔 숨겨 두고(body.chief-hidden), 전시 모드의 두 번째 줌인이 끝난 뒤 등장한다. 끄면 다시 숨김 (10-21) */
+  const showChief = (on) => { document.body.classList.toggle('chief-hidden', !on); document.querySelectorAll('.wk-chief,.wk-cat').forEach(g => g.classList.toggle('appear', on)); };
+  kioskBtn.onclick = () => { KIOSK=!KIOSK; renderKiosk(); showChief(false); if(KIOSK){ closeCard(); kioskView(); } else { stamps.cancel(); speech.hide(); talk.hide(); goHome(); } };
   renderKiosk();
   function wake(){}   /* 예전엔 30초 뒤 자동 전환을 다시 걸었다. 호출 자리는 남겨 둔다 */
 
@@ -366,6 +368,7 @@ export function bootLegacy(DATA){
     spawnWalkers(scene, { graph, parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, count: 5, speed: 6.5, home: LANDMARKS[0] || {x:W/2, y:H/2} });
     const chief = new Chief(scene.layer, DATA.characters.body, DATA.characters.chief); scene.add(chief); chiefActor = chief;
     scene.add(new Cat(scene.layer, DATA.characters.cat, chief));
+    document.body.classList.add('chief-hidden');   /* 전시 모드 연출 뒤에만 보인다 (showChief) */
     scene.start();
   }
 

@@ -62,11 +62,13 @@ for (const [name, vp] of [['desktop', { width: 1280, height: 800 }], ['mobile', 
       await new Promise(r => setTimeout(r, 700));
       const after = await page.evaluate(() => [...document.querySelectorAll('.wk:not(.wk-chief):not(.wk-cat)')].find(w => !w.hasAttribute('display'))?.getAttribute('transform'));
       r.동작_주민걷기 = before !== after;
+      await page.evaluate(() => document.body.classList.remove('chief-hidden'));   // 이장님은 평소 숨김(전시 모드 연출 뒤 등장) — 호버 검사 동안만 보이게
       const box = await page.evaluate(() => { const b = document.querySelector('.wk-chief').getBoundingClientRect(); return [b.x + b.width / 2, b.y + b.height / 2]; });
       if (box[0] > 0 && box[0] < vp.width) {
         await page.mouse.move(box[0] - 5, box[1] - 5); await page.mouse.move(box[0], box[1], { steps: 3 }); await new Promise(r => setTimeout(r, 350));
         r.동작_이장님손인사 = await page.evaluate(() => [...document.querySelector('.wk-chief > g').children].findIndex(g => !g.hasAttribute('display')));   // 0 front0 · 1,2 wave · 3 bow
       } else r.동작_이장님손인사 = '화면 밖';
+      await page.evaluate(() => document.body.classList.add('chief-hidden'));
     }
     // 가게 점 클릭 → 카드 열림·사진
     await page.evaluate(() => { const d = document.querySelector('.dot'); d.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
