@@ -9,7 +9,7 @@ export interface StampSpec { src: string; x: number; y: number; rot: number; m?:
 export interface StampOptions {
   map: HTMLElement;                             // 비율 좌표의 기준 칸(#map)
   target: () => { x: number; y: number } | null; // 빨려 들어갈 화면 좌표(clientX/Y). 없으면 그 자리에서 사라진다
-  frame?: () => { left: number; top: number; width: number; height: number } | null;   // 있으면 자리를 이 사각형(전시 구역, 화면 좌표) 기준 비율(f)로 — 와펜이 천 조각 안에 찍히게 (10-21)
+  frame?: () => { left: number; top: number; width: number; height: number } | null;   // 있으면 자리를 이 사각형(전시 구역, 화면 좌표) 기준 비율(f)로 — 와펜이 천 조각 안에 찍히게, 데스크톱·폰 공통 (10-21)
   onArrive?: () => void;                         // 한 장이 이름표에 닿을 때(이름표 펄스)
   onDone?: () => void;                           // 마지막 장까지 빨려 들어가 연출이 끝났을 때(중간에 cancel 되면 안 부름)
   items?: StampSpec[];
@@ -41,9 +41,9 @@ export function mountStamps(stage: HTMLElement, o: StampOptions): Stamps {
   function size() { return phone() ? Math.max(96, Math.min(120, o.map.clientWidth * 0.3)) : Math.max(144, Math.min(336, o.map.clientWidth * 0.21)); }   // 10-16 사용자 요청으로 2배 (지도 폭의 21%, 144~336px). 폰은 10-21 더 작게(폭의 30%, 96~120px)
   const GATHER = 0.8;   /* 폰: 줄어든 만큼 자리도 가운데로 20% 모은다 */
   function place(el: HTMLElement, it: StampSpec, s: number) {
-    const r = o.map.getBoundingClientRect(), sr = stage.getBoundingClientRect(), fr = r.width < 600 ? null : o.frame?.();
-    const base = fr || r, raw = fr && it.f ? it.f : (r.width < 600 && it.m ? it.m : it);
-    const pos = r.width < 600 ? { x: 0.5 + (raw.x - 0.5) * GATHER, y: 0.5 + (raw.y - 0.5) * GATHER } : raw;
+    const r = o.map.getBoundingClientRect(), sr = stage.getBoundingClientRect(), fr = o.frame?.();
+    const base = fr && it.f ? fr : r, raw = fr && it.f ? it.f : (r.width < 600 && it.m ? it.m : it);
+    const pos = !fr && r.width < 600 ? { x: 0.5 + (raw.x - 0.5) * GATHER, y: 0.5 + (raw.y - 0.5) * GATHER } : raw;   /* 구역 기준(f)이면 폰도 그대로, 화면 기준일 때만 폰에서 가운데로 모은다 */
     el.style.left = `${base.left - sr.left + base.width * pos.x - s / 2}px`;
     el.style.top = `${base.top - sr.top + base.height * pos.y - s / 2}px`;
     el.style.width = el.style.height = `${s}px`;
