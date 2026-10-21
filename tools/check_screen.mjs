@@ -38,8 +38,8 @@ const SNIPPET = () => ({
   svg층순서: [...document.getElementById('svg').children].map(e => (e.getAttribute('class') || e.tagName).split(' ')[0]).join('>'),
   테마버튼: document.getElementById('theme')?.textContent,
   이장님그림: [...document.querySelectorAll('.wk-chief path')].map(p => p.getAttribute('d') + p.getAttribute('fill')).join('|').length + ':' + [...document.querySelectorAll('.wk-chief path')].map(p => p.getAttribute('d') + p.getAttribute('fill')).join('|').split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7),
-  강아지그림: [...document.querySelectorAll('.wk-dog path')].map(p => p.getAttribute('d') + p.getAttribute('fill')).join('|').length + ':' + [...document.querySelectorAll('.wk-dog path')].map(p => p.getAttribute('d') + p.getAttribute('fill')).join('|').split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7),
-  주민그림칸수: [...document.querySelectorAll('.wk:not(.wk-chief):not(.wk-dog) path')].length,
+  고양이그림: [...document.querySelectorAll('.wk-cat path')].map(p => p.getAttribute('d') + p.getAttribute('fill')).join('|').length + ':' + [...document.querySelectorAll('.wk-cat path')].map(p => p.getAttribute('d') + p.getAttribute('fill')).join('|').split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7),
+  주민그림칸수: [...document.querySelectorAll('.wk:not(.wk-chief):not(.wk-cat) path')].length,
   viewBox: document.getElementById('svg').getAttribute('viewBox').split(' ').map(v => Math.round(+v)).join(' '),
 });
 
@@ -58,9 +58,9 @@ for (const [name, vp] of [['desktop', { width: 1280, height: 800 }], ['mobile', 
     await page.screenshot({ path: join(SHOTS, `${name}-${theme}.png`) });
     // 동작 단언 (기준값과 비교하지 않음): 주민이 걷는지, 이장님이 손을 흔드는지
     if (name === 'desktop') {
-      const before = await page.evaluate(() => [...document.querySelectorAll('.wk:not(.wk-chief):not(.wk-dog)')].find(w => !w.hasAttribute('display'))?.getAttribute('transform'));
+      const before = await page.evaluate(() => [...document.querySelectorAll('.wk:not(.wk-chief):not(.wk-cat)')].find(w => !w.hasAttribute('display'))?.getAttribute('transform'));
       await new Promise(r => setTimeout(r, 700));
-      const after = await page.evaluate(() => [...document.querySelectorAll('.wk:not(.wk-chief):not(.wk-dog)')].find(w => !w.hasAttribute('display'))?.getAttribute('transform'));
+      const after = await page.evaluate(() => [...document.querySelectorAll('.wk:not(.wk-chief):not(.wk-cat)')].find(w => !w.hasAttribute('display'))?.getAttribute('transform'));
       r.동작_주민걷기 = before !== after;
       const box = await page.evaluate(() => { const b = document.querySelector('.wk-chief').getBoundingClientRect(); return [b.x + b.width / 2, b.y + b.height / 2]; });
       if (box[0] > 0 && box[0] < vp.width) {

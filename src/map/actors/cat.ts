@@ -1,21 +1,21 @@
-/* 이장님의 강아지 — 이장님 오른쪽 cells 칸에 앉아 꼬리를 흔들다가, 포인터가 다가오면 혀를 내밀고 깡충깡충.
-   도안·색·자리는 content/characters/dog.json. */
+/* 이장님의 고양이 — 이장님 오른쪽 cells 칸에 앉아 꼬리를 흔들다가, 포인터가 다가오면 혀를 내밀고 깡충깡충.
+   도안·색·자리는 content/characters/cat.json. */
 import { el } from '../svg';
 import { SW, FEET, mountFrames, type FrameSet, type Palette } from '../sprites/compose';
-import { dogFrames, type DogArt } from '../sprites/frames';
+import { catFrames, type CatArt } from '../sprites/frames';
 import type { Actor, Frame } from './scene';
 
-export interface DogData { cells: number; col: Palette; shadow: string; art: DogArt }
+export interface CatData { cells: number; col: Palette; shadow: string; art: CatArt }
 
-export class Dog implements Actor {
+export class Cat implements Actor {
   g: SVGGElement; body: SVGGElement; fs: FrameSet; x: number; y: number; ox = 0; oy = 0; front = false; lastT = ''; lastB = '';
   private cells: number; private happyUntil = 0;
 
-  constructor(parent: SVGGElement, d: DogData, at: { x: number; y: number }) {
+  constructor(parent: SVGGElement, d: CatData, at: { x: number; y: number }) {
     this.x = at.x; this.y = at.y; this.cells = d.cells;
-    this.g = el('g', { class: 'wk wk-dog' }, parent);
+    this.g = el('g', { class: 'wk wk-cat' }, parent);
     el('path', { d: d.shadow, fill: '#24382d', opacity: '.22', transform: `translate(${-SW / 2},${-FEET})` }, this.g);
-    this.fs = mountFrames(this.g, dogFrames(d.art), d.col); this.body = this.fs.body;
+    this.fs = mountFrames(this.g, catFrames(d.art), d.col); this.body = this.fs.body;
   }
 
   tick(f: Frame) {

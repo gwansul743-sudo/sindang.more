@@ -22,14 +22,14 @@
 
 **사용자가 직접 할 일(남음)**: Cloudflare Pages 환경 변수에 `VITE_KAKAO_JS_KEY` 넣기. 배포 주소에서 `?admin=1` 로그인 → 가게 수정·저장 → 새로고침 후 남아 있는지 → 사진 업로드 한 번 확인. -> 완료함
 
-끝난 조각 ①~⑥: 투영 `projection.ts` · 뷰포트 `viewport.ts` · 층 `layers/`(roads·terrain·land·landmarks·dots) · 스프라이트 `sprites/`(compose·frames) · 배우 `actors/`(roadGraph·scene·walker·chief·dog) · 밤 `night.ts` + `features/theme-toggle/`. 옛 스크립트 `src/map/legacy/engine.legacy.js`는 776줄 → 약 290줄(카드·관리 폼·인트로·전시 모드만 남음).
+끝난 조각 ①~⑥: 투영 `projection.ts` · 뷰포트 `viewport.ts` · 층 `layers/`(roads·terrain·land·landmarks·dots) · 스프라이트 `sprites/`(compose·frames) · 배우 `actors/`(roadGraph·scene·walker·chief·cat) · 밤 `night.ts` + `features/theme-toggle/`. 옛 스크립트 `src/map/legacy/engine.legacy.js`는 776줄 → 약 290줄(카드·관리 폼·인트로·전시 모드만 남음).
 
 ## 3. 폴더 지도
 ```
 sindang.more/
 ├─ content/            ★ 그림·좌표·파츠. 코드 아님. 정본(옛 HTML에서 다시 추출하지 않음)
 │  ├─ landmarks/       랜드마크 그림(*.pixel.txt) + landmarks.json
-│  ├─ characters/      parts/*.json, palette.json, looks.json(주민 조합), chief.json, dog.json
+│  ├─ characters/      parts/*.json, palette.json, looks.json(주민 조합), chief.json, cat.json
 │  └─ map/             roads.json, land.json, props.json, terrain*.svg.txt, decor/(나무·집)
 ├─ src/
 │  ├─ map/             ★ 지도 엔진. React·Supabase·features 모름(`shared`만 본다)
@@ -55,7 +55,7 @@ sindang.more/
 npm run build                 # 타입 검사 + 빌드. 오류 0
 node tools/check_screen.mjs   # 헤드리스 Chrome. 마지막 줄 "통과"
 ```
-- `check_screen.mjs`가 보는 것: 데스크톱·모바일 × 낮·밤 4화면에서 숫자(가게점 11 · 주민 7 · 장식 217 · 가로등 53 · 랜드마크 6 · 권역 2 · 도로 4), 이장님·강아지 path 해시, SVG 층 순서, viewBox, 가게 점 클릭 → 카드·사진, 테마 버튼, 휠·드래그·확대, 주민이 걷는지, 이장님 호버 손인사, 콘솔 오류 0.
+- `check_screen.mjs`가 보는 것: 데스크톱·모바일 × 낮·밤 4화면에서 숫자(가게점 11 · 주민 7 · 장식 217 · 가로등 53 · 랜드마크 6 · 권역 2 · 도로 4), 이장님·고양이 path 해시, SVG 층 순서, viewBox, 가게 점 클릭 → 카드·사진, 테마 버튼, 휠·드래그·확대, 주민이 걷는지, 이장님 호버 손인사, 콘솔 오류 0.
 - 기준값 `tools/.baseline.json`(git 무시)은 **일부러 화면을 바꿨을 때만** `--baseline`으로 다시 찍는다. 빌드 로그의 "chunk 600KB" 경고는 무시.
 - **전시 직전 점검(한 번)**: 전체화면 장시간 실행(전시 모드 30초 무입력 → 6초 순환), 네트워크 끊김 뒤 복구, 사진 로딩 실패, 핀치 확대, 새로고침, 절전 복귀, 가게 0개, 아주 긴 인터뷰, 인스타 URL 없음, 테마 전환 후 새로고침.
 - 모바일 390px 폭에서 먼저 확인. 인스타 버튼은 항상 눈에 띄게.
@@ -111,7 +111,7 @@ node tools/check_screen.mjs   # 헤드리스 Chrome. 마지막 줄 "통과"
 - 지도 엔진은 React 밖 독립 모듈. React는 ref로 마운트해 이벤트만 주고받는다.
 - **좌표는 실제 위경도**. 가게 11곳·랜드마크·도로(OSM) 모두 실좌표, `proj()`가 웹 메르카토르로. 장식용 집·나무·지형만 일러스트.
 - 관리자 입구: 상단바 오른쪽 끝 작은 네모 버튼 `#admin-top`을 **2초 꾹**(자판 치는 픽셀 고양이 + 가로 바, 도안은 `holdGate.ts`의 FRAME_A/B). 로그인된 관리자에겐 `is-admin` 클래스로 '가게 관리' 글자 버튼이 되어 한 번 클릭. `?admin=1`도 된다. 가게 하나를 열면 목록·로그인 상자는 숨고 수정 폼만, 제목 왼쪽 `#aback` ‹ 로 돌아온다. 호수 배지는 픽셀 폰트에 한글이 없어 본문 폰트.
-- 캐릭터: 주민 5명(파츠 조합, 격자 17×18칸 = 그리는 폭 15 + 양옆 여백 1, 발끝 16번째 줄), 이장님+강아지. 파츠는 `.json`, 머리카락은 `head.json`의 머리 모양(short·bob·hat)에 포함.
+- 캐릭터: 주민 5명(파츠 조합, 격자 17×18칸 = 그리는 폭 15 + 양옆 여백 1, 발끝 16번째 줄), 이장님+고양이(주황 줄무늬, `cat.json`, 처음엔 강아지였다). 파츠는 `.json`, 머리카락은 `head.json`의 머리 모양(short·bob·hat)에 포함.
 - 그림 색: 랜드마크는 한 벌. 나무·집·땅은 `fill="밤" data-df="낮"` 두 벌 — 고칠 때 둘 다.
 - stores 표에 `slug`(옛 id)·`issue`('6호') 컬럼. `published=false` = '다음 호'(점선 점). `seed.stores.json`은 fallback용으로 남긴다.
 - 옛 지침서와 다르게 한 것(파츠 JSON, looks.json, decor/, seed.stores.json, slug·issue, 테마 CSS 2벌 등)은 전부 수용(10-07). 지침서 표현과 다르면 실제 파일 쪽이 맞다.

@@ -11,7 +11,7 @@ import wave from '../../content/characters/parts/wave.json';
 import palette from '../../content/characters/palette.json';
 import looks from '../../content/characters/looks.json';
 import chief from '../../content/characters/chief.json';
-import dog from '../../content/characters/dog.json';
+import cat from '../../content/characters/cat.json';
 import kioskArea from '../../content/map/kiosk-area.json';
 import chiefTalk from '../../content/characters/chief-talk.json';
 import { loadLandmarks } from '../entities/landmark/load';
@@ -31,7 +31,7 @@ export function loadContent(stores: Store[]): EngineData {
     landmarks,
     pixelDefs: Object.values(landmarks.art).join('') + Object.values(decorArt).join('') + withLand(terrainDefs),
     terrain: withLand(terrain).replace('<!--PROPS-->', uses),
-    characters: { head, body, wave, palette, looks, chief, dog },
+    characters: { head, body, wave, palette, looks, chief, cat },
     stores,
     kioskArea: { name: kioskArea.name, polygon: kioskArea.polygon.map(([lat, lng]) => [lat, lng] as [number, number]) },
     chiefTalk: { name: chiefTalk.name, portrait: chiefTalk.portrait, pages: chiefTalk.pages },

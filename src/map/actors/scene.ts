@@ -1,5 +1,5 @@
 /* 움직이는 것들의 무대 — 층 두 개(보통·랜드마크 앞), 포인터 추적, 매 프레임 틱, 화면에 놓기.
-   주민·이장님·강아지는 Actor 로 들어오고, 무대는 "지금 프레임의 상황(Frame)"만 건넨다. */
+   주민·이장님·고양이는 Actor 로 들어오고, 무대는 "지금 프레임의 상황(Frame)"만 건넨다. */
 import { el } from '../svg';
 import { SW, FEET } from '../sprites/compose';
 import type { Viewport } from '../viewport';

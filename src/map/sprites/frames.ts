@@ -1,5 +1,5 @@
-/* 파츠 → 프레임 묶음. 주민(걷기 4방향×4 + 손인사 2), 이장님(서기·손인사 2·꾸벅), 강아지(앉기 2·기쁨 2).
-   파츠 파일의 모양: content/characters/parts/{head,body,wave}.json, chief.json, dog.json */
+/* 파츠 → 프레임 묶음. 주민(걷기 4방향×4 + 손인사 2), 이장님(서기·손인사 2·꾸벅), 고양이(앉기 2·기쁨 2).
+   파츠 파일의 모양: content/characters/parts/{head,body,wave}.json, chief.json, cat.json */
 import { compose, composeRaw, outline, type Grid, type Rows, type Extra } from './compose';
 
 export type HairStyle = 'short' | 'bob' | 'hat';
@@ -37,8 +37,8 @@ export function chiefFrames(body: BodyParts, A: ChiefArt): Record<string, Grid> 
   };
 }
 
-export interface DogArt { head: Rows; low: Rows; tailA: Rows; tailB: Rows; chestSit: string; chestHappy: string }
-export function dogFrames(A: DogArt): Record<string, Grid> {
+export interface CatArt { head: Rows; low: Rows; tailA: Rows; tailB: Rows; chestSit: string; chestHappy: string }
+export function catFrames(A: CatArt): Record<string, Grid> {
   const mk = (tail: Rows, chest: string) => outline(composeRaw(A.head.concat(tail, [chest], A.low)));
   return { sit0: mk(A.tailA, A.chestSit), sit1: mk(A.tailB, A.chestSit), happy0: mk(A.tailA, A.chestHappy), happy1: mk(A.tailB, A.chestHappy) };
 }

@@ -20,7 +20,7 @@ export function compose(head: Rows, torso: Rows, pants: string, legs: Rows, extr
   return g;
 }
 
-/* 폭 17 줄들을 그대로 발끝에 맞춰 놓는다 (여백 없는 도안: 강아지) */
+/* 폭 17 줄들을 그대로 발끝에 맞춰 놓는다 (여백 없는 도안: 고양이) */
 export function composeRaw(rows: Rows): Grid {
   const g: Grid = Array.from({ length: SH }, () => Array(SW).fill('.'));
   rows.forEach((r, i) => { for (let x = 0; x < SW; x++) if (r[x] !== '.') g[FEET - rows.length + i][x] = r[x]; });

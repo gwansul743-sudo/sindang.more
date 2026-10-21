@@ -20,7 +20,7 @@ import { buildRoadGraph } from '../actors/roadGraph';
 import { createScene } from '../actors/scene';
 import { spawnWalkers } from '../actors/walker';
 import { Chief } from '../actors/chief';
-import { Dog } from '../actors/dog';
+import { Cat } from '../actors/cat';
 import { mountNight } from '../night';
 import { setTheme, bindThemeButton, currentTheme } from '../../features/theme-toggle/mountThemes';
 import * as storeApi from '../../entities/store/api';
@@ -361,7 +361,7 @@ export function bootLegacy(DATA){
     const scene = createScene({ svg, map, V, landmarks: lmLayer, before: gDist, frontBefore: gDots, isKiosk: () => KIOSK });
     spawnWalkers(scene, { graph, parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, count: 5, speed: 6.5, home: LANDMARKS[0] || {x:W/2, y:H/2} });
     const chief = new Chief(scene.layer, DATA.characters.body, DATA.characters.chief); scene.add(chief); chiefActor = chief;
-    scene.add(new Dog(scene.layer, DATA.characters.dog, chief));
+    scene.add(new Cat(scene.layer, DATA.characters.cat, chief));
     scene.start();
   }
 
