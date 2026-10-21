@@ -356,8 +356,8 @@ export function bootLegacy(DATA){
     const input = {name:form.name.value.trim(), issue:form.issue.value.trim(), status:form.status.value, ig:form.ig.value.trim(), video:form.video.value.trim(), interview:form.interview.value.trim(), addr:form.addr.value.trim(), lat, lng};
     try{
       if(photoPending) toast('사진 올리는 중…');
-      await storeApi.saveStore(editing, input, photoPending, photoRemove);
-      await reload(); toast('저장했어요'); cancelEdit(); }
+      const r = await storeApi.saveStore(editing, input, photoPending, photoRemove);
+      await reload(); toast(r?.warning || '저장했어요'); cancelEdit(); }   /* 저장이 된 뒤엔 반드시 폼을 닫는다 — 열어 두면 다시 눌렀을 때 새 가게로 또 들어간다 */
     catch(err){ toast('저장 실패: '+(err.message||err.code||err)); }
   }
   /* 삭제는 두 단계: '삭제' → 패널 안 확인 상자 → '영구 삭제'를 눌러야만 실제로 지운다. 브라우저 confirm() 은 환경에 따라 안 뜨기도 해서 쓰지 않는다 */

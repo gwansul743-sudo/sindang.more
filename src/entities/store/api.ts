@@ -49,7 +49,7 @@ export async function listStores(): Promise<Store[]> {
 export type StoreInput = Pick<Store, 'name' | 'addr' | 'lat' | 'lng' | 'ig' | 'video' | 'interview' | 'issue' | 'status'>;
 
 /* 저장. editing 이 있으면 수정, 없으면 추가. photo: 새 사진 파일, removePhoto: 기존 사진 지우기 */
-export async function saveStore(editing: Store | null, input: StoreInput, photo: File | null, removePhoto: boolean): Promise<void> {
+export async function saveStore(editing: Store | null, input: StoreInput, photo: File | null, removePhoto: boolean): Promise<{ warning?: string } | void> {   /* 저장은 됐지만 알릴 게 있으면 warning (실패가 아니다 — 10-21 중복 저장 사고의 교훈) */
   if (!canWrite()) throw new Error('저장 권한이 없습니다');
   if (source !== 'db') {                                                           // DEV 목업
     const s: Store = { ...(editing ?? { id: 'mock-' + Date.now(), order: mock.length + 1 }), ...input, photoUrl: photo ? URL.createObjectURL(photo) : removePhoto ? undefined : editing?.photoUrl } as Store;
@@ -80,7 +80,7 @@ export async function saveStore(editing: Store | null, input: StoreInput, photo:
   let { error } = await write(row);
   if (error && /video_url/.test(error.message)) {   /* DB 에 아직 video_url 컬럼이 없으면(schema.sql 의 alter 미실행) 영상 빼고 저장 */
     delete row.video_url; ({ error } = await write(row));
-    if (!error) throw new Error('저장됐지만 영상 주소는 빠졌어요. Supabase SQL 에서 alter table stores add column video_url text; 를 한 번 실행하세요.');
+    if (!error) return { warning: '저장했지만 영상 주소는 빠졌어요. Supabase SQL 에서 alter table stores add column video_url text; 를 한 번 실행한 뒤 다시 저장하세요.' };
   }
   if (error) throw error;
 }
