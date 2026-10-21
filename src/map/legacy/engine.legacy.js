@@ -13,7 +13,6 @@ import { mountLandmarks, mountDistricts } from '../layers/landmarks';
 import { mountDots } from '../layers/dots';
 import { mountArea } from '../layers/area';
 import { mountStamps } from '../../features/kiosk-stamps/stamps';
-import { mountFabric } from '../../features/kiosk-fabric/fabric';
 import { mountSpeech } from '../../features/chief-speech/speech';
 import { mountTalk } from '../../features/chief-talk/talk';
 import { majorRoadPath } from '../layers/roads';
@@ -90,16 +89,12 @@ export function bootLegacy(DATA){
   const map = document.getElementById('map');
   const LAND = createLand(DATA.land.landPath, W, H);
   let sideAnimating = false;   /* 사이드바 접힘/펴짐 전환 중 (withSide) */
-  /* 전시 모드 천 재질(조각보) — 땅 바닥만. 켜면 신당 5길에서 퍼지는 봉제 연출 뒤 와펜 스탬프. features/kiosk-fabric */
-  const kioskAreaXY = DATA.kioskArea ? DATA.kioskArea.polygon.map(([lat, lng]) => proj(lat, lng)) : null;
-  const kioskOrigin = kioskAreaXY ? { x: kioskAreaXY.reduce((a, p) => a + p[0], 0) / kioskAreaXY.length, y: kioskAreaXY.reduce((a, p) => a + p[1], 0) / kioskAreaXY.length } : DATA.land.focus;
-  const fabric = mountFabric({ map, svg, roadsGroup: gRoads, W, H, landPath: DATA.land.landPath, roads: ROADS.p, origin: kioskOrigin, area: kioskAreaXY || undefined, theme: () => document.documentElement.dataset.theme || 'night' });
   const V = createViewport({ map, svg, W, H, landBounds: LAND.bounds, focus: DATA.land.focus, onApply: render, onActivity: () => wake(), keepViewOnResize: () => !introOpen, holdOnResize: () => sideAnimating });
   const scale = () => V.scale(), apply = () => V.apply(), homeView = () => V.homeView(), resetHome = () => V.resetHome();
   const centerOn = (x,y,s,oy,then) => V.centerOn(x,y,s,oy,then);
   function render(s){
     document.body.classList.toggle('far', s < 3.5);
-    lmLayer.update(s); districts.update(s); dots.update(s); area?.update(s); fabric.sync(V.x, V.y, s);
+    lmLayer.update(s); districts.update(s); dots.update(s); area?.update(s);
     placeCluster(); speech.place();
     const hideHint = s >= dotShowAt() || introOpen || STORES.length===0;
     document.getElementById('hint').classList.toggle('hide', hideHint);
@@ -182,7 +177,7 @@ export function bootLegacy(DATA){
   const KIOSK_VIEW = { x: DATA.land.focus.x + 51, y: DATA.land.focus.y + 5, s: 2.2 };   // 10-16 사용자 스크린샷 기준(신당역이 위 가운데, 떡볶이 골목이 왼쪽 가장자리)
   let KIOSK = new URLSearchParams(location.search).has('kiosk');
   const kioskBtn = document.getElementById('kiosk');
-  function renderKiosk(){ kioskBtn.textContent = '전시 모드 ' + (KIOSK?'ON':'OFF'); kioskBtn.setAttribute('aria-pressed', KIOSK);  area?.show(KIOSK); if(KIOSK) fabric.ready(); else fabric.set(false); }   /* 켤 때 그림을 미리 만들어 두고, 연출은 카메라가 도착한 뒤(kioskView) */
+  function renderKiosk(){ kioskBtn.textContent = '전시 모드 ' + (KIOSK?'ON':'OFF'); kioskBtn.setAttribute('aria-pressed', KIOSK);  area?.show(KIOSK); }
   /* 폰에서는 전시 구역을 '처음 화면에서 + 한 번' 배율로만 본다(너무 들어가면 답답). 끄면 처음 화면으로 돌아간다 */
   /* 사이드바 접힘(0.42초)과 카메라 비행을 동시에 돌리면 두 속도 곡선이 겹쳐 화면이 좌우로 흔들린다 → 순서대로: 사이드바가 다 접힌(펴진) 뒤 카메라.
      사이드바 상태가 이미 원하는 쪽이면(손으로 접어 둔 경우) 바로 카메라만 */
@@ -207,7 +202,7 @@ export function bootLegacy(DATA){
   const CHIEF_LINES = ['오호! 처음 보는 얼굴이구먼!\n**신당 5길**에 어서와!!', '잠깐 이야기 좀 듣고 갈 텐가?'];
   const stamps = mountStamps(stage, { map, target: () => area ? area.labelCenter() : null, onArrive: () => area?.pulse(),
     onDone: () => { if(!KIOSK) return; const c = DATA.characters.chief; centerOn(c.x, c.y, scale() * 1.6, 0, () => { if(KIOSK) speech.say(CHIEF_LINES); }); } });
-  function kioskView(){ const s = desktop() ? KIOSK_VIEW.s : homeView().s * 1.6; withSide(true, () => centerOn(KIOSK_VIEW.x, KIOSK_VIEW.y, s, 0, () => { if(KIOSK) fabric.play(() => { if(KIOSK) stamps.play(); }); })); }   /* 도착 → 봉제(1.7s) → 와펜 */
+  function kioskView(){ const s = desktop() ? KIOSK_VIEW.s : homeView().s * 1.6; withSide(true, () => centerOn(KIOSK_VIEW.x, KIOSK_VIEW.y, s, 0, () => { if(KIOSK) stamps.play(); })); }
   function goHome(){ withSide(false, () => { const hv = homeView(); centerOn(hv.x, hv.y, hv.s, 0); }); }
   kioskBtn.onclick = () => { KIOSK=!KIOSK; renderKiosk(); if(KIOSK){ closeCard(); kioskView(); } else { stamps.cancel(); speech.hide(); talk.hide(); goHome(); } };
   renderKiosk();

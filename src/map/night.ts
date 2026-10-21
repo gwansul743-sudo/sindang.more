@@ -38,7 +38,7 @@ export function mountNight(o: NightOptions): { destroy(): void } {
 
   /* 1) 바다 — 땅보다 아래 층: 섬 둘레의 얕은 물빛, 달, 구름, 물비늘 */
   const sky = keep(el('g', { class: 'night-sky', 'pointer-events': 'none', 'aria-hidden': 'true' })); svg.insertBefore(sky, svg.firstChild);
-  ([[60, '#0b3d4c3d'], [34, '#0f4c5a33'], [14, '#155f6e29']] as [number, string][]).forEach(([w, c]) => el('path', { class: 'shallow', d: o.landPath, fill: 'none', stroke: c, 'stroke-width': w, 'stroke-linejoin': 'miter', transform: 'translate(0,10)' }, sky));
+  ([[60, '#0b3d4c3d'], [34, '#0f4c5a33'], [14, '#155f6e29']] as [number, string][]).forEach(([w, c]) => el('path', { d: o.landPath, fill: 'none', stroke: c, 'stroke-width': w, 'stroke-linejoin': 'miter', transform: 'translate(0,10)' }, sky));
   const MX = Math.max.apply(null, land.polygon.map((p) => p[0])) - 84, MY = 20   /* 10-21: 92 → 20, 더 위로 */;   /* 섬 북동쪽 바다 위 */
   el('circle', { cx: MX, cy: MY, r: 66, fill: 'url(#n-moon)' }, sky);
   el('path', { d: `M${MX - 6} ${MY - 14}h12v2h4v2h2v2h2v4h2v8h-2v4h-2v2h-2v2h-4v2h-12v-2h-4v-2h-2v-2h-2v-4h-2v-8h2v-4h2v-2h2v-2h4z`, fill: '#e89866' }, sky);
