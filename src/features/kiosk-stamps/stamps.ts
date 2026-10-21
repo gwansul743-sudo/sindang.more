@@ -36,9 +36,12 @@ export function mountStamps(stage: HTMLElement, o: StampOptions): Stamps {
   const later = (fn: () => void, ms: number) => { timers.push(window.setTimeout(fn, ms)); };
   const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
 
-  function size() { return Math.max(144, Math.min(336, o.map.clientWidth * 0.21)); }   // 10-16 사용자 요청으로 2배 (지도 폭의 21%, 144~336px)
+  const phone = () => o.map.clientWidth < 600;
+  function size() { return phone() ? Math.max(96, Math.min(120, o.map.clientWidth * 0.3)) : Math.max(144, Math.min(336, o.map.clientWidth * 0.21)); }   // 10-16 사용자 요청으로 2배 (지도 폭의 21%, 144~336px). 폰은 10-21 더 작게(폭의 30%, 96~120px)
+  const GATHER = 0.8;   /* 폰: 줄어든 만큼 자리도 가운데로 20% 모은다 */
   function place(el: HTMLElement, it: StampSpec, s: number) {
-    const r = o.map.getBoundingClientRect(), sr = stage.getBoundingClientRect(), pos = r.width < 600 && it.m ? it.m : it;
+    const r = o.map.getBoundingClientRect(), sr = stage.getBoundingClientRect(), raw = r.width < 600 && it.m ? it.m : it;
+    const pos = r.width < 600 ? { x: 0.5 + (raw.x - 0.5) * GATHER, y: 0.5 + (raw.y - 0.5) * GATHER } : raw;
     el.style.left = `${r.left - sr.left + r.width * pos.x - s / 2}px`;
     el.style.top = `${r.top - sr.top + r.height * pos.y - s / 2}px`;
     el.style.width = el.style.height = `${s}px`;
