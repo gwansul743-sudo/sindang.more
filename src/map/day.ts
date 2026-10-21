@@ -23,7 +23,7 @@ export function mountDay(o: DayOptions): { destroy(): void } {
   ([[60, '#bcdad040'], [34, '#c6e0d640'], [14, '#d2e8df48'], [5, '#eef6f060']] as [number, string][]).forEach(([w, c]) => el('path', { d: o.landPath, fill: 'none', stroke: c, 'stroke-width': w, 'stroke-linejoin': 'miter', transform: 'translate(0,10)' }, sky));
 
   /* 2) 해 — 섬 북동쪽 하늘(달과 같은 자리). 햇무리 → 픽셀 해 → 하이라이트 → 짧은 햇살 */
-  const SX = Math.max.apply(null, land.polygon.map((p) => p[0])) - 84, SY = 92;
+  const SX = Math.max.apply(null, land.polygon.map((p) => p[0])) - 84, SY = 20   /* 10-21: 92 → 20, 더 위로 */;
   el('circle', { cx: SX, cy: SY, r: 84, fill: 'url(#d-sun)' }, sky);
   el('path', { d: `M${SX - 6} ${SY - 14}h12v2h4v2h2v2h2v4h2v8h-2v4h-2v2h-2v2h-4v2h-12v-2h-4v-2h-2v-2h-2v-4h-2v-8h2v-4h2v-2h2v-2h4z`, fill: '#f7c64a' }, sky);
   el('path', { d: `M${SX - 4} ${SY - 12}h8v2h4v2h2v2h-12v-2h-4v-2h2zM${SX - 8} ${SY} h3v3h-3z`, fill: '#fff1a4', opacity: '.85' }, sky);

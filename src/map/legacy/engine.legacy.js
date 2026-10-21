@@ -96,7 +96,9 @@ export function bootLegacy(DATA){
     document.body.classList.toggle('far', s < 3.5);
     lmLayer.update(s); districts.update(s); dots.update(s); area?.update(s);
     placeCluster(); speech.place();
-    document.getElementById('hint').classList.toggle('hide', s >= dotShowAt() || introOpen || STORES.length===0);
+    const hideHint = s >= dotShowAt() || introOpen || STORES.length===0;
+    document.getElementById('hint').classList.toggle('hide', hideHint);
+    document.querySelector('.map-title').classList.toggle('hide', hideHint);   /* 제목 블럭도 힌트와 함께 사라진다 (10-21) */
   }
   svg.addEventListener('click', e => {
     if(V.moved) return;
