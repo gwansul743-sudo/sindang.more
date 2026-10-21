@@ -20,7 +20,7 @@ export function mountDay(o: DayOptions): { destroy(): void } {
   const sky = keep(el('g', { class: 'day-sky', 'pointer-events': 'none', 'aria-hidden': 'true' })); svg.insertBefore(sky, svg.firstChild);
 
   /* 1) 섬 둘레의 얕은 물빛(밝은 옥색) → 물가의 흰 거품 띠 */
-  ([[60, '#bcdad034'], [34, '#c6e0d634'], [14, '#d2e8df3e'], [5, '#eef6f052']] as [number, string][]).forEach(([w, c]) => el('path', { d: o.landPath, fill: 'none', stroke: c, 'stroke-width': w, 'stroke-linejoin': 'miter', transform: 'translate(0,10)' }, sky));
+  ([[30, '#bcdad034'], [20, '#c6e0d634'], [10, '#d2e8df3e']] as [number, string][]).forEach(([w, c]) => el('path', { class: 'shallow', d: o.landPath, fill: 'none', stroke: c, 'stroke-width': w, 'stroke-linejoin': 'miter', transform: 'translate(0,10)' }, sky));
 
   /* 2) 해 — 섬 북동쪽 하늘(달과 같은 자리). 햇무리 → 픽셀 해 → 하이라이트 → 짧은 햇살 */
   const SX = Math.max.apply(null, land.polygon.map((p) => p[0])) - 84, SY = 20   /* 10-21: 92 → 20, 더 위로 */;

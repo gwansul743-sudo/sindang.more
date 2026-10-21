@@ -38,6 +38,7 @@ sindang.more/
 │  │  └─ legacy/engine.legacy.js   남은 옛 코드(부품화 끝나면 삭제)
 │  ├─ features/theme-toggle/   낮밤 버튼
 │  ├─ features/admin-gate/     관리자 입구(holdGate.ts, gate.css)
+│  ├─ features/kiosk-stamps/   전시 모드 와펜 스탬프 · features/kiosk-fabric/ 전시 모드 조각보 바닥+봉제 연출
 │  ├─ entities/        가게·랜드마크·캐릭터 타입. store/api.ts = Supabase 읽기·쓰기, DB 없으면 seed JSON
 │  ├─ app/             App.tsx(조립), content.ts(content/ 읽기), legacy-markup.html(옛 마크업)
 │  └─ shared/          styles/(tokens·낮·밤 CSS), lib/(supabase.ts·auth.ts·geocode.ts)
@@ -133,4 +134,8 @@ interviews   인터뷰    id, source(form|shop), answers(json), summary_md, stor
 ```
 - 외형은 look을 비워 두고 앱이 처음 볼 때 seed로 랜덤 생성(더 단순). 쿠폰 코드 검증이 필요하면 폼 항목 + Apps Script 대조.
 - 이장님: 클릭 시 영상 재생 + 동물의 숲식 자막 상자. 이스터에그: MORE 5회 클릭 → 경관 대시보드.
+- **전시 모드 ON 연출**(10-21, `features/kiosk-stamps` + `features/kiosk-fabric`): 켜면 `renderKiosk`가 `area.show`·`fabric.ready()` → 사이드바 접힘 → 카메라 `KIOSK_VIEW` 도착 → `fabric.play()`(봉제 1.7s) → `stamps.play()`(와펜 5장 탕탕 → '신당 5길' 이름표로 흡입) → 이장님 쪽 ×1.6 → 말풍선. 끄면 `stamps.cancel()`·`fabric.set(false)`·`goHome`.
+  - **천 재질(조각보)**: 섬 바닥만. 길(a·b·c)로 나뉜 블록마다 천색+무늬(깅엄·사선·점·꽃…)를 1× 캔버스 연결성분으로 정하고 2× PNG 한 장으로 굽는다(테마별, 마운트 1.5s 뒤 한가할 때 미리 — 1~2초짜리 픽셀 루프라 96줄마다 쉰다). 신당 5길 블록은 베이지 특별 천. 그림은 **SVG 아래 HTML div** 배경 + `clip-path:url(#fabric-clip)`(숨긴 svg, 매 프레임 transform)으로 깔고, SVG 땅(`terrain.ts`가 붙인 `.land-base/.land-grass/.land-fields`, `.night-ground>rect`, 물가 `.shallow`)은 CSS 로 투명. **절벽 3겹은 섬 전체 복사본**이라 안쪽을 도려내는 `<mask>`(`#fabric-cliff-N`, path 자신의 transform 포함)를 켜는 동안만 건다 — 이걸 안 걸면 민무늬 섬이 된다. `?fabric_slow=8`로 연출을 느리게 돌려 캡처할 수 있다.
+  - 연출: 5길 중심에서 원이 퍼지며(천 div 는 radial mask, 땅 path 는 반대 mask, 반지름은 화면 귀퉁이까지) 천이 깔리고, 큰길 박음질 점선(`.fabric-seam`, dashoffset) + 가장자리 오버로크(`.fabric-stitch`, `#px-land` clip).
+  - **Chrome 함정**: SVG `<pattern><image>`·`<foreignObject>` 배경으로 큰 텍스처를 깔면 줌아웃에서 가로 띠+엉뚱한 썸네일로 깨진다(headless·실기 공통으로 가정). 큰 텍스처는 HTML div 로.
 - **낮/밤 전환은 커튼으로 덮고 바꾼다**(10-16, `features/theme-toggle/switchTheme`): 목표 테마 바탕색 커튼 .25s → 시트 둘 다 로드 확인 → `html.theme-switching`으로 transition 끄고 `setTheme` → 2프레임+120ms → .32s 걷기. 폰에서 스타일시트 교체·SVG 재래스터화 중간 프레임이 지지직거려 보이던 것을 숨긴다. 근본 수정(시트 한 벌 + 변수)은 §7 스타일 정리 때.

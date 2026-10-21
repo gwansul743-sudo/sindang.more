@@ -9,6 +9,10 @@ export function mountTerrain(svg: SVGSVGElement, data: TerrainData, beforeRoads:
   const defs = el('defs', {}, svg); defs.innerHTML = data.pixelDefs;
   const terrain = el('g', { class: 'pixel-terrain', 'aria-hidden': 'true' }); terrain.innerHTML = data.terrain;
   svg.insertBefore(terrain, beforeRoads);
+  /* 땅 조각에 역할 이름표: 절벽 3겹 → 바탕 → 풀 무늬 → (그 뒤 작은 단차 조각들) → 밭 무늬 묶음. 전시 모드 천 재질(features/kiosk-fabric)이 CSS 로 바꾸거나 숨긴다 */
+  const roles = ['land-cliff', 'land-cliff', 'land-cliff', 'land-base', 'land-grass'];
+  terrain.querySelectorAll(':scope > path').forEach((p, i) => { if (i < roles.length) p.classList.add(roles[i]); });
+  terrain.querySelector(':scope > g[clip-path]')?.classList.add('land-fields');
   const props = terrain.querySelector<SVGGElement>('.pixel-props')!;
   svg.appendChild(props);
   return { defs, terrain, props };

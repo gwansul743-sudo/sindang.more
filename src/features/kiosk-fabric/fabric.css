@@ -1,0 +1,35 @@
+/* 전시 모드 천 재질(조각보). html.fabric-on 일 때만 켜진다. 그림·조각 나누기는 features/kiosk-fabric/fabric.ts */
+.fabric{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .6s ease;background-repeat:no-repeat}
+.fabric.fabric--crisp{image-rendering:pixelated}
+.fabric-on .fabric{opacity:1}
+.fabric-sewing .fabric{transition:none}
+
+/* 땅의 풀·밭·낱알·물가 띠는 천 아래로 숨고(투명), 절벽 3겹은 접힌 천 두께 색으로 */
+.land-base,.land-grass,.land-fields,.night-ground>rect,.shallow{transition:opacity .6s ease}
+.fabric-on .land-base,.fabric-on .land-grass,.fabric-on .land-fields,.fabric-on .night-ground>rect,.fabric-on .shallow{opacity:0}
+/* 봉제 연출 중에는 바탕·풀을 투명하게 두지 않고(마스크로 원 안쪽만 비움) 나머지는 즉시 */
+.fabric-sewing .land-base,.fabric-sewing .land-grass,.fabric-sewing .land-fields{opacity:1;transition:none}
+.fabric-sewing .night-ground>rect,.fabric-sewing .shallow{transition:none}
+.land-cliff{transition:fill .6s ease}
+.fabric-on .land-cliff:nth-of-type(1){fill:#2a3a24}
+.fabric-on .land-cliff:nth-of-type(2){fill:#3b4e30}
+.fabric-on .land-cliff:nth-of-type(3){fill:#6a6a46}
+html[data-theme="day"].fabric-on .land-cliff:nth-of-type(1){fill:#6f7d52}
+html[data-theme="day"].fabric-on .land-cliff:nth-of-type(2){fill:#99a26e}
+html[data-theme="day"].fabric-on .land-cliff:nth-of-type(3){fill:#cfc79a}
+
+/* 가장자리 오버로크: 올 풀린 가는 선 + 점선. 섬 안쪽 절반만 보인다(#px-land clip) */
+.fabric-stitch{opacity:0;transition:opacity .6s ease}
+.fabric-on .fabric-stitch{opacity:1}
+.fabric-stitch path{fill:none;stroke:#e9d9a8;stroke-linejoin:miter}
+.fabric-stitch .fray{stroke-width:1.2;stroke-opacity:.34}
+.fabric-stitch .stitch{stroke-width:4;stroke-dasharray:5 4;stroke-opacity:.75}
+html[data-theme="day"] .fabric-stitch path{stroke:#f4efdf}
+
+/* 큰 길 박음질: 길 가운데 점선. 봉제 연출 중에는 dashoffset 이 흘러 재봉틀이 달리는 것처럼 */
+.fabric-seam{fill:none;stroke:#f1e6c2;stroke-width:1.1;stroke-dasharray:4 3;stroke-linecap:butt;stroke-opacity:0;transition:stroke-opacity .6s ease;pointer-events:none}
+.fabric-on .fabric-seam{stroke-opacity:.55}
+html[data-theme="day"] .fabric-seam{stroke:#8d8a5c}
+.fabric-sewing .fabric-seam{animation:fabric-run calc(1.4s * var(--fabric-slow,1)) linear both}
+@keyframes fabric-run{from{stroke-dashoffset:140}to{stroke-dashoffset:0}}
+@media(prefers-reduced-motion:reduce){.fabric,.land-base,.land-grass,.land-fields,.land-cliff,.fabric-stitch,.shallow,.fabric-seam{transition:none;animation:none}}
