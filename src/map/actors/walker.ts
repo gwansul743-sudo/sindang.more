@@ -64,7 +64,8 @@ export class Walker implements Actor {
   }
 
   tick(f: Frame, others: Actor[]) {
-    const { now, dt, V, s, q, k, R, P, live, still, kiosk, nearPx, lms, LK } = f, G = this.G;
+    const { now, dt, V, s, R, P, live, still, kiosk, nearPx, lms, LK } = f, G = this.G;
+    const mul = kiosk ? 0.5 : 1, q = f.q * mul, k = f.k * mul;   /* 전시 모드(10-21): 주민은 절반 크기 — 카메라가 1.6⁴까지 들어가 있어 원래 크기면 너무 크다. 이장님·고양이는 그대로 */
     if (!still) {
       const fx = (this.x - V.x) * s, fy = (this.y - V.y) * s;
       this.offT = fx < -nearPx || fx > V.pw + nearPx || fy < -nearPx || fy > V.ph + nearPx ? this.offT + dt : 0;
@@ -106,7 +107,7 @@ export class Walker implements Actor {
     let front = false; const fx = this.x + this.ox, fy = this.y + this.oy;
     for (const l of lms) { if (Math.abs(fx - l.x) < 18 * LK + 5 * k && fy > l.y - 2.5 * LK && fy < l.y + 2 * LK + 18 * k) { front = true; break; } }
     if (front !== this.front) { f.setFront(this, front); this.front = front; }
-    f.place(this, sx, sy, this.mode === 'walk' && this.face === 'side' && this.dir < 0 ? -1 : 1, hop);
+    f.place(this, sx, sy, this.mode === 'walk' && this.face === 'side' && this.dir < 0 ? -1 : 1, hop, mul);
   }
 }
 

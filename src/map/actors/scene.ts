@@ -15,7 +15,7 @@ export interface Frame {
   P: Pointer | null; live: boolean; still: boolean; kiosk: boolean;
   nearPx: number;   // 화면 가장자리에서 이만큼(px) 넘게 벗어나면 '멀어진' 것
   lms: { x: number; y: number }[]; LK: number;   // 랜드마크 위치와 아이콘 배율
-  place(a: Actor, sx: number, sy: number, flip: 1 | -1, hop: number): void;
+  place(a: Actor, sx: number, sy: number, flip: 1 | -1, hop: number, mul?: number): void;   // mul: 스프라이트 배율 보정(전시 모드의 주민 0.5). 전체 SVG가 crispEdges 라 반 픽셀도 번지지 않는다
   setFront(a: Actor, front: boolean): void;
 }
 export interface SceneOptions {
@@ -46,8 +46,8 @@ export function createScene(o: SceneOptions): Scene {
   const actors: Actor[] = [];
 
   /* 화면에 놓기: 화면 밖이면 생략, 안이면 정수 픽셀에 맞춤 */
-  function place(a: Actor, sx: number, sy: number, flip: 1 | -1, hop: number) {
-    const s = V.scale(), q = pixelSize(s), k = q / s;
+  function place(a: Actor, sx: number, sy: number, flip: 1 | -1, hop: number, mul = 1) {
+    const s = V.scale(), q = pixelSize(s) * mul, k = q / s;
     const vis = sx > -60 && sx < V.pw + 60 && sy > -20 && sy < V.ph + 90;
     if (!vis) { if (a.lastT !== 'off') { a.g.setAttribute('display', 'none'); a.lastT = 'off'; } return; }
     const tx = V.x + (Math.round(sx - (SW / 2) * q) + (SW / 2) * q) / s, ty = V.y + Math.round(sy) / s;
