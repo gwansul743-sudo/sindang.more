@@ -174,7 +174,7 @@ export function bootLegacy(DATA){
   /* 전시 모드: 30초 무입력 시 자동 순환 */
   /* 전시 모드: 켜면 카메라가 전시용 구역(KIOSK_VIEW)으로 이동하고 거기 머문다. 가게를 자동으로 넘기던 기능은 10-14에 뺐다.
      KIOSK_VIEW 는 지도 좌표(x,y)와 배율(s). 지도 좌표는 콘솔에서 document.getElementById('svg').getAttribute('viewBox') 로 읽을 수 있다. */
-  const KIOSK_VIEW = { x: DATA.land.focus.x + 51, y: DATA.land.focus.y + 5 };   // 폰용 중심(10-16 사용자 스크린샷 기준). 데스크톱은 kioskView 에서 이장님 자리·줌 + 4번(1.6⁴) (10-21)
+  const KIOSK_VIEW = { x: DATA.land.focus.x + 51, y: DATA.land.focus.y + 5 };   // 폰용 중심(10-16 사용자 스크린샷 기준). 데스크톱은 kioskView 에서 이장님 자리·줌 + 5번(1.6⁵) (10-21)
   let KIOSK = new URLSearchParams(location.search).has('kiosk');
   const kioskBtn = document.getElementById('kiosk');
   function renderKiosk(){ kioskBtn.textContent = '전시 모드 ' + (KIOSK?'ON':'OFF'); kioskBtn.setAttribute('aria-pressed', KIOSK);  area?.show(KIOSK); }
@@ -202,7 +202,7 @@ export function bootLegacy(DATA){
   const CHIEF_LINES = ['오호! 처음 보는 얼굴이구먼!\n**신당 5길**에 어서와!!', '잠깐 이야기 좀 듣고 갈 텐가?'];
   const stamps = mountStamps(stage, { map, target: () => area ? area.labelCenter() : null, onArrive: () => area?.pulse(),
     onDone: () => { if(!KIOSK) return; const c = DATA.characters.chief; centerOn(c.x, c.y, scale() * 1.6, 0, () => { if(KIOSK) speech.say(CHIEF_LINES); }); } });
-  function kioskView(){ const d = desktop(), s = d ? homeView().s * 1.6 ** 4 : homeView().s * 1.6, c = DATA.characters.chief, x = d ? c.x : KIOSK_VIEW.x, y = d ? c.y + 18 : KIOSK_VIEW.y;   /* 데스크톱: 줌 + 4번 누른 배율로 이장님(신당 5길)을 가운데 조금 위에 (10-21) */
+  function kioskView(){ const d = desktop(), s = d ? homeView().s * 1.6 ** 5 : homeView().s * 1.6, c = DATA.characters.chief, x = d ? c.x : KIOSK_VIEW.x, y = d ? c.y + 8 : KIOSK_VIEW.y;   /* 데스크톱: 줌 + 5번 누른 배율로 이장님(신당 5길)을 가운데 살짝 위에 (10-21) */
     withSide(true, () => centerOn(x, y, s, 0, () => { if(KIOSK) stamps.play(); })); }
   function goHome(){ withSide(false, () => { const hv = homeView(); centerOn(hv.x, hv.y, hv.s, 0); }); }
   kioskBtn.onclick = () => { KIOSK=!KIOSK; renderKiosk(); if(KIOSK){ closeCard(); kioskView(); } else { stamps.cancel(); speech.hide(); talk.hide(); goHome(); } };
