@@ -202,7 +202,7 @@ export function bootLegacy(DATA){
   const CHIEF_LINES = ['오호! 처음 보는 얼굴이구먼!\n**신당 5길**에 어서와!!', '잠깐 이야기 좀 듣고 갈 텐가?'];
   const stamps = mountStamps(stage, { map, target: () => area ? area.labelCenter() : null, onArrive: () => area?.pulse(),
     onDone: () => { if(!KIOSK) return; const c = DATA.characters.chief; centerOn(c.x, c.y, scale() * 1.6, 0, () => { if(KIOSK) speech.say(CHIEF_LINES); }); } });
-  function kioskView(){ const d = desktop(), s = d ? homeView().s * 1.6 ** 5 : homeView().s * 1.6, c = DATA.characters.chief, x = d ? c.x : KIOSK_VIEW.x, y = d ? c.y + 8 : KIOSK_VIEW.y;   /* 데스크톱: 줌 + 5번 누른 배율로 이장님(신당 5길)을 가운데 살짝 위에 (10-21) */
+  function kioskView(){ const d = desktop(), s = d ? homeView().s * 1.6 ** 5 : homeView().s * 1.6, c = DATA.characters.chief, x = d ? c.x : KIOSK_VIEW.x, y = d ? c.y - 6 : KIOSK_VIEW.y;   /* 데스크톱: 줌 + 5번 누른 배율, 카메라는 이장님(신당 5길)보다 조금 위를 본다 (10-21) */
     withSide(true, () => centerOn(x, y, s, 0, () => { if(KIOSK) stamps.play(); })); }
   function goHome(){ withSide(false, () => { const hv = homeView(); centerOn(hv.x, hv.y, hv.s, 0); }); }
   kioskBtn.onclick = () => { KIOSK=!KIOSK; renderKiosk(); if(KIOSK){ closeCard(); kioskView(); } else { stamps.cancel(); speech.hide(); talk.hide(); goHome(); } };
