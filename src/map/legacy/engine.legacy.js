@@ -203,7 +203,7 @@ export function bootLegacy(DATA){
   const stamps = mountStamps(stage, { map, frame: () => patch ? patch.frame() : null, target: () => area ? area.labelCenter() : null, onArrive: () => area?.pulse(),
     onDone: () => { if(!KIOSK) return; const tw = V.clampView(V.x, V.y, V.w / 1.6)[2];   /* 최대 확대 한계를 먼저 적용한 폭 — 안 그러면 폭만 잘리고 왼쪽이 남아 중심이 오른쪽으로 민다 */
       centerOn(V.x + V.w / 2, V.y + V.h / 2, V.pw / tw, 0, () => { if(KIOSK){ showChief(true); speech.say(CHIEF_LINES); } }); } });   /* 지금 화면 가운데 그대로 ×1.6 (10-21: 이장님 쪽으로 옮기지 않는다) */
-  function kioskView(){ const s = homeView().s * 1.6 ** 3, c = DATA.characters.chief, x = desktop() ? c.x : c.x - 12, y = c.y - 6;   /* 처음 화면에서 줌 + 3번 누른 배율(10-21 사용자 조정), 카메라는 이장님(신당 5길)보다 조금 위를, 폰에선 조금 왼쪽을 본다 */
+  function kioskView(){ const d = desktop(), s = homeView().s * 1.6 ** (d ? 4 : 3), c = DATA.characters.chief, x = d ? c.x : c.x - 12, y = c.y - 6;   /* 처음 화면에서 줌 + 4번(폰은 3번) 누른 배율(10-21 사용자 조정), 카메라는 이장님(신당 5길)보다 조금 위를, 폰에선 조금 왼쪽을 본다 */
     withSide(true, () => centerOn(x, y, s, 0, () => { if(!KIOSK) return; if(patch) patch.play(() => { if(KIOSK) stamps.play(); }); else stamps.play(); })); }   /* 도착 → 천 조각 봉제 → 와펜 */
   function goHome(){ withSide(false, () => { const hv = homeView(); centerOn(hv.x, hv.y, hv.s, 0); }); }
   /* 이장님·고양이는 평소엔 숨겨 두고(body.chief-hidden), 전시 모드의 두 번째 줌인이 끝난 뒤 등장한다. 끄면 다시 숨김 (10-21) */
