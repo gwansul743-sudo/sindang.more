@@ -1,0 +1,14 @@
+/* 전시 모드 '신당 5길' 천 조각 — 점선 구역의 바닥만 펠트 천으로. 연출·무늬는 features/kiosk-patch/patch.ts */
+.patch{pointer-events:none;opacity:0;transition:opacity .5s ease}
+.patch.on{opacity:1}
+.patch.sewing{transition:none}
+.patch-cloth{fill:url(#patch-cloth)}
+.patch-base{fill:#e6d9b3}.patch-hi{fill:#fbf2d9;fill-opacity:.55}.patch-lo{fill:#c6b084;fill-opacity:.35}
+/* 테두리: 갈색 실 띠(바늘을 따라 그려짐) 위에 크림색 점선 박음질(완료 뒤 드러남) */
+.patch-edge{fill:none;stroke:#8f7a4e;stroke-linejoin:round;stroke-linecap:round}
+.patch-stitch{fill:none;stroke:#fff6dc;stroke-linecap:butt;opacity:0;transition:opacity .35s ease}
+.patch.stitched .patch-stitch{opacity:.9}
+.patch-needle{fill:#fff9ea;stroke:#4a3c22;display:none}
+html[data-theme="night"] .patch-base{fill:#5f5641}html[data-theme="night"] .patch-hi{fill:#8c7f5f}html[data-theme="night"] .patch-lo{fill:#3d3527}
+html[data-theme="night"] .patch-edge{stroke:#2b2416}html[data-theme="night"] .patch-stitch{stroke:#d9c99a}
+@media(prefers-reduced-motion:reduce){.patch,.patch-stitch{transition:none}}

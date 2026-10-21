@@ -38,6 +38,7 @@ sindang.more/
 │  │  └─ legacy/engine.legacy.js   남은 옛 코드(부품화 끝나면 삭제)
 │  ├─ features/theme-toggle/   낮밤 버튼
 │  ├─ features/admin-gate/     관리자 입구(holdGate.ts, gate.css)
+│  ├─ features/kiosk-patch/    전시 구역(신당 5길) 바닥 천 조각 + 봉제 연출 → kiosk-stamps/ 와펜 → chief-speech/ 말풍선
 │  ├─ entities/        가게·랜드마크·캐릭터 타입. store/api.ts = Supabase 읽기·쓰기, DB 없으면 seed JSON
 │  ├─ app/             App.tsx(조립), content.ts(content/ 읽기), legacy-markup.html(옛 마크업)
 │  └─ shared/          styles/(tokens·낮·밤 CSS), lib/(supabase.ts·auth.ts·geocode.ts)

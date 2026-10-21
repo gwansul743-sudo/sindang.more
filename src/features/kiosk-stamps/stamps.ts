@@ -5,10 +5,11 @@ import './stamps.css';
    순수한 인트로 장식: 클릭 안 되고(pointer-events none), 데이터와 무관. 지도 위 #stage 에 오버레이 div 하나로 산다.
    그림은 public/stamps/*.png (사용자 제공). 자리는 #map 칸의 비율 좌표(2026-10-16 전시 화면 스크린샷에 사용자가 표시한 1~5). */
 
-export interface StampSpec { src: string; x: number; y: number; rot: number; m?: { x: number; y: number } }   // x·y: #map 칸 안의 비율(0~1), rot: 최종 기울기(도), m: 폰(지도 폭 600px 미만)에서의 자리
+export interface StampSpec { src: string; x: number; y: number; rot: number; m?: { x: number; y: number }; f?: { x: number; y: number } }   // x·y: #map 칸 안의 비율(0~1), rot: 최종 기울기(도), m: 폰(지도 폭 600px 미만)에서의 자리, f: frame(전시 구역 사각형)이 있을 때의 비율 자리
 export interface StampOptions {
   map: HTMLElement;                             // 비율 좌표의 기준 칸(#map)
   target: () => { x: number; y: number } | null; // 빨려 들어갈 화면 좌표(clientX/Y). 없으면 그 자리에서 사라진다
+  frame?: () => { left: number; top: number; width: number; height: number } | null;   // 있으면 자리를 이 사각형(전시 구역, 화면 좌표) 기준 비율(f)로 — 와펜이 천 조각 안에 찍히게 (10-21)
   onArrive?: () => void;                         // 한 장이 이름표에 닿을 때(이름표 펄스)
   onDone?: () => void;                           // 마지막 장까지 빨려 들어가 연출이 끝났을 때(중간에 cancel 되면 안 부름)
   items?: StampSpec[];
@@ -16,11 +17,11 @@ export interface StampOptions {
 export interface Stamps { play(): void; cancel(): void; readonly playing: boolean }
 
 export const DEFAULT_STAMPS: StampSpec[] = [
-  { src: '/stamps/sewing.png',      x: 0.196, y: 0.230, rot: -6 },
-  { src: '/stamps/supermarket.png', x: 0.760, y: 0.193, rot: 5 },
-  { src: '/stamps/coffee.png',      x: 0.150, y: 0.740, rot: -4 },
-  { src: '/stamps/restaurant.png',  x: 0.496, y: 0.558, rot: 7 },
-  { src: '/stamps/wine.png',        x: 0.892, y: 0.747, rot: -5, m: { x: 0.78, y: 0.80 } },   // 폰에선 오른쪽이 잘려서 왼쪽 아래로
+  { src: '/stamps/sewing.png',      x: 0.196, y: 0.230, rot: -6, f: { x: 0.26, y: 0.24 } },
+  { src: '/stamps/supermarket.png', x: 0.760, y: 0.193, rot: 5,  f: { x: 0.72, y: 0.20 } },
+  { src: '/stamps/coffee.png',      x: 0.150, y: 0.740, rot: -4, f: { x: 0.24, y: 0.74 } },
+  { src: '/stamps/restaurant.png',  x: 0.496, y: 0.558, rot: 7,  f: { x: 0.50, y: 0.52 } },
+  { src: '/stamps/wine.png',        x: 0.892, y: 0.747, rot: -5, f: { x: 0.74, y: 0.76 }, m: { x: 0.78, y: 0.80 } },   // 폰에선 오른쪽이 잘려서 왼쪽 아래로
 ];
 
 const STAGGER = 220, SLAM = 420, LAND = 170, HOLD = 1100, SUCK = 650, SUCK_STAGGER = 90;
@@ -40,10 +41,11 @@ export function mountStamps(stage: HTMLElement, o: StampOptions): Stamps {
   function size() { return phone() ? Math.max(96, Math.min(120, o.map.clientWidth * 0.3)) : Math.max(144, Math.min(336, o.map.clientWidth * 0.21)); }   // 10-16 사용자 요청으로 2배 (지도 폭의 21%, 144~336px). 폰은 10-21 더 작게(폭의 30%, 96~120px)
   const GATHER = 0.8;   /* 폰: 줄어든 만큼 자리도 가운데로 20% 모은다 */
   function place(el: HTMLElement, it: StampSpec, s: number) {
-    const r = o.map.getBoundingClientRect(), sr = stage.getBoundingClientRect(), raw = r.width < 600 && it.m ? it.m : it;
+    const r = o.map.getBoundingClientRect(), sr = stage.getBoundingClientRect(), fr = r.width < 600 ? null : o.frame?.();
+    const base = fr || r, raw = fr && it.f ? it.f : (r.width < 600 && it.m ? it.m : it);
     const pos = r.width < 600 ? { x: 0.5 + (raw.x - 0.5) * GATHER, y: 0.5 + (raw.y - 0.5) * GATHER } : raw;
-    el.style.left = `${r.left - sr.left + r.width * pos.x - s / 2}px`;
-    el.style.top = `${r.top - sr.top + r.height * pos.y - s / 2}px`;
+    el.style.left = `${base.left - sr.left + base.width * pos.x - s / 2}px`;
+    el.style.top = `${base.top - sr.top + base.height * pos.y - s / 2}px`;
     el.style.width = el.style.height = `${s}px`;
   }
   function shake() {

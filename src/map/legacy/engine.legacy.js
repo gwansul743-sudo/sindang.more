@@ -13,6 +13,7 @@ import { mountLandmarks, mountDistricts } from '../layers/landmarks';
 import { mountDots } from '../layers/dots';
 import { mountArea } from '../layers/area';
 import { mountStamps } from '../../features/kiosk-stamps/stamps';
+import { mountPatch } from '../../features/kiosk-patch/patch';
 import { mountSpeech } from '../../features/chief-speech/speech';
 import { mountTalk } from '../../features/chief-talk/talk';
 import { majorRoadPath } from '../layers/roads';
@@ -48,6 +49,7 @@ export function bootLegacy(DATA){
   const districts = mountDistricts(svg, P, DATA.land.districts), gDist = districts.g;
   const lmLayer = mountLandmarks(svg, P, DATA.landmarks.items, DATA.landmarks), LANDMARKS = lmLayer.items;
   const area = DATA.kioskArea ? mountArea(svg, P, DATA.kioskArea) : null;   /* 전시 구역(신당 5길) 외곽선·이름표. 전시 모드에서만 보인다 */
+  const patch = DATA.kioskArea ? mountPatch({ svg, after: gRoads, polygon: DATA.kioskArea.polygon.map(([lat, lng]) => proj(lat, lng)) }) : null;   /* 전시 구역 바닥의 천 조각(길 위·장식 아래). 전시 모드 봉제 연출 → 와펜 */
   const lmK = s => lmLayer.k(s);
 
   /* 가게 · 컬렉션 (데이터는 db에서 옴) */
@@ -94,7 +96,7 @@ export function bootLegacy(DATA){
   const centerOn = (x,y,s,oy,then) => V.centerOn(x,y,s,oy,then);
   function render(s){
     document.body.classList.toggle('far', s < 3.5);
-    lmLayer.update(s); districts.update(s); dots.update(s); area?.update(s);
+    lmLayer.update(s); districts.update(s); dots.update(s); area?.update(s); patch?.update(s);
     placeCluster(); speech.place();
     const hideHint = s >= dotShowAt() || introOpen || STORES.length===0;
     document.getElementById('hint').classList.toggle('hide', hideHint);
@@ -200,15 +202,15 @@ export function bootLegacy(DATA){
     onEnd: () => { if(KIOSK && DATA.chiefTalk) talk.start(DATA.chiefTalk); },
   });
   const CHIEF_LINES = ['오호! 처음 보는 얼굴이구먼!\n**신당 5길**에 어서와!!', '잠깐 이야기 좀 듣고 갈 텐가?'];
-  const stamps = mountStamps(stage, { map, target: () => area ? area.labelCenter() : null, onArrive: () => area?.pulse(),
+  const stamps = mountStamps(stage, { map, frame: () => (desktop() && patch) ? patch.frame() : null, target: () => area ? area.labelCenter() : null, onArrive: () => area?.pulse(),
     onDone: () => { if(!KIOSK) return; const tw = V.clampView(V.x, V.y, V.w / 1.6)[2];   /* 최대 확대 한계를 먼저 적용한 폭 — 안 그러면 폭만 잘리고 왼쪽이 남아 중심이 오른쪽으로 민다 */
       centerOn(V.x + V.w / 2, V.y + V.h / 2, V.pw / tw, 0, () => { if(KIOSK){ showChief(true); speech.say(CHIEF_LINES); } }); } });   /* 지금 화면 가운데 그대로 ×1.6 (10-21: 이장님 쪽으로 옮기지 않는다) */
   function kioskView(){ const d = desktop(), s = d ? homeView().s * 1.6 ** 5 : homeView().s * 1.6, c = DATA.characters.chief, x = d ? c.x : KIOSK_VIEW.x, y = d ? c.y - 6 : KIOSK_VIEW.y;   /* 데스크톱: 줌 + 5번 누른 배율, 카메라는 이장님(신당 5길)보다 조금 위를 본다 (10-21) */
-    withSide(true, () => centerOn(x, y, s, 0, () => { if(KIOSK) stamps.play(); })); }
+    withSide(true, () => centerOn(x, y, s, 0, () => { if(!KIOSK) return; if(patch) patch.play(() => { if(KIOSK) stamps.play(); }); else stamps.play(); })); }   /* 도착 → 천 조각 봉제 → 와펜 */
   function goHome(){ withSide(false, () => { const hv = homeView(); centerOn(hv.x, hv.y, hv.s, 0); }); }
   /* 이장님·고양이는 평소엔 숨겨 두고(body.chief-hidden), 전시 모드의 두 번째 줌인이 끝난 뒤 등장한다. 끄면 다시 숨김 (10-21) */
   const showChief = (on) => { document.body.classList.toggle('chief-hidden', !on); document.querySelectorAll('.wk-chief,.wk-cat').forEach(g => g.classList.toggle('appear', on)); };
-  kioskBtn.onclick = () => { KIOSK=!KIOSK; renderKiosk(); showChief(false); if(KIOSK){ closeCard(); kioskView(); } else { stamps.cancel(); speech.hide(); talk.hide(); goHome(); } };
+  kioskBtn.onclick = () => { KIOSK=!KIOSK; renderKiosk(); showChief(false); if(KIOSK){ closeCard(); kioskView(); } else { stamps.cancel(); patch?.set(false); speech.hide(); talk.hide(); goHome(); } };
   renderKiosk();
   function wake(){}   /* 예전엔 30초 뒤 자동 전환을 다시 걸었다. 호출 자리는 남겨 둔다 */
 
