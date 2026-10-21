@@ -62,7 +62,7 @@ export function createViewport(o: ViewportOptions): Viewport {
      · 축소할수록 그 여유가 줄어, 땅이 화면에 다 들어오는 풀샷에서는 땅이 화면 한가운데에 고정됨 */
   function clampView(x: number, y: number, w: number): [number, number, number] {
     const bw = b.x1 - b.x0, bh = b.y1 - b.y0;
-    w = Math.max(W / 12, Math.min(Math.max(W * 1.3, bw * 1.2, (bh * 1.2 * pw) / ph), w));
+    w = Math.max(W / 12, Math.min(Math.max(W * 1.5, bw * 1.4, (bh * 1.4 * pw) / ph), w));   /* 가장 멀리: 땅의 1.4배 폭까지 (10-21, 전 1.2배) */
     const h = (w * ph) / pw, k = (v: number, bv: number) => Math.max(0, Math.min(1, (1.15 * bv - v) / (0.55 * bv)));
     const mx = Math.max((w - bw) / 2, 0.25 * w * k(w, bw)), my = Math.max((h - bh) / 2, 0.25 * h * k(h, bh));
     const mb = pw < 900 && my > (h - bh) / 2 ? my * 2 : my;
