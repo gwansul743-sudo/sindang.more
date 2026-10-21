@@ -57,16 +57,15 @@ export function createViewport(o: ViewportOptions): Viewport {
     return { x: focus.x, y: focus.y, s: Math.max(0.75, f * 1.04) };
   }
   function resetHome() { const hv = homeView(); vw = pw / (hv.s / 1.12); vh = (vw * ph) / pw; vx = hv.x - vw / 2; vy = hv.y - vh / 2; clamp(); apply(); }
-  /* 이동 한계를 땅 기준으로.
-     · 확대했을 때: 땅 밖(바다)은 위·아래·좌·우 똑같이 화면의 25%까지 보임 (모바일은 카드가 아래를 덮으므로 아래쪽만 2배)
-     · 축소할수록 그 여유가 줄어, 땅이 화면에 다 들어오는 풀샷에서는 땅이 화면 한가운데에 고정됨 */
+  /* 이동 한계 = 최대로 줌아웃했을 때 보이는 사각형(땅 가운데 기준, 땅 폭의 1.4배 또는 전체 폭의 1.5배).
+     · 끝까지 축소하면 그 사각형이 화면과 일치해 땅이 한가운데에 고정됨
+     · 확대할수록 화면이 작아져 그 사각형 안을 자유롭게 다닐 수 있음 (10-21, 전에는 땅 밖으로 화면의 25%까지만) */
   function clampView(x: number, y: number, w: number): [number, number, number] {
     const bw = b.x1 - b.x0, bh = b.y1 - b.y0;
-    w = Math.max(W / 12, Math.min(Math.max(W * 1.5, bw * 1.4, (bh * 1.4 * pw) / ph), w));   /* 가장 멀리: 땅의 1.4배 폭까지 (10-21, 전 1.2배) */
-    const h = (w * ph) / pw, k = (v: number, bv: number) => Math.max(0, Math.min(1, (1.15 * bv - v) / (0.55 * bv)));
-    const mx = Math.max((w - bw) / 2, 0.25 * w * k(w, bw)), my = Math.max((h - bh) / 2, 0.25 * h * k(h, bh));
-    const mb = pw < 900 && my > (h - bh) / 2 ? my * 2 : my;
-    const lox = b.x0 - mx, hix = b.x1 + mx - w, loy = b.y0 - my, hiy = b.y1 + mb - h;
+    const wmax = Math.max(W * 1.5, bw * 1.4, (bh * 1.4 * pw) / ph), hmax = (wmax * ph) / pw;
+    w = Math.max(W / 12, Math.min(wmax, w));
+    const h = (w * ph) / pw, cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+    const lox = cx - wmax / 2, hix = cx + wmax / 2 - w, loy = cy - hmax / 2, hiy = cy + hmax / 2 - h;
     return [lox < hix ? Math.max(lox, Math.min(hix, x)) : (lox + hix) / 2, loy < hiy ? Math.max(loy, Math.min(hiy, y)) : (loy + hiy) / 2, w];
   }
   function clamp() { [vx, vy, vw] = clampView(vx, vy, vw); vh = (vw * ph) / pw; }
