@@ -1,30 +1,29 @@
-/* 이장님의 고양이 — 이장님 오른쪽 cells 칸에 앉아 꼬리를 흔들다가, 포인터가 다가오면 혀를 내밀고 깡충깡충.
+/* 이장님의 고양이 — 이장님 오른쪽 cells 칸에 가만히 앉아 있다가, 이장님이 손을 흔드는 동안만 같은 박자로 꼬리를 흔든다.
    도안·색·자리는 content/characters/cat.json. */
 import { el } from '../svg';
 import { SW, FEET, mountFrames, type FrameSet, type Palette } from '../sprites/compose';
 import { catFrames, type CatArt } from '../sprites/frames';
 import type { Actor, Frame } from './scene';
+import type { Chief } from './chief';
 
 export interface CatData { cells: number; col: Palette; shadow: string; art: CatArt }
 
 export class Cat implements Actor {
   g: SVGGElement; body: SVGGElement; fs: FrameSet; x: number; y: number; ox = 0; oy = 0; front = false; lastT = ''; lastB = '';
-  private cells: number; private happyUntil = 0;
+  private cells: number; private chief: Chief;
 
-  constructor(parent: SVGGElement, d: CatData, at: { x: number; y: number }) {
-    this.x = at.x; this.y = at.y; this.cells = d.cells;
+  constructor(parent: SVGGElement, d: CatData, chief: Chief) {
+    this.chief = chief; this.x = chief.x; this.y = chief.y; this.cells = d.cells;
     this.g = el('g', { class: 'wk wk-cat' }, parent);
     el('path', { d: d.shadow, fill: '#24382d', opacity: '.22', transform: `translate(${-SW / 2},${-FEET})` }, this.g);
     this.fs = mountFrames(this.g, catFrames(d.art), d.col); this.body = this.fs.body;
   }
 
   tick(f: Frame) {
-    const { now, V, s, q, R, P, live, still } = f;
+    const { now, V, s, q, still } = f;
     const sx = (this.x - V.x) * s + this.cells * q, sy = (this.y - V.y) * s;   /* 어느 줌에서나 같은 간격 */
-    const pd = live && P ? Math.hypot(P.x - sx, P.y - (sy - 4 * q)) : Infinity, near = pd < R;
-    if (near && now - P!.t < 2400) this.happyUntil = now + 900;
-    const happy = now < this.happyUntil && !still, fr = Math.floor(now / (happy ? 140 : 450)) % 2;
-    this.fs.show((happy ? 'happy' : 'sit') + (still ? 0 : fr));
-    f.place(this, sx, sy, 1, happy ? fr : 0);
+    const fr = this.chief.waving && !still ? Math.floor((now - this.chief.waveStart) / 170) % 2 : 0;   /* 이장님 팔과 같은 박자 */
+    this.fs.show('sit' + fr);
+    f.place(this, sx, sy, 1, 0);
   }
 }

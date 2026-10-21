@@ -17,7 +17,9 @@ export class Chief implements Actor {
   private mark: SVGGElement; private markB = -1;
   private label: SVGTextElement | null = null; private labelQ = 0;
   private mode: 'stand' | 'wave' | 'bow' = 'stand'; private until = 0; private nextPause = rnd(8, 16);
-  private armed = true; private waveStart = 0; private waveMin = 0; private waveEnd = 0;
+  private armed = true; private waveMin = 0; private waveEnd = 0;
+  waveStart = 0;                                   /* 고양이가 꼬리 박자를 맞추는 데 읽는다 */
+  get waving() { return this.mode === 'wave'; }
   onClick?: () => void;
 
   constructor(parent: SVGGElement, body: BodyParts, c: ChiefData) {
