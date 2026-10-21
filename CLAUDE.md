@@ -34,7 +34,7 @@ sindang.more/
 ├─ src/
 │  ├─ map/             ★ 지도 엔진. React·Supabase·features 모름(`shared`만 본다)
 │  │  ├─ engine.ts     바깥 얼굴(아직 임시 엔진을 켜기만 함 → ⑦에서 진짜 조립)
-│  │  ├─ projection.ts · viewport.ts · night.ts · svg.ts · layers/ · sprites/ · actors/
+│  │  ├─ projection.ts · viewport.ts · day.ts(해·구름·파도) · night.ts · svg.ts · layers/ · sprites/ · actors/
 │  │  └─ legacy/engine.legacy.js   남은 옛 코드(부품화 끝나면 삭제)
 │  ├─ features/theme-toggle/   낮밤 버튼
 │  ├─ features/admin-gate/     관리자 입구(holdGate.ts, gate.css)

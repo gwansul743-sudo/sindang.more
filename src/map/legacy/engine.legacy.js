@@ -22,6 +22,7 @@ import { spawnWalkers } from '../actors/walker';
 import { Chief } from '../actors/chief';
 import { Cat } from '../actors/cat';
 import { mountNight } from '../night';
+import { mountDay } from '../day';
 import { setTheme, bindThemeButton, currentTheme } from '../../features/theme-toggle/mountThemes';
 import * as storeApi from '../../entities/store/api';
 import { watchAuth, signInWithPassword, setPassword, sendLoginLink, signOut } from '../../shared/lib/auth';
@@ -365,7 +366,8 @@ export function bootLegacy(DATA){
     scene.start();
   }
 
-/* ═══════════════ NIGHT — map/night.ts · 낮/밤 전환은 features/theme-toggle (4-1 ⑥) ═══════════════ */
+/* ═══════════════ DAY / NIGHT — map/day.ts · map/night.ts · 낮/밤 전환은 features/theme-toggle (4-1 ⑥) ═══════════════ */
+  mountDay({ svg, W, H, land: LAND, landPath: DATA.land.landPath });
   mountNight({ svg, map, W, H, land: LAND, landPath: DATA.land.landPath, majorRoads: majorRoadPath(ROADS), lamps: DATA.props.lamps, roads: gRoads, props: pixelProps, landmarks: LANDMARKS });
   bindThemeButton(document.getElementById('theme'));
   setTheme(currentTheme(), false);

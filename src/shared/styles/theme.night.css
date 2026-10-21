@@ -126,4 +126,5 @@ body{background:#04202d}
 .poster-title,.poster-brand,.poster-tag{color:#fff4d6}.poster-tag{border-color:#fff4d6b0}
 .ig-link,.ig-link span{color:#fff4d6}
 .poster .grid{border-color:#fff4d680}
+.day-sky{display:none!important}
 .night-vignette{position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse 78% 78% at 50% 48%,transparent 52%,#020f1880 100%)}
