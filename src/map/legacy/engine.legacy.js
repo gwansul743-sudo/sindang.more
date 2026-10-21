@@ -191,7 +191,7 @@ export function bootLegacy(DATA){
     const done = (run) => { stage.removeEventListener('transitionend', onEnd); clearTimeout(t); sideDone = null; sideAnimating = false; if(run) then(); };
     sideDone = done; stage.addEventListener('transitionend', onEnd); }
   /* 전시 구역에 카메라가 도착하면(then) 와펜 스탬프 연출(features/kiosk-stamps): 5장이 탕·탕 찍히고 '신당 5길' 이름표로 빨려 들어간다 */
-  /* 와펜 연출이 끝나면 이장님 쪽으로 한 단계(×1.6) 더 당긴다 — 데스크톱·모바일 공통. 그 사이 전시 모드를 껐으면 안 움직인다 */
+  /* 와펜 연출이 끝나면 그 자리에서 한 단계(×1.6) 더 당긴다 — 데스크톱·모바일 공통. 그 사이 전시 모드를 껐으면 안 움직인다 */
   let chiefActor = null;   /* 이장님 배우 (WALKERS 에서 채움) — 말풍선이 머리 위를 따라간다 */
   const talk = mountTalk(stage);   /* 큰 말풍선(인터뷰). 작은 말풍선의 인사가 끝나면 시작 */
   const speech = mountSpeech(stage, {
@@ -201,7 +201,7 @@ export function bootLegacy(DATA){
   });
   const CHIEF_LINES = ['오호! 처음 보는 얼굴이구먼!\n**신당 5길**에 어서와!!', '잠깐 이야기 좀 듣고 갈 텐가?'];
   const stamps = mountStamps(stage, { map, target: () => area ? area.labelCenter() : null, onArrive: () => area?.pulse(),
-    onDone: () => { if(!KIOSK) return; const c = DATA.characters.chief; centerOn(c.x, c.y, scale() * 1.6, 0, () => { if(KIOSK) speech.say(CHIEF_LINES); }); } });
+    onDone: () => { if(!KIOSK) return; centerOn(V.x + V.w / 2, V.y + V.h / 2, scale() * 1.6, 0, () => { if(KIOSK) speech.say(CHIEF_LINES); }); } });   /* 지금 화면 가운데 그대로 ×1.6 (10-21: 이장님 쪽으로 옮기지 않는다) */
   function kioskView(){ const d = desktop(), s = d ? homeView().s * 1.6 ** 5 : homeView().s * 1.6, c = DATA.characters.chief, x = d ? c.x : KIOSK_VIEW.x, y = d ? c.y - 6 : KIOSK_VIEW.y;   /* 데스크톱: 줌 + 5번 누른 배율, 카메라는 이장님(신당 5길)보다 조금 위를 본다 (10-21) */
     withSide(true, () => centerOn(x, y, s, 0, () => { if(KIOSK) stamps.play(); })); }
   function goHome(){ withSide(false, () => { const hv = homeView(); centerOn(hv.x, hv.y, hv.s, 0); }); }
