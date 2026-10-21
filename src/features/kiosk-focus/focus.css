@@ -7,8 +7,10 @@ html:not(.kf) .kf-clone{display:none}                  /* 전시 모드가 아�
 
 /* 비움: 섬 위의 모든 것(천 조각은 kiosk-patch 가 제 연출로 띄운다) */
 .kf-blank .kf-in,.kf-blank .kf-out,.kf-blank .kf-clone,.kf-blank .kf-live{opacity:0}
-/* 5길만: 밖은 숨김, 안은 가운데서부터 차례로 */
+/* 5길만: 밖은 숨김, 안은 가운데서부터 차례로. 주민은 아직 안 보인다 — 이장님 인터뷰가 끝나 rest 가 되면 1s 로 돌아온다(10-21). 이장님·고양이는 엔진(showChief)이 따로 띄운다 */
 .kf-five .kf-out{opacity:0}
+.kf .wk:not(.wk-chief):not(.wk-cat){transition:opacity calc(1s * var(--kf-slow)) ease}
+.kf-blank .wk:not(.wk-chief):not(.wk-cat),.kf-five .wk:not(.wk-chief):not(.wk-cat){opacity:0}
 .kf-five .kf-in{transition-delay:calc(var(--kf-i,0) * 35ms * var(--kf-slow))}
 .kf-five .kf-live{transition-delay:calc(.45s * var(--kf-slow))}
 /* 낮춘 전체: 밖은 종류마다 한 단계씩. 베일 없이 요소 단위로. 5길 안은 전부 100% */
@@ -22,4 +24,4 @@ html:not(.kf) .kf-clone{display:none}                  /* 전시 모드가 아�
 .kf-rest .night-lamps.kf-out,.kf-rest .night-houselight.kf-out{opacity:.45}
 .kf-rest .night-shadows.kf-out{opacity:.6}
 
-@media(prefers-reduced-motion:reduce){.kf-in,.kf-out,.kf-clone,.kf-live{transition:none}}
+@media(prefers-reduced-motion:reduce){.kf-in,.kf-out,.kf-clone,.kf-live,.kf .wk{transition:none}}

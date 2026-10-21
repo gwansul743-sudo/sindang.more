@@ -1,19 +1,24 @@
-/* 전시 모드 '신당 5길' 천 조각 — 점선 구역의 바닥만 올리브색 거친 직물로, 가장자리는 실로 감아 꿰맨(휘프 스티치) 두꺼운 박음질. 연출·무늬는 patch.ts
+/* 전시 모드 '신당 5길' 천 조각 — 점선 구역의 바닥만 청바지 뒷주머니(낮 연청, 밤 진청 데님. 10-21, 전엔 올리브 삼베)로, 가장자리는 황갈색 실로 감아 꿰맨(휘프 스티치) 박음질 + 주머니 장식 박음질. 연출·무늬는 patch.ts
    천은 길 층 '아래'라 길은 그대로 보이고, 구역 안의 길은 굵은 복사본(.patch-rd)이 겹쳐 더 두껍다. */
 .patch{pointer-events:none;opacity:0;transition:opacity .5s ease}
 .patch.on{opacity:1}
 .patch.sewing{transition:none}
-/* 직물(삼베): 가로·세로 실(mid)이 격자로 교차하고(교차점 light), 실 사이 틈(dark). 대비는 낮게 — 멀리선 고른 올리브색 */
-.patch-w-dark{fill:#606c3a}.patch-w-mid{fill:#7c894f}.patch-w-light{fill:#93a05f}
-.patch-speck{fill:#bcc77d;fill-opacity:.42}
-.patch-shadow{fill:#1d2412;fill-opacity:.32}
-.patch-inset{fill:none;stroke:#1d2412;stroke-opacity:.26}
-.patch-cord{fill:none;stroke:#b8a16a;stroke-linejoin:round;stroke-linecap:round}
-.patch-st-under{stroke:#4d3e22;stroke-opacity:.5;stroke-linecap:round}
-.patch-st{stroke:#dcc893;stroke-linecap:round}
-.patch-st-hi{stroke:#f3e6bb;stroke-opacity:.55;stroke-linecap:round}
+/* 직물(데님 능직): 바탕(mid)에 비스듬한 밝은 올(light)과 어두운 틈(dark). 대비는 낮게 — 멀리선 고른 연청. 밝은 점(speck)은 물 빠진 자국 */
+.patch-w-dark{fill:#7a98b8}.patch-w-mid{fill:#8fadc9}.patch-w-light{fill:#a8c2d9}
+.patch-speck{fill:#dbe7f1;fill-opacity:.5}
+.patch-shadow{fill:#16213a;fill-opacity:.32}
+.patch-inset{fill:none;stroke:#16213a;stroke-opacity:.26}
+/* 실: 청바지의 황갈색 박음질 실 */
+.patch-cord{fill:none;stroke:#c48a36;stroke-linejoin:round;stroke-linecap:round}
+.patch-st-under{stroke:#5a3c15;stroke-opacity:.5;stroke-linecap:round}
+.patch-st{stroke:#e0a24a;stroke-linecap:round}
+.patch-st-hi{stroke:#f6cd82;stroke-opacity:.55;stroke-linecap:round}
+.patch-arc{fill:none;stroke:#e0a24a;stroke-linecap:round;stroke-dasharray:1.4 .9}
+.patch-arc-under{fill:none;stroke:#5a3c15;stroke-opacity:.45;stroke-linecap:round;stroke-dasharray:1.4 .9}
 .patch-needle{fill:#fff9ea;stroke:#4a3c22;display:none}
-html[data-theme="night"] .patch-w-dark{fill:#323c22}html[data-theme="night"] .patch-w-mid{fill:#45532e}html[data-theme="night"] .patch-w-light{fill:#56653a}
-html[data-theme="night"] .patch-speck{fill:#76884a}
-html[data-theme="night"] .patch-cord{stroke:#a38d5c}html[data-theme="night"] .patch-st{stroke:#cdb77f}html[data-theme="night"] .patch-st-hi{stroke:#e6d6a4}html[data-theme="night"] .patch-st-under{stroke:#0e0b05}
+/* 밤: 진청(인디고) 데님, 실은 한 톤 어둡게 */
+html[data-theme="night"] .patch-w-dark{fill:#19253f}html[data-theme="night"] .patch-w-mid{fill:#213156}html[data-theme="night"] .patch-w-light{fill:#2a3d66}
+html[data-theme="night"] .patch-speck{fill:#3b5080;fill-opacity:.4}
+html[data-theme="night"] .patch-cord{stroke:#9c6c27}html[data-theme="night"] .patch-st{stroke:#b9823a}html[data-theme="night"] .patch-st-hi{stroke:#d4a05a}html[data-theme="night"] .patch-st-under{stroke:#0a0804}
+html[data-theme="night"] .patch-arc{stroke:#b9823a}html[data-theme="night"] .patch-arc-under{stroke:#0a0804}
 @media(prefers-reduced-motion:reduce){.patch{transition:none}}

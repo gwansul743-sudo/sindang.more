@@ -33,7 +33,8 @@ export class Chief implements Actor {
   }
 
   tick(f: Frame) {
-    const { now, dt, V, s, q, R, P, live, still, kiosk } = f;
+    const { now, dt, V, s, R, P, live, still, kiosk } = f;
+    const mul = kiosk ? 0.5 : 1, q = f.q * mul;   /* 전시 모드(10-21): 주민과 같이 절반 크기. 이름표는 px/q 환산이라 글자 크기는 그대로 */
     const sx = (this.x - V.x) * s, sy = (this.y - V.y) * s;
     const pd = live && P ? Math.hypot(P.x - sx, P.y - (sy - 8 * q)) : Infinity, near = pd < R;
     if (pd > R * 1.4) this.armed = true;
@@ -48,6 +49,6 @@ export class Chief implements Actor {
     if (mb !== this.markB) { this.mark.setAttribute('transform', `translate(${-SW / 2},${-FEET - mb})`); this.markB = mb; }
     /* 이름표: g 안의 1단위 = 화면 q px 이므로 px/q 로 환산. 랜드마크 이름표와 같은 글자 크기 공식 */
     if (this.label && q !== this.labelQ) { const fs = Math.min(15, Math.max(10, 9 + s * 1.2)); this.label.setAttribute('font-size', String(fs / q)); this.label.setAttribute('y', String((fs + 4) / q)); this.labelQ = q; }
-    f.place(this, sx, sy, 1, hop);
+    f.place(this, sx, sy, 1, hop, mul);
   }
 }

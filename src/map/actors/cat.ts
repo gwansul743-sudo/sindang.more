@@ -20,10 +20,11 @@ export class Cat implements Actor {
   }
 
   tick(f: Frame) {
-    const { now, V, s, q, still } = f;
+    const { now, V, s, still, kiosk } = f;
+    const mul = kiosk ? 0.5 : 1, q = f.q * mul;   /* 전시 모드: 이장님과 같이 절반 */
     const sx = (this.x - V.x) * s + this.cells * q, sy = (this.y - V.y) * s;   /* 어느 줌에서나 같은 간격 */
     const fr = this.chief.waving && !still ? Math.floor((now - this.chief.waveStart) / 170) % 2 : 0;   /* 이장님 팔과 같은 박자 */
     this.fs.show('sit' + fr);
-    f.place(this, sx, sy, 1, 0);
+    f.place(this, sx, sy, 1, 0, mul);
   }
 }
