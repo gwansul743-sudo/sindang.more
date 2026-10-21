@@ -129,20 +129,20 @@ export function bootLegacy(DATA){
     speech.hide(); talk.hide();
     current = s; dots.select(s._dot);
     const up = s.status==='up', href = s.ig || IG;
-    const list = STORES, idx = list.indexOf(s)+1;
+    const list = STORES, idx = list.indexOf(s)+1, vid = renderVideo(s.video);   /* 영상이 있으면 포스터 칸에 사진 대신 플레이어 (10-21) */
     card.innerHTML = `
       <button class="x" aria-label="닫기" onclick="closeCard()">✕</button>
       <div class="ig-meta"><span class="account">@sindang.more</span><span class="num">${idx} / ${list.length}</span></div>
-      <div class="poster ${up?'up':''} ${s.photoUrl?'photo':''}" ${s.photoUrl?`style="background-image:url('${s.photoUrl}')"`:''}><div class="grid"></div><div class="poster-brand">MORE · SINDANG</div><div class="poster-tag">${esc(s.issue||'')}</div><div class="poster-title">${up?'Coming<br>soon':esc(s.name)}</div></div>
+      ${vid.embed ? `<div class="poster video">${vid.embed}</div>` : `<div class="poster ${up?'up':''} ${s.photoUrl?'photo':''}" ${s.photoUrl?`style="background-image:url('${s.photoUrl}')"`:''}><div class="grid"></div><div class="poster-brand">MORE · SINDANG</div><div class="poster-tag">${esc(s.issue||'')}</div><div class="poster-title">${up?'Coming<br>soon':esc(s.name)}</div></div>`}
       <div class="detail">
         <h3>${esc(s.name)}</h3>
         ${up?'<p class="copy">인터뷰가 끝나면 이 자리에 카드뉴스가 올라옵니다.</p>':''}
         ${up?'<div class="tags"><span class="tag">다음 호</span></div>':''}
         <a class="ig-link ${up?'up':''}" href="${esc(href)}" target="_blank" rel="noopener"><span>${up?'매거진 팔로우하기':'Instagram에서 보기'}</span><span>↗</span></a>
+        ${vid.link||''}
         <div class="navs"><button class="nav" aria-label="이전" onclick="step(-1)">‹</button><button class="nav" aria-label="다음" onclick="step(1)">›</button></div>
         <div class="small-note">카드뉴스 전체는 인스타그램 게시물에서 볼 수 있습니다.</div>
       </div>
-      ${renderVideo(s.video)}
       ${renderInterview(s.interview)}`;
     sheet.classList.add('open'); side.classList.add('has'); side.classList.remove('closed');
     /* 폰 바텀시트는 'INTERVIEW' 제목까지만 보이는 높이로 연다(나머지는 시트 안에서 스크롤). 인터뷰가 없으면 기본 높이 */
@@ -152,16 +152,17 @@ export function bootLegacy(DATA){
   }
   function step(d){ const i=(STORES.indexOf(current)+d+STORES.length)%STORES.length; select(STORES[i], true); }
   function closeCard(){ closeCluster(); if(current){ dots.select(null); current=null; } sheet.classList.remove('open'); document.getElementById('side').classList.remove('has'); apply(); }
-  /* 영상: 구글 드라이브(공유 링크) → 미리보기 iframe, 유튜브 → embed, mp4/webm 주소 → <video>, 그 밖엔 링크 버튼 (10-21) */
+  /* 영상: 포스터 칸에 들어갈 플레이어(embed) 또는, 끼워 넣을 수 없는 주소면 인스타 버튼 아래 링크 버튼(link).
+     구글 드라이브(공유 링크) → 미리보기 iframe, 유튜브 → embed, mp4/webm 주소 → <video> (10-21) */
   function renderVideo(url){
-    url = (url||'').trim(); if(!url) return '';
+    url = (url||'').trim(); if(!url) return {};
     const drive = url.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([\w-]+)/);
     const yt = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([\w-]+)/);
-    const frame = (src) => `<div class="card-video"><iframe src="${esc(src)}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy" title="영상"></iframe></div>`;
+    const frame = (src) => ({ embed: `<iframe src="${esc(src)}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy" title="영상"></iframe>` });
     if(drive) return frame(`https://drive.google.com/file/d/${drive[1]}/preview`);
     if(yt) return frame(`https://www.youtube.com/embed/${yt[1]}?rel=0&playsinline=1`);
-    if(/\.(mp4|webm|mov|m4v)(\?|$)/i.test(url)) return `<div class="card-video"><video src="${esc(url)}" controls playsinline preload="metadata"></video></div>`;
-    return `<a class="ig-link video-link" href="${esc(url)}" target="_blank" rel="noopener"><span>영상 보기</span><span>↗</span></a>`;
+    if(/\.(mp4|webm|mov|m4v)(\?|$)/i.test(url)) return { embed: `<video src="${esc(url)}" controls playsinline preload="metadata"></video>` };
+    return { link: `<a class="ig-link video-link" href="${esc(url)}" target="_blank" rel="noopener"><span>영상 보기</span><span>↗</span></a>` };
   }
   function renderInterview(text){
     if(!text || !text.trim()) return '';
