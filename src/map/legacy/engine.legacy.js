@@ -14,6 +14,8 @@ import { mountDots } from '../layers/dots';
 import { mountArea } from '../layers/area';
 import { mountStamps } from '../../features/kiosk-stamps/stamps';
 import { mountPatch } from '../../features/kiosk-patch/patch';
+import { mountFocus } from '../../features/kiosk-focus/focus';
+import { withCurtain } from '../../features/kiosk-focus/curtain';
 import { mountSpeech } from '../../features/chief-speech/speech';
 import { mountTalk } from '../../features/chief-talk/talk';
 import { majorRoadPath } from '../layers/roads';
@@ -49,7 +51,9 @@ export function bootLegacy(DATA){
   const districts = mountDistricts(svg, P, DATA.land.districts), gDist = districts.g;
   const lmLayer = mountLandmarks(svg, P, DATA.landmarks.items, DATA.landmarks), LANDMARKS = lmLayer.items;
   const area = DATA.kioskArea ? mountArea(svg, P, DATA.kioskArea) : null;   /* 전시 구역(신당 5길) 외곽선·이름표. 전시 모드에서만 보인다 */
-  const patch = DATA.kioskArea ? mountPatch({ svg, before: gRoads, polygon: DATA.kioskArea.polygon.map(([lat, lng]) => proj(lat, lng)), roads: ROADS.p }) : null;   /* 전시 구역 바닥의 천 조각(길 아래, 구역 안 길은 굵은 복사본). 전시 모드 봉제 연출 → 와펜 */
+  const kioskAreaXY = DATA.kioskArea ? DATA.kioskArea.polygon.map(([lat, lng]) => proj(lat, lng)) : null;
+  const patch = kioskAreaXY ? mountPatch({ svg, before: gRoads, polygon: kioskAreaXY, roads: ROADS.p }) : null;
+  const focus = kioskAreaXY ? mountFocus({ svg, polygon: kioskAreaXY }) : null;   /* 전시 모드 집중: 비우기 → 5길만 → 낮춘 복귀 (features/kiosk-focus). 순서는 kioskView 위 주석 */   /* 전시 구역 바닥의 천 조각(길 아래, 구역 안 길은 굵은 복사본). 전시 모드 봉제 연출 → 와펜 */
   const lmK = s => lmLayer.k(s);
 
   /* 가게 · 컬렉션 (데이터는 db에서 옴) */
@@ -206,7 +210,7 @@ export function bootLegacy(DATA){
   /* 전시 구역에 카메라가 도착하면(then) 와펜 스탬프 연출(features/kiosk-stamps): 5장이 탕·탕 찍히고 '신당 5길' 이름표로 빨려 들어간다 */
   /* 와펜 연출이 끝나면 그 자리에서 한 단계(×1.6) 더 당긴다 — 데스크톱·모바일 공통. 그 사이 전시 모드를 껐으면 안 움직인다 */
   let chiefActor = null;   /* 이장님 배우 (WALKERS 에서 채움) — 말풍선이 머리 위를 따라간다 */
-  const talk = mountTalk(stage);   /* 큰 말풍선(인터뷰). 작은 말풍선의 인사가 끝나면 시작 */
+  const talk = mountTalk(stage, { onEnd: () => kioskRest() });   /* 큰 말풍선(인터뷰). 작은 말풍선의 인사가 끝나면 시작. 마지막 장이 닫히면 동네가 낮춘 상태로 돌아온다 */
   const speech = mountSpeech(stage, {
     anchor: () => { if(!chiefActor || chiefActor.g.getAttribute('display') === 'none') return null; const r = chiefActor.g.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { x: r.left + r.width / 2 - st.left, y: r.top - st.top }; },
     bounds: () => { const m = map.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { left: m.left - st.left, top: m.top - st.top, width: m.width, height: m.height }; },
@@ -216,13 +220,30 @@ export function bootLegacy(DATA){
   const stamps = mountStamps(stage, { map, frame: () => patch ? patch.frame() : null, target: () => area ? area.labelCenter() : null, onArrive: () => area?.pulse(),
     onDone: () => { if(!KIOSK) return; const tw = V.clampView(V.x, V.y, V.w / 1.6)[2];   /* 최대 확대 한계를 먼저 적용한 폭 — 안 그러면 폭만 잘리고 왼쪽이 남아 중심이 오른쪽으로 민다 */
       centerOn(V.x + V.w / 2, V.y + V.h / 2, V.pw / tw, 0, () => { if(KIOSK){ showChief(true); speech.say(CHIEF_LINES); } }); } });   /* 지금 화면 가운데 그대로 ×1.6 (10-21: 이장님 쪽으로 옮기지 않는다) */
-  function kioskView(){ const d = desktop(), s = homeView().s * 1.6 ** (d ? 4 : 3), c = DATA.characters.chief, x = d ? c.x : c.x - 12, y = c.y - 6;   /* 처음 화면에서 줌 + 4번(폰은 3번) 누른 배율(10-21 사용자 조정), 카메라는 이장님(신당 5길)보다 조금 위를, 폰에선 조금 왼쪽을 본다 */
-    withSide(true, () => centerOn(x, y, s, 0, () => { if(!KIOSK) return; if(patch) patch.play(() => { if(KIOSK) stamps.play(); }); else stamps.play(); })); }   /* 도착 → 천 조각 봉제 → 와펜 */
+  /* 전시 모드 ON 순서 (10-21): ① 켜는 순간 섬 위의 모든 것을 비운다(focus.blank, 0.6s — 사이드바가 접히고 카메라가 가는 동안)
+     ② 도착 → 천 조각 봉제(patch.play 1.7s) → 5길 안쪽만 돌아온다(focus.five) → ③ 와펜(stamps) → ④ 그 자리에서 ×1.6 → 이장님 등장·말풍선·큰 상자
+     ⑤ 큰 상자가 닫히면 카메라가 첫 전시 뷰로 물러나며 동네 나머지가 낮춘 상태로 돌아온다(kioskRest). ①~④ 중 지도를 만지면 바로 ⑤(kioskSkip).
+     OFF 는 커튼으로 덮고 상태·주민·사이드바·카메라를 한 번에 되돌린 뒤 걷는다(kioskOff) — 바닥·주변이 통째로 바뀌는 중간 프레임을 안 보이게 */
+  const kioskTarget = () => { const d = desktop(), c = DATA.characters.chief; return { x: d ? c.x : c.x - 12, y: c.y - 6, s: homeView().s * 1.6 ** (d ? 4 : 3) }; };   /* 처음 화면에서 줌 + 4번(폰은 3번) 누른 배율(10-21 사용자 조정), 카메라는 이장님(신당 5길)보다 조금 위를, 폰에선 조금 왼쪽을 본다 */
+  let walkers = [], walkerGraphs = null;   /* WALKERS 에서 채움 */
+  const walkersTo = (which) => { if(walkerGraphs) walkers.forEach(w => w.setGraph(walkerGraphs[which])); };   /* 주민을 5길 안 길 ⇄ 큰 길로 — 보이지 않을 때만(비운 뒤 도착 시 · 커튼 아래) */
+  function inPolyXY(poly, x, y){ let c = false; for(let i = 0, j = poly.length - 1; i < poly.length; j = i++){ const [x1, y1] = poly[i], [x2, y2] = poly[j]; if((y1 > y) !== (y2 > y) && x < ((x2 - x1) * (y - y1)) / (y2 - y1) + x1) c = !c; } return c; }
+  function kioskView(){ const t = kioskTarget(); focus?.blank();
+    withSide(true, () => centerOn(t.x, t.y, t.s, 0, () => { if(!KIOSK) return; walkersTo('kiosk'); const go = () => { if(!KIOSK) return; focus?.five(); stamps.play(); }; if(patch) patch.play(go); else go(); })); }   /* 도착 → 천 조각 봉제 → 5길만 → 와펜 */
+  function kioskRest(){ if(!KIOSK || !focus || focus.stage === 'rest') return; focus.rest(); const t = kioskTarget(); centerOn(t.x, t.y, t.s, 0); }
+  function kioskSkip(){ if(!KIOSK || !focus || focus.stage === 'rest' || focus.stage === 'off') return; stamps.cancel(); speech.hide(); talk.hide(); showChief(true); focus.rest(); }
+  map.addEventListener('pointerdown', kioskSkip); map.addEventListener('wheel', kioskSkip, { passive: true });
   function goHome(){ withSide(false, () => { const hv = homeView(); centerOn(hv.x, hv.y, hv.s, 0); }); }
   /* 이장님·고양이는 평소엔 숨겨 두고(body.chief-hidden), 전시 모드의 두 번째 줌인이 끝난 뒤 등장한다. 끄면 다시 숨김 (10-21) */
   const showChief = (on) => { document.body.classList.toggle('chief-hidden', !on); document.querySelectorAll('.wk-chief,.wk-cat').forEach(g => g.classList.toggle('appear', on)); };
-  kioskBtn.onclick = () => { KIOSK=!KIOSK; renderKiosk(); showChief(false); if(KIOSK){ closeCard(); kioskView(); } else { stamps.cancel(); patch?.set(false); speech.hide(); talk.hide(); goHome(); } };
+  function kioskOff(){ stamps.cancel(); speech.hide(); talk.hide();
+    withCurtain(() => { showChief(false); patch?.set(false); focus?.off(); walkersTo('home'); sideDone?.(false); side.classList.remove('closed'); V.fit(); resetHome(); }); }
+  kioskBtn.onclick = () => { KIOSK=!KIOSK; renderKiosk(); if(KIOSK){ showChief(false); closeCard(); kioskView(); } else kioskOff(); };
   renderKiosk();
+  /* 쉬고 있을 때의 모습: 낮춘 상태에서 30초 동안 아무 입력이 없으면 카메라만 첫 전시 뷰로 돌아온다(연출은 다시 틀지 않는다) */
+  let idleT = null;
+  const idle = () => { clearTimeout(idleT); idleT = setTimeout(() => { if(KIOSK && focus && focus.stage === 'rest' && !talk.visible){ const t = kioskTarget(); centerOn(t.x, t.y, t.s, 0); } }, 30000); };
+  ['pointerdown', 'wheel', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, idle, { passive: true })); idle();
   function wake(){}   /* 예전엔 30초 뒤 자동 전환을 다시 걸었다. 호출 자리는 남겨 둔다 */
 
   /* 인트로 (펼침) */
@@ -379,7 +400,8 @@ export function bootLegacy(DATA){
   const graph = buildRoadGraph(majorRoadPath(ROADS), LAND);
   if(graph.edges.length){
     const scene = createScene({ svg, map, V, landmarks: lmLayer, before: gDist, frontBefore: gDots, isKiosk: () => KIOSK });
-    spawnWalkers(scene, { graph, parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, count: 5, speed: 6.5, home: LANDMARKS[0] || {x:W/2, y:H/2} });
+    walkers = spawnWalkers(scene, { graph, parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, count: 5, speed: 6.5, home: LANDMARKS[0] || {x:W/2, y:H/2} });
+    walkerGraphs = { home: graph, kiosk: kioskAreaXY ? buildRoadGraph(String(ROADS.p.a||'') + String(ROADS.p.b||'') + String(ROADS.p.c||''), LAND, { within: (x, y) => inPolyXY(kioskAreaXY, x, y), minLen: 40 }) : graph };   /* 전시 모드: 5길 안의 길(c 등급까지)만 — 5길 안엔 큰길이 거의 없다 */
     const chief = new Chief(scene.layer, DATA.characters.body, DATA.characters.chief); scene.add(chief); chiefActor = chief;
     scene.add(new Cat(scene.layer, DATA.characters.cat, chief));
     document.body.classList.add('chief-hidden');   /* 전시 모드 연출 뒤에만 보인다 (showChief) */

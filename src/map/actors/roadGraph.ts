@@ -15,8 +15,11 @@ export interface RoadGraph {
 
 const EDGE = 14;   // 해안선에서 띄울 여유
 
-export function buildRoadGraph(majorRoadPath: string, land: LandGeometry): RoadGraph {
-  const safe = (x: number, y: number) => land.contains(x, y) && land.contains(x - EDGE, y) && land.contains(x + EDGE, y) && land.contains(x, y - EDGE - 8) && land.contains(x, y + EDGE);
+export interface GraphOptions { within?: (x: number, y: number) => boolean; minLen?: number }   // within: 이 안의 노드만(전시 모드의 5길 울타리). minLen: 토막길 최소 길이(기본 90)
+
+export function buildRoadGraph(majorRoadPath: string, land: LandGeometry, opt: GraphOptions = {}): RoadGraph {
+  const minLen = opt.minLen ?? 90;
+  const safe = (x: number, y: number) => land.contains(x, y) && land.contains(x - EDGE, y) && land.contains(x + EDGE, y) && land.contains(x, y - EDGE - 8) && land.contains(x, y + EDGE) && (!opt.within || opt.within(x, y));
   const nodes: GraphNode[] = [], nodeAt = new Map<string, number>();
   const node = (x: number, y: number) => {
     const k = Math.round(x * 2) + ',' + Math.round(y * 2); let i = nodeAt.get(k);
@@ -43,7 +46,7 @@ export function buildRoadGraph(majorRoadPath: string, land: LandGeometry): RoadG
     compLen[id] = len;
   });
   const edges: GraphEdge[] = []; let total = 0;
-  nodes.forEach((n, a) => { if (n.comp < 0 || compLen[n.comp] < 90) return; n.nb.forEach((b) => { if (b > a) { const l = dist(a, b); edges.push({ a, b, l }); total += l; } }); });
+  nodes.forEach((n, a) => { if (n.comp < 0 || compLen[n.comp] < minLen) return; n.nb.forEach((b) => { if (b > a) { const l = dist(a, b); edges.push({ a, b, l }); total += l; } }); });
 
   function nextNode(at: number, from: number) {
     const nb = nodes[at].nb.filter((n) => n !== from && nodes[n].comp === nodes[at].comp);

@@ -36,6 +36,14 @@ export class Walker implements Actor {
     this.x = this.G.nodes[this.a].x; this.y = this.G.nodes[this.a].y; this.speed = o.speed * rnd(0.8, 1.2);
   }
 
+  /* 다른 길 그래프로 옮겨 타기 — 전시 모드의 5길 울타리(안쪽 길만) ⇄ 평소의 큰 길. 보이지 않을 때 부른다(그 자리에서 순간이동) */
+  setGraph(G: RoadGraph) {
+    if (G === this.G || !G.edges.length) return;
+    this.G = G; const e = G.randomEdge(); const flip = Math.random() < 0.5;
+    this.a = flip ? e.b : e.a; this.b = flip ? e.a : e.b; this.d = Math.random() * e.l; this.len = e.l || 0.01; this.ox = 0; this.oy = 0;
+    this.x = G.nodes[this.a].x; this.y = G.nodes[this.a].y; this.mode = 'walk'; this.nextPause = rnd(4, 16); this.offT = 0;
+  }
+
   /* 화면에서 멀어진 주민을 화면 바로 바깥의 큰 길로 옮김 (보이지 않는 곳에서만) */
   private relocate(f: Frame, others: Actor[]) {
     const { V, s, q, nearPx } = f, G = this.G;

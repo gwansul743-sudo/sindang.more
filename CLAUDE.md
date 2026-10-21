@@ -39,6 +39,7 @@ sindang.more/
 │  ├─ features/theme-toggle/   낮밤 버튼
 │  ├─ features/admin-gate/     관리자 입구(holdGate.ts, gate.css)
 │  ├─ features/kiosk-patch/    전시 구역(신당 5길) 바닥 천 조각 + 봉제 연출 → kiosk-stamps/ 와펜 → chief-speech/ 말풍선
+│  ├─ features/kiosk-focus/    전시 모드 집중: 비우기 → 5길만 → 이장님 말 끝나면 낮춘 복귀 + OFF 커튼(curtain.ts)
 │  ├─ entities/        가게·랜드마크·캐릭터 타입. store/api.ts = Supabase 읽기·쓰기, DB 없으면 seed JSON
 │  ├─ app/             App.tsx(조립), content.ts(content/ 읽기), legacy-markup.html(옛 마크업)
 │  └─ shared/          styles/(tokens·낮·밤 CSS), lib/(supabase.ts·auth.ts·geocode.ts)
@@ -134,4 +135,9 @@ interviews   인터뷰    id, source(form|shop), answers(json), summary_md, stor
 ```
 - 외형은 look을 비워 두고 앱이 처음 볼 때 seed로 랜덤 생성(더 단순). 쿠폰 코드 검증이 필요하면 폼 항목 + Apps Script 대조.
 - 이장님: 클릭 시 영상 재생 + 동물의 숲식 자막 상자. 이스터에그: MORE 5회 클릭 → 경관 대시보드.
+- **전시 모드 ON 순서**(10-21, 정본은 `engine.legacy.js` `kioskView` 위 주석): ① 켜는 순간 섬 위의 모든 것을 0.6s 비운다(`focus.blank`) ② 사이드바 접힘 → 카메라 이장님 자리(처음 화면 × 1.6⁴, 폰 1.6³) 도착 → 천 조각 봉제(`patch.play` 1.7s) → **5길 안쪽만** 가운데서부터 돌아온다(`focus.five`) ③ 와펜 ④ 그 자리에서 ×1.6 → 이장님·고양이 등장 → 말풍선 → 큰 상자 ⑤ 큰 상자 마지막 장이 닫히면(`talk.onEnd`) 카메라가 첫 전시 뷰로 물러나며 나머지가 **낮춘 상태**로(`kioskRest`). ①~④ 중 지도를 만지면 바로 ⑤(`kioskSkip`, 이장님도 그때 등장). 낮춘 상태에서 30초 무입력이면 카메라만 첫 전시 뷰로. **OFF 는 커튼**(`kiosk-focus/curtain.ts`, 낮밤 전환과 같은 요령)으로 덮고 천 조각·이장님·상태·주민·사이드바·카메라를 한 번에 되돌린 뒤 걷는다.
+  - 낮춘 상태(5길 밖): 집·나무 72% · 가게 점 60%(클릭은 됨) · 길 80% · 랜드마크 그림 75%+이름표 숨김 · 권역 글자 숨김 · 밤 등불·집 불빛 45%·길 불빛 50%·그림자 60%. 5길 안은 100%. 수치는 `focus.css`, 상태는 `html.kf-{blank,five,rest}`.
+  - 분류: `focus.ts`가 처음 켤 때 집·나무(`<use>`)·가게 점·묶음·랜드마크를 5길 다각형 안/밖으로 `kf-in/kf-out`. 밤 층(가로등·그림자·집 불빛·길 불빛)처럼 한 덩어리인 층은 5길 clip 사본(`.kf-clone`, `style.clipPath` — 원본에 CSS clip-path 가 있으면 속성은 밀린다)으로 안쪽을 그린다. 길은 kiosk-patch 가 구역 안 굵은 복사본을 그리므로 원본만 '밖'.
+  - 주민: 전시 중엔 5길 안의 길만 걷는다 — 5길 안엔 큰길이 거의 없어(a 등급 56단위) c 등급 골목까지 넣은 울타리 그래프(`buildRoadGraph(..., { within, minLen: 40 })`)로 `walker.setGraph` 갈아타기. 안 보일 때만(비운 뒤 도착 시 · 커튼 아래).
+  - 헤드리스 캡처 요령: 인트로를 DOM 에서 지우면 `introOpen` 이 true 로 남아 칸 크기가 바뀔 때마다 `resetHome` — `#openMap` 클릭 → `#intro` 클릭으로 끝낼 것. `?patch_slow=N` 은 kiosk-patch·kiosk-focus 공통.
 - **낮/밤 전환은 커튼으로 덮고 바꾼다**(10-16, `features/theme-toggle/switchTheme`): 목표 테마 바탕색 커튼 .25s → 시트 둘 다 로드 확인 → `html.theme-switching`으로 transition 끄고 `setTheme` → 2프레임+120ms → .32s 걷기. 폰에서 스타일시트 교체·SVG 재래스터화 중간 프레임이 지지직거려 보이던 것을 숨긴다. 근본 수정(시트 한 벌 + 변수)은 §7 스타일 정리 때.
