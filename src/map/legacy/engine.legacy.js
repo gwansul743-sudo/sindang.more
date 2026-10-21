@@ -174,9 +174,7 @@ export function bootLegacy(DATA){
   let msgT; function toast(t){ const m=document.getElementById('msg'); m.textContent=t; m.classList.add('show'); clearTimeout(msgT); msgT=setTimeout(()=>m.classList.remove('show'),2200); }
 
   /* 전시 모드: 30초 무입력 시 자동 순환 */
-  /* 전시 모드: 켜면 카메라가 전시용 구역(KIOSK_VIEW)으로 이동하고 거기 머문다. 가게를 자동으로 넘기던 기능은 10-14에 뺐다.
-     KIOSK_VIEW 는 지도 좌표(x,y)와 배율(s). 지도 좌표는 콘솔에서 document.getElementById('svg').getAttribute('viewBox') 로 읽을 수 있다. */
-  const KIOSK_VIEW = { x: DATA.land.focus.x + 51, y: DATA.land.focus.y + 5 };   // 폰용 중심(10-16 사용자 스크린샷 기준). 데스크톱은 kioskView 에서 이장님 자리·줌 + 5번(1.6⁵) (10-21)
+  /* 전시 모드: 켜면 카메라가 이장님(신당 5길) 자리로 들어가 거기 머문다(kioskView). 가게를 자동으로 넘기던 기능은 10-14에 뺐다. */
   let KIOSK = new URLSearchParams(location.search).has('kiosk');
   const kioskBtn = document.getElementById('kiosk');
   function renderKiosk(){ kioskBtn.textContent = '전시 모드 ' + (KIOSK?'ON':'OFF'); kioskBtn.setAttribute('aria-pressed', KIOSK);  area?.show(KIOSK); }
@@ -205,7 +203,7 @@ export function bootLegacy(DATA){
   const stamps = mountStamps(stage, { map, frame: () => (desktop() && patch) ? patch.frame() : null, target: () => area ? area.labelCenter() : null, onArrive: () => area?.pulse(),
     onDone: () => { if(!KIOSK) return; const tw = V.clampView(V.x, V.y, V.w / 1.6)[2];   /* 최대 확대 한계를 먼저 적용한 폭 — 안 그러면 폭만 잘리고 왼쪽이 남아 중심이 오른쪽으로 민다 */
       centerOn(V.x + V.w / 2, V.y + V.h / 2, V.pw / tw, 0, () => { if(KIOSK){ showChief(true); speech.say(CHIEF_LINES); } }); } });   /* 지금 화면 가운데 그대로 ×1.6 (10-21: 이장님 쪽으로 옮기지 않는다) */
-  function kioskView(){ const d = desktop(), s = d ? homeView().s * 1.6 ** 5 : homeView().s * 1.6, c = DATA.characters.chief, x = d ? c.x : KIOSK_VIEW.x, y = d ? c.y - 6 : KIOSK_VIEW.y;   /* 데스크톱: 줌 + 5번 누른 배율, 카메라는 이장님(신당 5길)보다 조금 위를 본다 (10-21) */
+  function kioskView(){ const s = homeView().s * 1.6 ** 5, c = DATA.characters.chief, x = c.x, y = c.y - 6;   /* 처음 화면에서 줌 + 5번 누른 배율, 카메라는 이장님(신당 5길)보다 조금 위를 본다 — 데스크톱·폰 공통 (10-21) */
     withSide(true, () => centerOn(x, y, s, 0, () => { if(!KIOSK) return; if(patch) patch.play(() => { if(KIOSK) stamps.play(); }); else stamps.play(); })); }   /* 도착 → 천 조각 봉제 → 와펜 */
   function goHome(){ withSide(false, () => { const hv = homeView(); centerOn(hv.x, hv.y, hv.s, 0); }); }
   /* 이장님·고양이는 평소엔 숨겨 두고(body.chief-hidden), 전시 모드의 두 번째 줌인이 끝난 뒤 등장한다. 끄면 다시 숨김 (10-21) */

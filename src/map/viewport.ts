@@ -63,7 +63,7 @@ export function createViewport(o: ViewportOptions): Viewport {
   function clampView(x: number, y: number, w: number): [number, number, number] {
     const bw = b.x1 - b.x0, bh = b.y1 - b.y0;
     const wmax = Math.max(W * 1.5, bw * 1.4, (bh * 1.4 * pw) / ph), hmax = (wmax * ph) / pw;
-    w = Math.max(W / 16, Math.min(wmax, w));   /* 최대 확대: 전체 폭의 1/16 (10-21, 전 1/12 — 전시 모드 두 번째 줌이 걸리지 않게) */
+    w = Math.max(Math.min(W / 16, pw / 14), Math.min(wmax, w));   /* 최대 확대: 전체 폭의 1/16, 좁은 화면(폰)에선 14px/칸까지 (10-21. 전 1/12 — 전시 모드 두 번째 줌이 걸리지 않게, 폰에서 몇 단계 더) */
     const h = (w * ph) / pw, cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
     const lox = cx - wmax / 2, hix = cx + wmax / 2 - w, loy = cy - hmax / 2, hiy = cy + hmax / 2 - h;
     return [lox < hix ? Math.max(lox, Math.min(hix, x)) : (lox + hix) / 2, loy < hiy ? Math.max(loy, Math.min(hiy, y)) : (loy + hiy) / 2, w];
