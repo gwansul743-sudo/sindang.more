@@ -188,7 +188,7 @@ export function bootLegacy(DATA){
     sideDone?.(false); side.classList.toggle('closed', closed); sideAnimating = true;
     const onEnd = e => { if(e.target === stage && e.propertyName === 'grid-template-columns') done(true); };
     const t = setTimeout(() => done(true), 700);   /* transitionend 가 안 오는 경우(감춰진 탭 등) 대비 */
-    const done = (run) => { stage.removeEventListener('transitionend', onEnd); clearTimeout(t); sideDone = null; sideAnimating = false; if(run) then(); };
+    const done = (run) => { stage.removeEventListener('transitionend', onEnd); clearTimeout(t); sideDone = null; sideAnimating = false; if(run){ V.fit(); then(); } };   /* 접힘이 끝난 뒤의 지도 폭으로 다시 재고 출발 — 안 재면 옛 폭으로 중심을 잡아 치우친다 (10-21) */
     sideDone = done; stage.addEventListener('transitionend', onEnd); }
   /* 전시 구역에 카메라가 도착하면(then) 와펜 스탬프 연출(features/kiosk-stamps): 5장이 탕·탕 찍히고 '신당 5길' 이름표로 빨려 들어간다 */
   /* 와펜 연출이 끝나면 그 자리에서 한 단계(×1.6) 더 당긴다 — 데스크톱·모바일 공통. 그 사이 전시 모드를 껐으면 안 움직인다 */
@@ -201,7 +201,8 @@ export function bootLegacy(DATA){
   });
   const CHIEF_LINES = ['오호! 처음 보는 얼굴이구먼!\n**신당 5길**에 어서와!!', '잠깐 이야기 좀 듣고 갈 텐가?'];
   const stamps = mountStamps(stage, { map, target: () => area ? area.labelCenter() : null, onArrive: () => area?.pulse(),
-    onDone: () => { if(!KIOSK) return; centerOn(V.x + V.w / 2, V.y + V.h / 2, scale() * 1.6, 0, () => { if(KIOSK){ showChief(true); speech.say(CHIEF_LINES); } }); } });   /* 지금 화면 가운데 그대로 ×1.6 (10-21: 이장님 쪽으로 옮기지 않는다) */
+    onDone: () => { if(!KIOSK) return; const tw = V.clampView(V.x, V.y, V.w / 1.6)[2];   /* 최대 확대 한계를 먼저 적용한 폭 — 안 그러면 폭만 잘리고 왼쪽이 남아 중심이 오른쪽으로 민다 */
+      centerOn(V.x + V.w / 2, V.y + V.h / 2, V.pw / tw, 0, () => { if(KIOSK){ showChief(true); speech.say(CHIEF_LINES); } }); } });   /* 지금 화면 가운데 그대로 ×1.6 (10-21: 이장님 쪽으로 옮기지 않는다) */
   function kioskView(){ const d = desktop(), s = d ? homeView().s * 1.6 ** 5 : homeView().s * 1.6, c = DATA.characters.chief, x = d ? c.x : KIOSK_VIEW.x, y = d ? c.y - 6 : KIOSK_VIEW.y;   /* 데스크톱: 줌 + 5번 누른 배율, 카메라는 이장님(신당 5길)보다 조금 위를 본다 (10-21) */
     withSide(true, () => centerOn(x, y, s, 0, () => { if(KIOSK) stamps.play(); })); }
   function goHome(){ withSide(false, () => { const hv = homeView(); centerOn(hv.x, hv.y, hv.s, 0); }); }
