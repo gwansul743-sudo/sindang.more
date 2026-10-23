@@ -40,6 +40,8 @@ export const CATS: Record<string, { n: string; sw: string }> = {
   sewing: { n: '봉제', sw: '#cfd9c8' }, supermarket: { n: '슈퍼', sw: '#bfd0e4' }, coffee: { n: '커피', sw: '#f1e4c8' },
   restaurant: { n: '음식점', sw: '#e8b3b1' }, wine: { n: '주점', sw: '#e7c9a8' }, etc: { n: '기타', sw: '#e4d6e6' },
 };
+/* 단추 그림(10-23, 사용자 제공 천 단추 4종 → public/board/btn-*.webp). 없는 업종(봉제·슈퍼)은 예전 무늬 단추 */
+const BTN_IMG: Record<string, string> = { coffee: '/board/btn-coffee.webp', restaurant: '/board/btn-restaurant.webp', wine: '/board/btn-wine.webp', etc: '/board/btn-etc.webp' };
 const catOf = (s: BoardStore) => (s.category && CATS[s.category] ? s.category : 'etc');
 const CW = 1774, CH = 887;                                   /* 시안 캔버스 */
 const ISLAND = (() => { const cx = 887, cy = 452, rx = 560, ry = 300, n = 56, pts: XY[] = [];   /* 시안의 섬 덩어리 */
@@ -137,11 +139,16 @@ export function mountBoard(o: BoardOptions): Board {
       const bo = el('g', { class: 'kb-btn' + (s.status === 'up' ? ' up' : '') + (on && btnsOn ? ' in' : ''), 'data-cat': cat, 'data-id': s.id }, pos);
       const b = el('g', { transform: `scale(${BTN_K})` }, bo);   /* 10-23 단추·이름표 배율(시안의 0.7배) — 안쪽 그룹에 배율, 바깥(.kb-btn)은 등장 애니메이션 */
       el('circle', { r: BTN_R + 1, class: 'kb-btn-shadow', transform: 'translate(2.5 4)' }, b);
-      el('circle', { class: 'kb-rim', r: BTN_R, fill: `url(#kb-p-${cat})` }, b);
-      el('circle', { class: 'kb-ring', r: 18 }, b);
-      [[-6, -6], [6, -6], [-6, 6], [6, 6]].forEach(([hx, hy]) => el('circle', { class: 'kb-hole', cx: hx, cy: hy, r: 2.8 }, b));
-      el('path', { class: 'kb-thr', d: 'M-6 -6 L6 6 M6 -6 L-6 6' }, b);
-      const lab = el('text', { class: 'kb-lab', x: 0, y: -34 }, b); lab.textContent = s.name;
+      if (BTN_IMG[cat]) {   /* 그림 단추: 고를 때·비출 때 테두리는 그림 둘레의 점선 원(.kb-rim, 평소엔 안 보임) */
+        const S = BTN_R * 2.5; el('image', { class: 'kb-img', href: BTN_IMG[cat], x: -S / 2, y: -S / 2, width: S, height: S }, b);
+        el('circle', { class: 'kb-rim kb-rim-img', r: BTN_R + 6 }, b);
+      } else {
+        el('circle', { class: 'kb-rim', r: BTN_R, fill: `url(#kb-p-${cat})` }, b);
+        el('circle', { class: 'kb-ring', r: 18 }, b);
+        [[-6, -6], [6, -6], [-6, 6], [6, 6]].forEach(([hx, hy]) => el('circle', { class: 'kb-hole', cx: hx, cy: hy, r: 2.8 }, b));
+        el('path', { class: 'kb-thr', d: 'M-6 -6 L6 6 M6 -6 L-6 6' }, b);
+      }
+      const lab = el('text', { class: 'kb-lab', x: 0, y: BTN_IMG[cat] ? -38 : -34 }, b); lab.textContent = s.name;
       bo.addEventListener('click', (e) => { e.stopPropagation(); o.onStore(s.id); });
       btns.push({ id: s.id, cat, g: bo, x, y });
     });
@@ -162,7 +169,7 @@ export function mountBoard(o: BoardOptions): Board {
     ul.innerHTML = '';
     Object.entries(CATS).forEach(([k, cc]) => { const n = btns.filter((b) => b.cat === k).length; if (!n && k !== 'etc') return;
       const li = document.createElement('li'); li.dataset.cat = k; li.className = filter === k ? 'active' : '';
-      li.innerHTML = `<span class="sw" style="background:${cc.sw}"></span>${cc.n}<small>${n}</small>`; li.onclick = () => setFilter(filter === k ? null : k); ul.appendChild(li); });
+      li.innerHTML = `<span class="sw${BTN_IMG[k] ? ' img' : ''}" style="${BTN_IMG[k] ? `background-image:url(${BTN_IMG[k]})` : `background:${cc.sw}`}"></span>${cc.n}<small>${n}</small>`; li.onclick = () => setFilter(filter === k ? null : k); ul.appendChild(li); });
   }
   function setFilter(cat: string | null) { filter = cat; applyBtnState(); ul.querySelectorAll('li').forEach((li) => li.classList.toggle('active', (li as HTMLElement).dataset.cat === filter)); }
 
