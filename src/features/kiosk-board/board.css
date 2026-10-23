@@ -30,10 +30,11 @@ html[data-theme="night"] .kb-band{stroke:#e3d6bb}html[data-theme="night"] .kb-st
 /* 장식 */
 .kb-prop{image-rendering:auto}
 
-/* 제목: 바탕 글자(크림 테두리) 위에 점선 홈질 글자 */
-.kb-t1,.kb-t2{font-family:var(--kb-hand);font-weight:700;font-size:70px;letter-spacing:2px;paint-order:stroke fill;stroke:#f4e9d2;stroke-width:14px;stroke-linejoin:round;fill:var(--kb-wine);shape-rendering:auto}
-.kb-t2{paint-order:stroke;fill:none;stroke:var(--kb-thread);stroke-width:1.6px;stroke-dasharray:5 3.5}
-.kb-t3{font-family:var(--kb-hand);font-size:24px;fill:var(--kb-stitch);letter-spacing:1px;shape-rendering:auto}
+/* 5길: 가는 실선(점선 홈질) + 손글씨 이름표 */
+.kb-area-line{fill:none;stroke:var(--kb-thread);stroke-width:1.4;stroke-dasharray:6 4;stroke-linejoin:round;opacity:.9}
+.kb-t1{font-family:var(--kb-hand);font-weight:700;font-size:30px;letter-spacing:1px;fill:var(--kb-wine);paint-order:stroke;stroke:#f4e9d2;stroke-width:6px;stroke-linejoin:round;shape-rendering:auto}
+.kb-t3{font-family:var(--kb-hand);font-size:14px;fill:var(--kb-stitch);letter-spacing:1px;shape-rendering:auto}
+.kb-lm{image-rendering:pixelated;shape-rendering:crispEdges}
 
 /* 단추 */
 .kb-btn{pointer-events:auto;cursor:pointer;transition:opacity .35s ease,filter .35s ease;shape-rendering:auto}
@@ -42,7 +43,7 @@ html[data-theme="night"] .kb-band{stroke:#e3d6bb}html[data-theme="night"] .kb-st
 .kb-ring{fill:none;stroke:#8a4a3e;stroke-width:1.2;stroke-opacity:.5;stroke-dasharray:2 1.6}
 .kb-hole{fill:#6b3a30}
 .kb-thr{stroke:#4a2a22;stroke-width:3;stroke-linecap:round;fill:none}
-.kb-lab{font-family:var(--kb-hand);font-size:28px;fill:var(--kb-wine);text-anchor:middle;paint-order:stroke;stroke:#fbf3e2;stroke-width:7px;stroke-linejoin:round;pointer-events:none}
+.kb-lab{font-family:var(--kb-hand);font-size:22px;fill:var(--kb-wine);text-anchor:middle;paint-order:stroke;stroke:#fbf3e2;stroke-width:7px;stroke-linejoin:round;pointer-events:none}
 .kb-btn.dim{opacity:.25;filter:saturate(.25)}
 .kb-btn.sel .kb-rim{stroke:var(--kb-wine);stroke-width:3;stroke-opacity:1}
 .kb-btn.up .kb-rim{stroke-dasharray:3 2}

@@ -102,7 +102,8 @@ export function bootLegacy(DATA){
   const V = createViewport({ map, svg, W, H, landBounds: LAND.bounds, focus: DATA.land.focus, onApply: render, onActivity: () => wake(), keepViewOnResize: () => !introOpen, holdOnResize: () => sideAnimating });
   const scale = () => V.scale(), apply = () => V.apply(), homeView = () => V.homeView(), resetHome = () => V.resetHome();
   const centerOn = (x,y,s,oy,then) => V.centerOn(x,y,s,oy,then);
-  if(kioskAreaXY) board = mountBoard({ svg, before: gDist, host: map, polygon: kioskAreaXY, roads: ROADS.p, landBounds: LAND.bounds, decor: DATA.props.decor, extra: DATA.kioskBoard, proj,
+  const kioskCutXY = DATA.kioskCut ? DATA.kioskCut.polygon.map(([lat, lng]) => proj(lat, lng)) : null;   /* 전시 보드 재단선 */
+  if(kioskAreaXY && kioskCutXY) board = mountBoard({ svg, before: gDist, host: map, cut: kioskCutXY, area: kioskAreaXY, roads: ROADS.p, landBounds: LAND.bounds, decor: DATA.props.decor, landmarks: LANDMARKS, extra: DATA.kioskBoard, proj,
     onStore: id => { const st = STORES.find(s => s.id === id); if(st){ board.select(id); select(st, false); } } });
   function render(s){
     document.body.classList.toggle('far', s < 3.5);

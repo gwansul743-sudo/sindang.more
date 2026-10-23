@@ -1,23 +1,26 @@
 import './board.css';
 import { type XY, type Box, type BoardTransform, boardTransform, bboxOf, distToPoly, inPoly, pathOf, roadsInside, polylinePath } from './geometry';
 
-/* 전시 보드 — 전시 모드를 켜면 섬이 통째로 '신당 5길' 천 조각이 된다.
-   · 윤곽: 실제 5길 다각형(kiosk-area.json, 길 위에 붙인 선)을 그대로 섬 크기로 균일 확대(geometry.boardTransform). 겉에 여백은 없다 — 다각형 경계가 곧 길이므로 가장자리에 그 길이 보인다.
+/* 전시 보드 — 전시 모드를 켜면 섬에서 재단선(kiosk-cut.json: 신당역·5길·주변을 두르는 둥근 선, 사용자가 그림)을 따라 잘라 낸 조각이 통째로 천 보드가 된다.
+   · 윤곽: 재단선을 그대로 섬 크기로 균일 확대(geometry.boardTransform). 그 안의 5길(kiosk-area.json)은 봉제 없이 가는 실선 + 이름표로만 표시한다.
    · 바닥: 리넨 사진 한 장(public/board/linen.webp 을 캔버스에 타일링해 큰 <image> 하나로 — <pattern> 타일은 줌아웃에서 줄무늬가 생긴다) + 블랭킷 스티치 가장자리.
    · 길: roads.json 의 **실제 길** 가운데 다각형 안·경계의 토막만. 크림색 아플리케 띠 + 양 가장자리 홈질(띠보다 넓은 점선을 아래 깔아 끝만 보인다).
-   · 장식: props.json 의 집·나무 가운데 다각형 안에 있는 것 + content/map/kiosk-board.json 에 사용자가 둔 것(둘 다 사용자가 세운 자리뿐) → 아플리케 그림.
-   · 가게: 다각형 안(경계 NEAR 안까지)의 가게를 업종별 무늬의 천 단추로. 누르면 onStore. 범례(HTML)로 업종을 고르면 나머지는 흐려진다.
+   · 장식: props.json 의 집·나무 가운데 재단선 안에 있는 것 + content/map/kiosk-board.json 에 사용자가 둔 것(둘 다 사용자가 세운 자리뿐) → 아플리케 그림. 랜드마크(신당역)는 픽셀 그림 그대로.
+   · 가게: 재단선 안(경계 NEAR 안까지)의 가게를 업종별 무늬의 천 단추로. 누르면 onStore. 범례(HTML)로 업종을 고르면 나머지는 흐려진다.
    · 보드가 켜진 동안(html.kb-on) 섬 위의 원래 층(땅·길·장식·점·랜드마크·밤 층)은 CSS 로 숨긴다. 바다·하늘은 그대로.
    · 켜고 끄는 '연출'(자르기·펼치기·봉제·등장 순서)은 다음 조각(전시 전환)에서. 여기는 그리기와 상태뿐. ?board=1 로 바로 켜 볼 수 있다. */
 
 export interface BoardStore { id: string; name: string; x: number; y: number; category?: string; status?: string }
 export interface BoardDecor { kind: string; x: number; y: number; w: number; h: number }          // props.json 의 장식(왼쪽 위 + 폭·높이)
 export interface BoardExtra { props?: { kind: string; lat: number; lng: number; h?: number }[]; title?: string; sub?: string }   // kiosk-board.json
+export interface BoardLandmark { name: string; x: number; y: number; art: string }
 export interface BoardOptions {
   svg: SVGSVGElement; before: Element;            // 이 요소 앞에 끼운다(주민 층 앞 = 권역 이름 층)
   host: HTMLElement;                              // 범례(HTML)를 붙일 지도 칸
-  polygon: XY[]; roads: Record<string, string>; landBounds: Box;
-  decor: BoardDecor[]; extra?: BoardExtra;
+  cut: XY[];                                      // 재단선(지도 좌표) = 보드 윤곽
+  area: XY[];                                     // 5길 다각형(지도 좌표) — 가는 선으로만
+  roads: Record<string, string>; landBounds: Box;
+  decor: BoardDecor[]; landmarks: BoardLandmark[]; extra?: BoardExtra;
   proj: (lat: number, lng: number) => XY;
   onStore: (id: string) => void;
 }
@@ -42,14 +45,15 @@ export const CATS: Record<string, { n: string; sw: string }> = {
   restaurant: { n: '음식점', sw: '#e8b3b1' }, wine: { n: '주점', sw: '#e7c9a8' }, etc: { n: '기타', sw: '#e4d6e6' },
 };
 const catOf = (s: BoardStore) => (s.category && CATS[s.category] ? s.category : 'etc');
-const ROAD_W: Record<string, number> = { a: 34, b: 26, c: 17, d: 11 };   /* 보드 단위 띠 폭(시안 1774px 캔버스의 34·17 을 그대로 — 보드 폭이 비슷하다) */
+const ROAD_W: Record<string, number> = { a: 26, b: 20, c: 11 };   /* 보드 단위 띠 폭(시안 1774px 캔버스의 34·17 보다 조금 가늘게 — 보드에 길이 더 많다). d 등급(막다른 골목)은 안 그린다 */
 const NEAR = 12;        /* 경계 바깥 이만큼(지도 단위)까지의 가게도 올린다 — 경계가 길이라 길 건너 가게도 '5길 가게' */
 const BTN_R = 24, TICK_STEP = 13, TILE = 160;   /* 단추 반지름 · 블랭킷 스티치 간격 · 리넨 타일 한 변(보드 단위) */
 const PROP_SRC: Record<string, string> = { house: 'house', 'house-blue': 'house', oak: 'tree-g', 'oak-dark': 'tree-d', pine: 'tree-d', 'tree-g': 'tree-g', 'tree-d': 'tree-d', sun: 'sun', 'cloud-b': 'cloud-b', 'cloud-g': 'cloud-g', star: 'star' };
-const PROP_H: Record<string, number> = { house: 95, oak: 110, 'oak-dark': 100, pine: 100 };   /* 장식 종류별 기본 높이(보드 단위, 시안 값) */
+const PROP_H: Record<string, number> = { house: 62, 'house-blue': 62, oak: 70, 'oak-dark': 64, pine: 64 };   /* 장식 종류별 기본 높이(보드 단위) */
+const LM_W = 84;   /* 랜드마크 픽셀 그림 폭(보드 단위) */
 
 export function mountBoard(o: BoardOptions): Board {
-  const poly = o.polygon, T = boardTransform(poly, o.landBounds, 0.9);
+  const poly = o.cut, T = boardTransform(poly, o.landBounds, 0.9);
   const bp = poly.map(([x, y]) => T.to(x, y)), bb = bboxOf(bp), d = pathOf(bp);
   const html = document.documentElement;
 
@@ -77,9 +81,9 @@ export function mountBoard(o: BoardOptions): Board {
   const linen = el('image', { class: 'kb-cloth', x: bb.x0, y: bb.y0, width: bb.x1 - bb.x0, height: bb.y1 - bb.y0, preserveAspectRatio: 'none' }, body);
   el('rect', { x: bb.x0, y: bb.y0, width: bb.x1 - bb.x0, height: bb.y1 - bb.y0, fill: 'url(#kb-glow)' }, body);
   el('rect', { class: 'kb-night', x: bb.x0, y: bb.y0, width: bb.x1 - bb.x0, height: bb.y1 - bb.y0 }, body);
-  /* 길(실제 길만): 홈질(넓은 점선) 아래, 크림 띠 위 — 등급 순서 d·c·b·a. 보드 clip 으로 가장자리 길은 반쪽만 보인다(경계 = 길) */
+  /* 길(실제 길만): 홈질(넓은 점선) 아래, 크림 띠 위 — 등급 순서 c·b·a. 보드 clip 으로 가장자리 길은 반쪽만 보인다(경계 = 길) */
   const roadsG = el('g', { class: 'kb-roads' }, body); let roadD = '';
-  for (const k of ['d', 'c', 'b', 'a']) {
+  for (const k of ['c', 'b', 'a']) {
     if (!o.roads[k]) continue; const pls = roadsInside(o.roads[k], poly, T); if (!pls.length) continue;
     const pd = polylinePath(pls); roadD += pd;
     el('path', { class: 'kb-stitch', d: pd, 'stroke-width': ROAD_W[k] + 5.5 }, roadsG);
@@ -102,12 +106,14 @@ export function mountBoard(o: BoardOptions): Board {
   const prop = (kind: string, x: number, y: number, h: number) => { const src = PROP_SRC[kind]; if (!src) return; el('image', { class: 'kb-prop', href: `/board/${src}.webp`, x: (x - h * 0.42).toFixed(1), y: (y - h).toFixed(1), height: h, width: (h * 0.84).toFixed(1), preserveAspectRatio: 'xMidYMax meet' }, propsG); };
   o.decor.filter((p) => inPoly(poly, p.x + p.w / 2, p.y + p.h * 0.9)).forEach((p) => { const [x, y] = T.to(p.x + p.w / 2, p.y + p.h); prop(p.kind, x, y, PROP_H[p.kind] || 90); });
   (o.extra?.props || []).forEach((p) => { const [mx, my] = o.proj(p.lat, p.lng); const [x, y] = T.to(mx, my); prop(p.kind, x, y, p.h || PROP_H[p.kind] || 90); });
-  /* 제목: 보드 왼쪽 위(다각형 윗변은 상자 윗변 전체를 지나므로 안쪽이다) */
-  const titleG = el('g', { class: 'kb-title' }, g);
-  const tx0 = bb.x0 + (bb.x1 - bb.x0) * 0.06, ty0 = bb.y0 + (bb.y1 - bb.y0) * 0.19;   /* 왼쪽 위, 윗변 길과 첫 가로 골목 사이의 빈 자리 */
-  const t1 = el('text', { class: 'kb-t1', x: tx0, y: ty0 }, titleG); t1.textContent = o.extra?.title || '신당 5길';
-  const t2 = el('text', { class: 'kb-t2', x: tx0, y: ty0 }, titleG); t2.textContent = t1.textContent;
-  const t3 = el('text', { class: 'kb-t3', x: tx0 + 4, y: ty0 + 30 }, titleG); t3.textContent = o.extra?.sub || 'SINDANG 5-GIL';
+  /* 랜드마크(픽셀 그림 그대로, 발끝 기준) */
+  o.landmarks.filter((l) => inPoly(poly, l.x, l.y)).forEach((l) => { const [x, y] = T.to(l.x, l.y); el('use', { class: 'kb-lm', href: '#px-' + l.art, x: (x - LM_W / 2).toFixed(1), y: (y - LM_W * 0.78).toFixed(1), width: LM_W, height: LM_W }, propsG); });
+  /* 5길: 가는 실선 + 이름표(봉제 없음) */
+  const ap = o.area.map(([x, y]) => T.to(x, y)), ab = bboxOf(ap);
+  const areaG = el('g', { class: 'kb-area' }, g);
+  el('path', { class: 'kb-area-line', d: pathOf(ap) }, areaG);
+  const t1 = el('text', { class: 'kb-t1', x: ab.x0 + 14, y: ab.y0 + 34 }, areaG); t1.textContent = o.extra?.title || '신당 5길';
+  const t3 = el('text', { class: 'kb-t3', x: ab.x0 + 15, y: ab.y0 + 52 }, areaG); t3.textContent = o.extra?.sub || 'SINDANG 5-GIL';
 
   /* 단추 */
   const btnG = el('g', { class: 'kb-buttons' }, g);
