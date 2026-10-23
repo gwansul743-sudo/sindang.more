@@ -23,3 +23,11 @@ body.chief-hidden .wk-chief,body.chief-hidden .wk-cat{display:none}
 /* 10-23: FIELD NOTES(다시 열기) 버튼은 없애고, 빈 화면(소개)은 인트로에서 막 들어왔을 때(#side.welcome)만 — 낮·밤 시트 둘 다 덮음 */
 #side-open{display:none!important}
 #side:not(.welcome) #side-empty{display:none!important}   /* 소개는 인트로에서 막 들어왔을 때만 */
+
+/* 사진·영상 스켈레톤(10-23): 다 받기 전 포스터 칸 — 포스터 바탕색 위로 밝은 띠가 지나간다. 낮·밤 둘 다(바탕은 테마의 --poster) */
+.poster.skel{background-image:none!important}
+.poster.skel::before{content:"";position:absolute;inset:0;z-index:3;pointer-events:none;background:linear-gradient(100deg,transparent 30%,#ffffff3d 50%,transparent 70%) 0 0/250% 100% no-repeat;animation:skel-sweep 1.15s ease-in-out infinite}
+.poster.video.skel iframe,.poster.video.skel video{opacity:0}
+.poster.video iframe,.poster.video video{transition:opacity .3s ease}
+@keyframes skel-sweep{from{background-position:130% 0}to{background-position:-30% 0}}
+@media(prefers-reduced-motion:reduce){.poster.skel::before{animation:none;background:#ffffff26}}

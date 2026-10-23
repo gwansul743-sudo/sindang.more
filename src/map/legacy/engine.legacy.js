@@ -154,6 +154,13 @@ export function bootLegacy(DATA){
         <div class="small-note">카드뉴스 전체는 인스타그램 게시물에서 볼 수 있습니다.</div>
       </div>
       ${renderInterview(s.interview)}`;
+    /* 스켈레톤(10-23): 사진·영상을 다 받기 전엔 포스터 칸에 반짝이는 자리표시. 이미 받아 둔 사진이면 바로. 사진을 못 받으면 원래 픽셀 포스터로 */
+    const ph = card.querySelector('.poster.photo');
+    if(ph && s.photoUrl){ const img = new Image(); img.src = s.photoUrl;
+      if(!img.complete){ ph.classList.add('skel'); img.onload = () => ph.classList.remove('skel');
+        img.onerror = () => { ph.classList.remove('skel', 'photo'); ph.style.backgroundImage = ''; }; } }
+    const vf = card.querySelector('.poster.video iframe, .poster.video video');
+    if(vf){ vf.parentElement.classList.add('skel'); const done = () => vf.parentElement.classList.remove('skel'); vf.addEventListener(vf.tagName === 'VIDEO' ? 'loadeddata' : 'load', done, { once: true }); vf.addEventListener('error', done, { once: true }); setTimeout(done, 12000); }
     sheet.classList.add('open'); side.classList.add('has'); side.classList.remove('closed');
     /* 폰 바텀시트는 'INTERVIEW' 제목까지만 보이는 높이로 연다(나머지는 시트 안에서 스크롤). 인터뷰가 없으면 기본 높이 */
     sheet.scrollTop = 0; const ih = card.querySelector('.interview .ih');
