@@ -169,7 +169,7 @@ export function mountBoard(o: BoardOptions): Board {
     if (linenReady) return; linenReady = true;
     const im = new Image(); im.src = '/board/linen.webp';
     im.onload = () => { const w = ib.x1 - ib.x0, h = ib.y1 - ib.y0, px = 1.5, cv = document.createElement('canvas'); cv.width = Math.ceil(w * px); cv.height = Math.ceil(h * px);
-      const ctx = cv.getContext('2d'); if (!ctx) return; const tile = 310 * px; for (let y = 0; y < cv.height; y += tile) for (let x = 0; x < cv.width; x += tile) ctx.drawImage(im, x, y, tile, tile);
+      const ctx = cv.getContext('2d'); if (!ctx) return; const tile = 250 * px;   /* 리넨 한 칸(캔버스 단위). 10-23 310 → 250 조금 촘촘하게, 바다(board.css)와 같게 */ for (let y = 0; y < cv.height; y += tile) for (let x = 0; x < cv.width; x += tile) ctx.drawImage(im, x, y, tile, tile);
       linen.setAttribute('href', cv.toDataURL('image/jpeg', 0.86)); linen.classList.add('ready'); };
   }
 

@@ -11,7 +11,7 @@ html.kb-on .area,html.kb-on .patch,html.kb-on .night-ground,html.kb-on .night-la
 html.kb-on .day-sky,html.kb-on .night-sky{opacity:0!important;pointer-events:none}
 html.kb-on #hint,html.kb-on .map-title,html.kb-on #cluster-pop,html.kb-on .night-vignette{display:none!important}
 #map{transition:background-color 1.1s ease}
-html.kb-on #map{background-color:var(--kb-sea)!important;background-image:url(/board/linen.webp)!important;background-size:310px!important;background-blend-mode:multiply}
+html.kb-on #map{background-color:var(--kb-sea)!important;background-image:url(/board/linen.webp)!important;background-size:250px!important;background-blend-mode:multiply}
 /* 주민은 범례가 뜬 뒤(kb-rest)에야 보인다. 이장님·고양이는 엔진(body.chief-hidden)이 */
 html.kb-on:not(.kb-rest) .wk:not(.wk-chief):not(.wk-cat){visibility:hidden}
 
