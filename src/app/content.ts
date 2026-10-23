@@ -36,7 +36,7 @@ export function loadContent(stores: Store[]): EngineData {
     characters: { head, body, wave, palette, looks, chief, cat },
     stores,
     kioskArea: { name: kioskArea.name, polygon: kioskArea.polygon.map(([lat, lng]) => [lat, lng] as [number, number]) },
-    chiefTalk: { name: chiefTalk.name, portrait: chiefTalk.portrait, pages: chiefTalk.pages },
+    chiefTalk: { name: chiefTalk.name, pages: chiefTalk.pages },
     kioskCut: { name: kioskCut.name, polygon: kioskCut.polygon.map(([lat, lng]) => [lat, lng] as [number, number]) },
     kioskBoard: { hideRoads: (kioskBoard as { hideRoads?: (number[] | number[][])[] }).hideRoads, hideMain: (kioskBoard as { hideMain?: (number[] | number[][])[] }).hideMain, title: kioskBoard.title, sub: (kioskBoard as { sub?: string }).sub, titleAt: kioskBoard.titleAt, chiefAt: kioskBoard.chiefAt, props: kioskBoard.props, sky: kioskBoard.sky, waves: kioskBoard.waves },
   };
