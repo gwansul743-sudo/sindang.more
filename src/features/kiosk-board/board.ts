@@ -101,11 +101,8 @@ export function mountBoard(o: BoardOptions): Board {
   const main0 = mergeChains(cutHidden(roadsOf(['a', 'b']), hidMain)).filter((pl) => polyLen(pl) >= 60 || !(nearMain(pl[0]) || nearMain(pl[pl.length - 1])));
   const main = extendToCoast(main0, ISLAND, main0, 160, 22, nearMain);
   const mainD = polylinePath(main), alleyD = polylinePath(alley);
-  const mask = el('mask', { id: 'kb-alley-mask', maskUnits: 'userSpaceOnUse', x: ib.x0 - 50, y: ib.y0 - 50, width: ib.x1 - ib.x0 + 100, height: ib.y1 - ib.y0 + 100 }, defs);
-  el('rect', { x: ib.x0 - 50, y: ib.y0 - 50, width: ib.x1 - ib.x0 + 100, height: ib.y1 - ib.y0 + 100, fill: '#fff' }, mask);
-  if (mainD) el('path', { d: mainD, fill: 'none', stroke: '#000', 'stroke-width': 32, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, mask);
   if (mainD) { el('path', { class: 'kb-stitch main', d: mainD }, roadsG); el('path', { class: 'kb-band main', d: mainD }, roadsG); }
-  if (alleyD) { el('path', { class: 'kb-band alley', d: alleyD }, roadsG); el('path', { class: 'kb-stitch alley', d: alleyD, mask: 'url(#kb-alley-mask)' }, roadsG); }
+  if (alleyD) el('path', { class: 'kb-band alley', d: alleyD }, roadsG);   /* 골목은 흰 띠만 — 점선은 10-23 사용자 요청으로 뺐다(정신없어 보임) */
   const roadMapD = polylinePath(insideRuns([...main, ...alley], ISLAND).map((pl) => pl.map(toMap)));
   /* 가장자리: 실 + 블랭킷 빗금(바늘 따라 드러남) */
   const edge = el('g', { class: 'kb-edge' }, board);
