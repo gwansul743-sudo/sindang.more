@@ -4,7 +4,7 @@ import { type XY, type Box, bboxOf, distToPoly, inPoly, pathOf, roadsInside, pol
 /* 전시 보드 — 전시 모드를 켜면 섬이 통째로 '신당 5길' 천 섬이 된다. 모양·연출·톤은 시안 MORE_exhibition_dynamic_v2.html 그대로(10-23 사용자 결정, 낮/밤 구분 없음).
    길만 실제 길이다: 재단선(kiosk-cut.json) 안의 roads.json 길을 섬 덩어리에 맞춰 넣는다 — 큰 길(a·b)은 굵은 띠 + 양 가장자리 홈질, 골목(c)은 흰 띠 위 점선.
    · 좌표: 시안 캔버스(1774×887) 단위를 그대로 쓴다. 캔버스는 지도 좌표에 1:1 로, 캔버스 가운데가 섬 가운데에 오도록 놓는다(C). 가게·길 자리는 실제 좌표 → 재단선 상자를 섬 덩어리에 맞춘 변환(R) → 캔버스.
-   · 연출(play): ① 재단선을 따라 실이 한 바퀴(0.9s) ② 옛 섬이 사라지고 보드가 조각 자리에서 떠올라 섬만큼 펴진다(1.5s) ③ 블랭킷 스티치·하늘·물결 ④ 길 홈질 ⑤ 집·나무 ⑥ 단추 ⑦ 제목 ⑧ onChief(이장님·말풍선·큰 상자는 엔진이) → 끝나면 rest(): 범례·주민.
+   · 연출(play): ⓪ 화면이 밤색으로 어두워지고(0.4s) ① 검은 화면 위에 빨간 재단선이 그려진 뒤(1.0s) ② 어둠 속에서 보드가 조각 자리에서 떠올라 섬만큼 펴지고 어둠이 걷힌다(1.5s) ③ 블랭킷 스티치·하늘·물결 ④ 길 홈질 ⑤ 집·나무 ⑥ 단추 ⑦ 제목 ⑧ onChief(이장님·말풍선·큰 상자는 엔진이) → 끝나면 rest(): 범례·주민.
    · 켜진 동안 html.kb-on: 섬 위 원래 층은 사라지고(1.1s) 바다는 시안 색. 엔진은 카메라(view)·이장님·주민 그래프(roadPath·land)만 맡는다. */
 
 export interface BoardStore { id: string; name: string; x: number; y: number; category?: string; status?: string }
@@ -43,8 +43,9 @@ const CW = 1774, CH = 887;                                   /* 시안 캔버스
 const ISLAND = (() => { const cx = 887, cy = 452, rx = 560, ry = 300, n = 56, pts: XY[] = [];   /* 시안의 섬 덩어리 */
   for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2, w = 1 + 0.06 * Math.sin(a * 5.3 + 1) + 0.045 * Math.sin(a * 9.1 + 2.2) + 0.03 * Math.sin(a * 13.7); pts.push([cx + Math.cos(a) * rx * w * (1 + 0.08 * Math.cos(a * 2)), cy + Math.sin(a) * ry * w]); }
   return pts; })();
-const NEAR = 12, BTN_R = 24, TICK_STEP = 13;
+const NEAR = 12, BTN_R = 24, BTN_K = 0.55, TICK_STEP = 13;   /* BTN_K: 단추 축소 배율(10-23) */
 const SLOW = Math.max(1, Number(new URLSearchParams(location.search).get('patch_slow')) || 1);
+const T0 = 400 + 1000;   /* 어둠(0.4s) + 재단선(1.0s) 뒤에 보드가 펴지기 시작한다 */
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export function mountBoard(o: BoardOptions): Board {
@@ -71,8 +72,12 @@ export function mountBoard(o: BoardOptions): Board {
   pat('kb-p-etc', 10, '#ece2ee', (p) => { el('circle', { cx: 5, cy: 5, r: 1.6, fill: '#8d6b95', opacity: .7 }, p); el('circle', { cx: 0, cy: 0, r: 1, fill: '#c9a9cf' }, p); });
   pat('kb-p-title', 14, '#f7e9ea', (p) => { el('rect', { width: 7, height: 14, fill: '#c2444f', opacity: .6 }, p); el('rect', { width: 14, height: 7, fill: '#c2444f', opacity: .6 }, p); });
 
-  /* ① 재단선(실) — 지도 좌표의 재단선을 캔버스 좌표로 */
-  el('path', { class: 'kb-cutline', d: pathOf(o.cut.map(([x, y]) => [x - C.x, y - C.y])), pathLength: 1 }, g);
+  /* ⓪ 어둠: 지도 칸을 덮는 밤색 막(낮→밤 커튼 색). 그 위에 재단선이 그려지고 보드가 펴진 뒤 걷힌다 */
+  const dark = document.createElement('div'); dark.className = 'kb-shade'; dark.setAttribute('aria-hidden', 'true'); o.host.appendChild(dark);
+  /* ① 재단선(실) — 지도 좌표의 재단선을 캔버스 좌표로. 어둠 위에 보이도록 SVG 가 아니라 지도 칸 위 별도 SVG(화면 좌표로 매 프레임 맞추지 않고, 지도 svg 의 CTM 으로 한 번 놓는다) */
+  const cutSvg = document.createElementNS(NS, 'svg'); cutSvg.setAttribute('class', 'kb-cutsvg'); cutSvg.setAttribute('aria-hidden', 'true'); o.host.appendChild(cutSvg);
+  const cutline = el('path', { class: 'kb-cutline', d: pathOf(o.cut), pathLength: 1 }, cutSvg);
+  const placeCut = () => { const m = o.svg.getScreenCTM(), r = o.host.getBoundingClientRect(); if (!m) return; cutline.setAttribute('transform', `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e - r.left} ${m.f - r.top})`); };
   /* 하늘·물결(바다 위, 보드 밖) */
   const skyG = el('g', { class: 'kb-sky' }, g);
   const skyEls = (c.sky || []).map(([kind, x, y, w]) => el('image', { class: 'kb-skyimg kb-' + kind, href: `/board/${kind}.webp`, x, y, width: w, height: +w * (kind === 'sun' ? 0.996 : kind === 'star' ? 1 : 0.7) }, skyG));
@@ -115,7 +120,7 @@ export function mountBoard(o: BoardOptions): Board {
     if (inPoly(ISLAND, x, y)) return [x, y];
     let best = Infinity, px = x, py = y;
     for (let i = 0; i < ISLAND.length; i++) { const p = ISLAND[i], q = ISLAND[(i + 1) % ISLAND.length], dx = q[0] - p[0], dy = q[1] - p[1], l2 = dx * dx + dy * dy || 1; const t = Math.max(0, Math.min(1, ((x - p[0]) * dx + (y - p[1]) * dy) / l2)); const ex = p[0] + t * dx, ey = p[1] + t * dy, dd = Math.hypot(x - ex, y - ey); if (dd < best) { best = dd; px = ex; py = ey; } }
-    const L = Math.hypot(887 - px, 452 - py) || 1; return [px + ((887 - px) / L) * (BTN_R + 12), py + ((452 - py) / L) * (BTN_R + 12)];
+    const L = Math.hypot(887 - px, 452 - py) || 1; return [px + ((887 - px) / L) * (BTN_R * BTN_K + 12), py + ((452 - py) / L) * (BTN_R * BTN_K + 12)];
   };
   let on = false, composed = false;
   function setStores(list: BoardStore[]) {
@@ -123,7 +128,8 @@ export function mountBoard(o: BoardOptions): Board {
     list.filter((s) => distToPoly(o.cut, s.x, s.y) <= NEAR).forEach((s, i) => {
       const [x, y] = inward(...R.to(s.x, s.y)), cat = catOf(s);
       const pos = el('g', { transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})` }, btnG);
-      const b = el('g', { class: 'kb-btn' + (s.status === 'up' ? ' up' : '') + (on && composed ? ' in' : ''), 'data-cat': cat, 'data-id': s.id }, pos);
+      const bo = el('g', { class: 'kb-btn' + (s.status === 'up' ? ' up' : '') + (on && composed ? ' in' : ''), 'data-cat': cat, 'data-id': s.id }, pos);
+      const b = el('g', { transform: `scale(${BTN_K})` }, bo);   /* 10-23 단추·이름표 작게(시안의 0.55배) — 안쪽 그룹에 배율, 바깥(.kb-btn)은 등장 애니메이션 */
       el('circle', { r: BTN_R + 1, class: 'kb-btn-shadow', transform: 'translate(2.5 4)' }, b);
       el('circle', { class: 'kb-rim', r: BTN_R, fill: `url(#kb-p-${cat})` }, b);
       el('circle', { class: 'kb-ring', r: 18 }, b);
@@ -131,8 +137,8 @@ export function mountBoard(o: BoardOptions): Board {
       el('path', { class: 'kb-thr', d: 'M-6 -6 L6 6 M6 -6 L-6 6' }, b);
       const num = el('text', { class: 'kb-num', x: 0, y: 50 }, b); num.textContent = String(i + 1);
       const lab = el('text', { class: 'kb-lab', x: 0, y: -34 }, b); lab.textContent = s.name;
-      b.addEventListener('click', (e) => { e.stopPropagation(); o.onStore(s.id); });
-      btns.push({ id: s.id, cat, g: b });
+      bo.addEventListener('click', (e) => { e.stopPropagation(); o.onStore(s.id); });
+      btns.push({ id: s.id, cat, g: bo });
     });
     applyBtnState(); renderLegend();
   }
@@ -169,8 +175,8 @@ export function mountBoard(o: BoardOptions): Board {
   const at = (fn: () => void, t: number) => timers.push(window.setTimeout(fn, t * SLOW));
   const clear = () => { timers.forEach(clearTimeout); timers = []; cancelAnimationFrame(raf); };
   const showAll = (yes: boolean) => { ticks.forEach((t) => t.el.classList.toggle('show', yes)); propEls.forEach((p) => p.classList.toggle('in', yes)); btns.forEach((b) => b.g.classList.toggle('in', yes)); titleG.classList.toggle('in', yes); skyEls.forEach((s) => s.classList.toggle('in', yes)); waveEls.forEach((w) => w.classList.toggle('in', yes)); composed = yes; };
-  const reset = () => { clear(); g.classList.remove('on', 'cutting', 'arrived', 'roads-on', 'lift'); showAll(false); html.classList.remove('kb-on', 'kb-rest'); legend.classList.remove('show'); setFilter(null); selected = null; applyBtnState(); };
-  const skip = () => { ++run; clear(); on = true; loadLinen(); g.classList.add('mounted', 'on', 'arrived', 'roads-on'); g.classList.remove('cutting', 'lift'); html.classList.add('kb-on'); open(); showAll(true); };
+  const reset = () => { clear(); g.classList.remove('on', 'cutting', 'arrived', 'roads-on', 'lift'); cutSvg.classList.remove('cutting'); dark.classList.remove('on'); showAll(false); html.classList.remove('kb-on', 'kb-dark', 'kb-rest'); legend.classList.remove('show'); setFilter(null); selected = null; applyBtnState(); };
+  const skip = () => { ++run; clear(); on = true; loadLinen(); g.classList.add('mounted', 'on', 'arrived', 'roads-on'); g.classList.remove('cutting', 'lift'); cutSvg.classList.remove('cutting'); dark.classList.remove('on'); html.classList.add('kb-on'); html.classList.remove('kb-dark'); open(); showAll(true); };
 
   return {
     get on() { return on; }, land: { polygon: ISLAND.map(toMap), bounds: { x0: ib.x0 + C.x, y0: ib.y0 + C.y, x1: ib.x1 + C.x, y1: ib.y1 + C.y }, contains: (x, y) => inPoly(ISLAND, x - C.x, y - C.y) },
@@ -180,14 +186,18 @@ export function mountBoard(o: BoardOptions): Board {
     play({ onChief }) {
       const my = ++run; reset(); on = true; loadLinen(); g.classList.add('mounted'); fold(); void (board as unknown as HTMLElement).getBoundingClientRect();
       if (reduced()) { skip(); at(onChief, 300); return; }
-      g.classList.add('cutting');                                                                       /* ① 조각 둘레를 실이 한 바퀴 */
-      at(() => { if (my !== run) return; g.classList.remove('cutting'); g.classList.add('on', 'lift'); html.classList.add('kb-on'); open(); }, 900);   /* ② 떠올라 펴진다, 옛 섬은 사라진다 */
+      /* ⓪ 화면이 밤색으로 어두워진다(0.35s). 어둠이 다 덮이면 옛 섬·바다는 그 아래서 바뀐다(html.kb-dark: 전환 없이 바로) */
+      dark.classList.add('on');
+      at(() => { if (my !== run) return; html.classList.add('kb-on', 'kb-dark'); g.classList.add('on'); cutSvg.classList.add('cutting');
+        const follow = () => { if (my !== run || !cutSvg.classList.contains('cutting')) return; placeCut(); raf = requestAnimationFrame(follow); }; follow(); }, 400);   /* ① 검은 화면 위에 빨간 재단선(카메라가 아직 가는 중이라 매 프레임 자리 맞춤) */
+      at(() => { if (my !== run) return; g.classList.add('lift'); open(); dark.classList.remove('on'); html.classList.remove('kb-dark'); }, T0);   /* ② 어둠이 걷히는(1.4s) 동안 보드가 윤곽 자리에서 떠올라 펴진다(1.5s) */
+      at(() => { if (my !== run) return; cutSvg.classList.remove('cutting'); }, T0 + 500);                /* 재단선은 보드가 커지기 시작하면 사라진다 */
       at(() => { if (my !== run) return; g.classList.add('arrived');                                     /* ③ 가장자리 꿰매기 · 하늘 · 물결 */
         const t1 = performance.now(); const step = () => { if (my !== run) return; const p = Math.min(1, (performance.now() - t1) / (1300 * SLOW)); ticks.forEach((t) => { if (t.at <= p) t.el.classList.add('show'); }); if (p < 1) raf = requestAnimationFrame(step); }; raf = requestAnimationFrame(step);
-        skyEls.forEach((s, i) => at(() => s.classList.add('in'), 200 + i * 150)); waveEls.forEach((w, i) => at(() => w.classList.add('in'), 300 + i * 90)); }, 900 + 1500);
-      at(() => { if (my !== run) return; g.classList.add('roads-on'); }, 900 + 1500 + 1100);              /* ④ 길 홈질 */
-      propEls.forEach((p, i) => at(() => { if (my === run) p.classList.add('in'); }, 900 + 1500 + 1900 + i * 110));   /* ⑤ 집·나무 */
-      const tBtn = 900 + 1500 + 1900 + propEls.length * 110 + 200;
+        skyEls.forEach((s, i) => at(() => s.classList.add('in'), 200 + i * 150)); waveEls.forEach((w, i) => at(() => w.classList.add('in'), 300 + i * 90)); }, T0 + 1500);
+      at(() => { if (my !== run) return; g.classList.add('roads-on'); }, T0 + 1500 + 1100);              /* ④ 길 홈질 */
+      propEls.forEach((p, i) => at(() => { if (my === run) p.classList.add('in'); }, T0 + 1500 + 1900 + i * 110));   /* ⑤ 집·나무 */
+      const tBtn = T0 + 1500 + 1900 + propEls.length * 110 + 200;
       btns.forEach((b, i) => at(() => { if (my === run) b.g.classList.add('in'); }, tBtn + i * 150));    /* ⑥ 단추 */
       const tTitle = tBtn + btns.length * 150 + 200;
       at(() => { if (my !== run) return; titleG.classList.add('in'); composed = true; }, tTitle);        /* ⑦ 제목 */
