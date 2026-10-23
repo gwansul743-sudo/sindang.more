@@ -114,7 +114,9 @@ export function bootLegacy(DATA){
 
   /* 카드 */
   const sheet = document.getElementById('sheet'), card = document.getElementById('card');
-  const side = document.getElementById('side');   /* 데스크톱 사이드바 X 하나로: 카드가 열려 있으면 카드만 닫고, 아니면 사이드바를 접는다. 가게를 고르면 다시 열린다 */
+  const side = document.getElementById('side');
+  /* 10-23: 사이드바는 가게 카드가 있을 때만 — 빈 화면('우리가 만난 신당의 가게들')과 FIELD NOTES 버튼은 없앴다(CSS). 처음엔 접혀 있고 카드를 닫으면 다시 접힌다 */
+  if(window.innerWidth >= 900) side.classList.add('closed');   /* 데스크톱 사이드바 X 하나로: 카드가 열려 있으면 카드만 닫고, 아니면 사이드바를 접는다. 가게를 고르면 다시 열린다 */
   document.getElementById('side-close').onclick = () => { if(current) closeCard(); else side.classList.add('closed'); };
   document.getElementById('side-open').onclick = () => side.classList.remove('closed');
   /* 오른쪽으로 슥 넘기면 접기: 데스크톱 사이드바는 X 와 같은 동작, 폰 바텀시트는 카드 닫기 */
@@ -154,7 +156,8 @@ export function bootLegacy(DATA){
     if(focus){ const s0 = Math.max(scale(), 4.6); centerOn(s.x, s.y, s0, desktop()?0:V.ph*0.24); } else apply();
   }
   function step(d){ const i=(STORES.indexOf(current)+d+STORES.length)%STORES.length; select(STORES[i], true); }
-  function closeCard(){ closeCluster(); if(current){ dots.select(null); current=null; } sheet.classList.remove('open'); document.getElementById('side').classList.remove('has'); apply(); }
+  function closeCard(then){ closeCluster(); if(current){ dots.select(null); current=null; } sheet.classList.remove('open'); document.getElementById('side').classList.remove('has'); apply();
+    withSide(true, () => { if(typeof then === 'function') then(); }); }   /* 카드가 없으면 사이드바도 접는다(다 접힌 뒤 지도 폭을 다시 재고 then) */
   /* 영상: 포스터 칸에 들어갈 플레이어(embed) 또는, 끼워 넣을 수 없는 주소면 인스타 버튼 아래 링크 버튼(link).
      구글 드라이브(공유 링크) → 미리보기 iframe, 유튜브 → embed, mp4/webm 주소 → <video> (10-21) */
   function renderVideo(url){
@@ -200,12 +203,13 @@ export function bootLegacy(DATA){
      사이드바 상태가 이미 원하는 쪽이면(손으로 접어 둔 경우) 바로 카메라만 */
   /* 전환 중엔 뷰포트가 재배치하지 않는다(holdOnResize) — 재배치의 미세한 배율 변화가 1~2px 떨림으로 보인다.
      카메라는 전환이 '실제로' 끝난 transitionend 뒤에 출발한다(타이머로 어림하면 마지막 프레임과 겹쳐 반전이 생긴다). 새 전환이 시작되면 이전 마무리는 취소 */
-  let sideDone = null;
-  function withSide(closed, then){ if(!desktop() || side.classList.contains('closed') === closed){ then(); return; }
-    sideDone?.(false); side.classList.toggle('closed', closed); sideAnimating = true;
+  let sideDone = null, sideThens = [];
+  function withSide(closed, then){ if(!desktop()){ then(); return; }
+    if(side.classList.contains('closed') === closed){ if(sideDone) sideThens.push(then); else then(); return; }   /* 이미 그쪽으로 접히는(펴지는) 중이면 그 끝을 같이 기다린다(10-23) */
+    sideDone?.(false); sideThens = [then]; side.classList.toggle('closed', closed); sideAnimating = true;
     const onEnd = e => { if(e.target === stage && e.propertyName === 'grid-template-columns') done(true); };
     const t = setTimeout(() => done(true), 700);   /* transitionend 가 안 오는 경우(감춰진 탭 등) 대비 */
-    const done = (run) => { stage.removeEventListener('transitionend', onEnd); clearTimeout(t); sideDone = null; sideAnimating = false; if(run){ V.fit(); then(); } };   /* 접힘이 끝난 뒤의 지도 폭으로 다시 재고 출발 — 안 재면 옛 폭으로 중심을 잡아 치우친다 (10-21) */
+    const done = (run) => { stage.removeEventListener('transitionend', onEnd); clearTimeout(t); sideDone = null; sideAnimating = false; const fns = sideThens; sideThens = []; if(run){ V.fit(); fns.forEach(f => f()); } };   /* 접힘이 끝난 뒤의 지도 폭으로 다시 재고 출발 — 안 재면 옛 폭으로 중심을 잡아 치우친다 (10-21) */
     sideDone = done; stage.addEventListener('transitionend', onEnd); }
   let chiefActor = null, catActor = null, chiefHome = null;   /* 이장님 배우 (WALKERS 에서 채움) — 말풍선이 머리 위를 따라간다. chiefHome: 평소 자리 */
   const talk = mountTalk(stage, { onEnd: () => kioskRest() });   /* 큰 말풍선(인터뷰). 작은 말풍선의 인사가 끝나면 시작. 마지막 장이 닫히면 범례·주민 */
@@ -267,18 +271,18 @@ export function bootLegacy(DATA){
         centerOn(cx, cy - 12, t.s * 1.6 ** 2, 0, () => { if(my !== kioskSeq || !KIOSK) return; showChief(true); speech.say(CHIEF_LINES); }); } }); }); }
   /* 전시 연출을 그 자리에서 다 멈추고 평소 상태로(카메라·사이드바는 부르는 쪽이 정한다) */
   function stopKiosk(){ kioskSeq++; clearTimeout(kioskStartT); stopCycle(); kioskStage = 'off'; syncSkip?.(); speech.hide(); talk.hide(); villagerDone(); showChief(false); board?.hide(); walkersTo('home'); chiefTo(false); sideDone?.(false); }
-  function kioskRest(){ if(!KIOSK || !board || kioskStage !== 'play') return; kioskStage = 'rest'; syncSkip?.(); board.rest(); const t = kioskTarget(); centerOn(t.x, t.y, t.s, 0); }   /* 이장님 줌인에서 보드 전체로 물러나며 범례·단추 */
+  function kioskRest(){ if(!KIOSK || !board || kioskStage !== 'play') return; kioskStage = 'rest'; syncSkip?.(); idle(); board.rest(); const t = kioskTarget(); centerOn(t.x, t.y, t.s, 0); }   /* 이장님 줌인에서 보드 전체로 물러나며 범례·단추 */
   function kioskSkip(){ if(!KIOSK || !board || introOpen || kioskStage !== 'play') return; speech.hide(); talk.hide(); board.skip(); showChief(true); kioskRest(); }
   /* 건너뛰기(10-23): 연출(play) 동안만 보인다. 전엔 지도를 누르거나 휠만 굴려도 건너뛰어졌다 */
   const skipBtn = document.createElement('button'); skipBtn.type = 'button'; skipBtn.className = 'kb-skip'; skipBtn.textContent = '건너뛰기 ›'; map.appendChild(skipBtn);
   skipBtn.addEventListener('pointerdown', e => e.stopPropagation());
   skipBtn.addEventListener('click', e => { e.stopPropagation(); kioskSkip(); });
   const syncSkip = () => skipBtn.classList.toggle('show', KIOSK && !introOpen && kioskStage === 'play');
-  function goHome(){ withSide(false, () => { const hv = homeView(); centerOn(hv.x, hv.y, hv.s, 0); }); }
+  function goHome(){ withSide(true, () => { const hv = homeView(); centerOn(hv.x, hv.y, hv.s, 0); }); }
   /* 이장님·고양이는 평소엔 숨겨 두고(body.chief-hidden), 보드 연출의 제목 뒤에 등장한다. 끄면 다시 숨김 */
   const showChief = (on) => { document.body.classList.toggle('chief-hidden', !on); document.querySelectorAll('.wk-chief,.wk-cat').forEach(g => g.classList.toggle('appear', on)); };
   function kioskOff(){ speech.hide(); talk.hide(); kioskStage = 'off'; syncSkip?.(); const my = ++kioskSeq; clearTimeout(kioskStartT);
-    withCurtain(() => { if(my !== kioskSeq) return; stopKiosk(); side.classList.remove('closed'); V.fit(); resetHome(); }); }   /* 커튼이 덮이는 사이 다시 켰으면 되돌리지 않는다 */
+    withCurtain(() => { if(my !== kioskSeq) return; stopKiosk(); closeCard(); side.classList.add('closed'); V.fit(); resetHome(); }); }   /* 커튼이 덮이는 사이 다시 켰으면 되돌리지 않는다 */
   /* 인트로가 떠 있는 동안엔 상태(ON/OFF)만 바꾼다 — 연출은 인트로가 끝난 뒤(endIntro) */
   kioskBtn.onclick = () => { KIOSK=!KIOSK; renderKiosk(); if(introOpen) return; if(KIOSK){ showChief(false); closeCard(); kioskView(); } else kioskOff(); };
   renderKiosk();
@@ -296,8 +300,8 @@ export function bootLegacy(DATA){
     if(!canCycle()){ stopCycle(); return; }
     const list = board.focusList();
     const seq = kioskSeq;
-    if(!list.length || cycleI >= list.length){ cycleI = 0; board.focus(null); board.select(null); closeCard();   /* 한 바퀴 끝: 카드 닫고 보드 전체 */
-      withSide(true, () => { if(!cycling || seq !== kioskSeq) return; const t = kioskTarget(); centerOn(t.x, t.y, t.s, 0); });
+    if(!list.length || cycleI >= list.length){ cycleI = 0; board.focus(null); board.select(null);   /* 한 바퀴 끝: 카드 닫고(사이드바 접힘) 보드 전체 */
+      closeCard(() => { if(!cycling || seq !== kioskSeq) return; const t = kioskTarget(); centerOn(t.x, t.y, t.s, 0); });
       cycleT = setTimeout(cycleStep, DWELL_MS); return; }
     const f = list[cycleI++], st = STORES.find(s => s.id === f.id);
     withSide(false, () => { if(!cycling || seq !== kioskSeq) return;
@@ -323,7 +327,7 @@ export function bootLegacy(DATA){
   function openMap(){ if(intro.classList.contains('open')) return; intro.classList.add('open'); clearTimeout(introT); introT=setTimeout(endIntro, +intro.dataset.ms || 1900); }
   /* 인트로 다시 보기: 전시 연출은 그 자리에서 다 멈추고 평소 지도로 되돌린다(인트로 뒤에서 아무것도 돌지 않게, 10-23). 전시 모드 ON/OFF 상태는 그대로 — 인트로가 끝나면 다시 시작 */
   function playIntro(){ introOpen=true; closeCard(); stopKiosk(); clearTimeout(introT); intro.classList.remove('open'); intro.classList.remove('done');
-    side.classList.remove('closed'); V.fit(); apply();
+    side.classList.add('closed'); V.fit(); apply();
     document.getElementById('empty').classList.remove('show');
     resetHome(); }
   document.getElementById('openMap').onclick = openMap;

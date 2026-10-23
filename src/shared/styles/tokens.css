@@ -19,3 +19,6 @@
 body.chief-hidden .wk-chief,body.chief-hidden .wk-cat{display:none}
 .wk-chief.appear,.wk-cat.appear{animation:chief-appear .45s ease-out both}
 @keyframes chief-appear{from{opacity:0}to{opacity:1}}
+
+/* 10-23: 사이드바는 가게 카드가 있을 때만 — 빈 화면과 FIELD NOTES(다시 열기) 버튼은 없앤다(낮·밤 시트 둘 다 덮음) */
+#side-open,#side-empty{display:none!important}
