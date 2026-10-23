@@ -36,6 +36,18 @@ export class Walker implements Actor {
     this.x = this.G.nodes[this.a].x; this.y = this.G.nodes[this.a].y; this.speed = o.speed * rnd(0.8, 1.2);
   }
 
+  /* 말을 거는 동안 멈춰 세우기(마을 사람 인터뷰, 10-23) — 붙잡혀 있는 동안은 걷지도, 화면 밖으로 옮겨지지도 않는다 */
+  held = false;
+  hold() { this.held = true; if (this.mode === 'walk') { this.mode = 'pause'; this.until = Infinity; } }
+  release() { if (!this.held) return; this.held = false; if (this.mode === 'pause') this.until = 0; }
+  /* 누를 수 있는 주민: 스프라이트 칸 전체를 덮는 투명 사각형(픽셀 사이 빈칸도 잡히게) + 손가락 커서. 이벤트는 엔진이 g 에 단다 */
+  makeClickable() {
+    if (this.g.classList.contains('wk-talk')) return;
+    this.g.classList.add('wk-talk');
+    const r = el('rect', { class: 'wk-hit', x: -SW / 2, y: -FEET - 1, width: SW, height: FEET + 3, fill: 'transparent' });
+    r.style.pointerEvents = 'all'; this.g.style.cursor = 'pointer'; this.g.insertBefore(r, this.g.firstChild);
+  }
+
   /* 다른 길 그래프로 옮겨 타기 — 전시 모드의 5길 울타리(안쪽 길만) ⇄ 평소의 큰 길. 보이지 않을 때 부른다(그 자리에서 순간이동) */
   setGraph(G: RoadGraph) {
     if (G === this.G || !G.edges.length) return;
@@ -66,7 +78,7 @@ export class Walker implements Actor {
   tick(f: Frame, others: Actor[]) {
     const { now, dt, V, s, R, P, live, still, kiosk, nearPx, lms, LK } = f, G = this.G;
     const mul = f.mul, q = f.q * mul, k = f.k * mul;   /* 배율은 엔진이 준다(전시 보드 위에서는 크게, 10-23). 이장님·고양이도 같이 */
-    if (!still) {
+    if (!still && !this.held) {
       const fx = (this.x - V.x) * s, fy = (this.y - V.y) * s;
       this.offT = fx < -nearPx || fx > V.pw + nearPx || fy < -nearPx || fy > V.ph + nearPx ? this.offT + dt : 0;
       if (this.offT > this.offLimit) { this.relocate(f, others); this.offT = 0; this.offLimit = rnd(1, 3.5); }
@@ -78,10 +90,11 @@ export class Walker implements Actor {
     if (near && this.mode !== 'wave' && (this.armed || (now - P!.t < 140 && now - this.waveEnd > 700))) { this.mode = 'wave'; this.waveStart = now; this.waveMin = now + 1200; this.armed = false; }
     /* 최소 1.2초는 흔들고, 포인터가 곁에서 움직이는 동안은 계속. 포인터가 2.4초 멈춰 있으면 다시 걷기 */
     if (this.mode === 'wave' && now > this.waveMin && !(near && now - P!.t < 2400)) { this.mode = 'walk'; this.waveEnd = now; }
+    if (this.held && this.mode === 'walk') { this.mode = 'pause'; this.until = Infinity; }   /* 손인사가 끝나도 붙잡혀 있으면 계속 서 있기 */
     if (this.mode === 'pause' && now > this.until) { this.mode = 'walk'; this.nextPause = rnd(9, 24); }
     if (this.mode === 'walk' && !still) {
       this.nextPause -= dt;
-      if (this.nextPause <= 0) {
+      if (this.nextPause <= 0 && !this.held) {
         if (kiosk && Math.random() < 0.5) { this.mode = 'wave'; this.waveStart = now; this.waveMin = now + rnd(1500, 2400); }   /* 전시 모드: 가끔 먼저 인사 */
         else { this.mode = 'pause'; this.until = now + rnd(1200, 3200); }
         this.nextPause = rnd(9, 24);

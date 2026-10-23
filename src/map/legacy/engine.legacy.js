@@ -100,7 +100,7 @@ export function bootLegacy(DATA){
   function render(s){
     document.body.classList.toggle('far', s < 3.5);
     lmLayer.update(s); districts.update(s); dots.update(s);
-    placeCluster(); speech.place();
+    placeCluster(); speech.place(); vSpeech.place();
     const hideHint = s >= dotShowAt() || introOpen || STORES.length===0;
     document.getElementById('hint').classList.toggle('hide', hideHint);
     document.querySelector('.map-title').classList.toggle('hide', hideHint);   /* 제목 블럭도 힌트와 함께 사라진다 (10-21) */
@@ -109,7 +109,7 @@ export function bootLegacy(DATA){
     if(V.moved) return;
     if(picking){ const [lat,lng] = unproj(...V.toMap(e.clientX, e.clientY));
       form.latlng.value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`; endPick(); return; }
-    if(!e.target.closest('.dot,.col-pill,.cluster')) { closeCluster(); collapseSide(); }   /* 카드가 열려 있으면 카드만, 아니면 빈 사이드바도 접는다 (10-21) */
+    if(!e.target.closest('.dot,.col-pill,.cluster,.wk-talk')) { closeCluster(); collapseSide(); }   /* 카드가 열려 있으면 카드만, 아니면 빈 사이드바도 접는다 (10-21) */
   });
 
   /* 카드 */
@@ -129,7 +129,7 @@ export function bootLegacy(DATA){
   document.getElementById('side-grip').onclick = collapseSide;
   let current = null;
   function select(s, focus){
-    speech.hide(); talk.hide();
+    speech.hide(); talk.hide(); if(!cycling) villagerDone();
     current = s; dots.select(s._dot);
     const up = s.status==='up', href = s.ig || IG;
     const list = STORES, idx = list.indexOf(s)+1, vid = renderVideo(s.video);   /* 영상이 있으면 포스터 칸에 사진 대신 플레이어 (10-21) */
@@ -215,6 +215,28 @@ export function bootLegacy(DATA){
     onEnd: () => { if(KIOSK && !introOpen && kioskStage === 'play' && DATA.chiefTalk) talk.start(DATA.chiefTalk); },
   });
   const CHIEF_LINES = ['오호! 처음 보는 얼굴이구먼!\n**신당 5길**에 어서와!!', '잠깐 이야기 좀 듣고 갈 텐가?'];
+  /* 마을 사람 인터뷰(10-23, 설계 메모 '마을 사람 캐릭터 인터뷰' §4): 대본이 있는 주민(content/characters/villagers/*.json)은 이장님과 같은 2단 —
+     마우스를 올리면(터치는 첫 탭) 머리 위 작은 말풍선에 hook 한 줄이 HOOK_MS 동안 뜨고, 누르면(터치는 두 번째 탭) 지도 아래 큰 상자에 인터뷰가 장마다 넘어간다.
+     말을 거는 동안 그 주민은 그 자리에 서 있다(walker.hold). 말풍선·상자 모양은 이장님 것과 같다(chief-speech · chief-talk). 큰 상자가 닫히면 다시 걷는다 */
+  const HOOK_MS = 3000;
+  let villager = null, vHookT = null;   /* { w, script } 지금 말을 거는 주민 */
+  const vTalk = mountTalk(stage, { onEnd: () => villagerDone() });
+  const vSpeech = mountSpeech(stage, {
+    anchor: () => { const g = villager?.w.g; if(!g || g.getAttribute('display') === 'none') return null; const r = g.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { x: r.left + r.width / 2 - st.left, y: r.top - st.top }; },
+    bounds: () => { const m = map.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { left: m.left - st.left, top: m.top - st.top, width: m.width, height: m.height }; },
+  });
+  const takeVillager = (w, script) => { clearTimeout(vHookT); if(villager && villager.w !== w){ villager.w.release(); vTalk.hide(); } villager = { w, script }; w.hold(); };
+  function villagerHook(w, script){ if(vTalk.visible && villager?.w === w) return; takeVillager(w, script); vSpeech.say([script.hook]);
+    vHookT = setTimeout(() => { if(villager?.w === w && !vTalk.visible) villagerDone(); }, script.hook.length * 34 + HOOK_MS); }   /* 다 찍힌 뒤 HOOK_MS 동안 남는다(한 글자 34ms 타자) */
+  function villagerOpen(w, script){ takeVillager(w, script); vSpeech.hide(); vTalk.start({ name: script.store ? `${script.store} · ${script.name}` : script.name, pages: script.pages.map(p => [p]) }); }
+  function villagerDone(){ clearTimeout(vHookT); vSpeech.hide(); if(vTalk.visible) vTalk.hide(); villager?.w.release(); villager = null; }
+  function bindVillager(w, script){
+    w.makeClickable();
+    w.g.addEventListener('pointerenter', e => { if(e.pointerType === 'mouse') villagerHook(w, script); });
+    w.g.addEventListener('click', e => { e.stopPropagation(); if(V.moved) return;
+      const firstTouch = e.pointerType && e.pointerType !== 'mouse' && !(villager?.w === w && (vSpeech.visible || vTalk.visible));
+      if(firstTouch) villagerHook(w, script); else if(!(villager?.w === w && vTalk.visible)) villagerOpen(w, script); });
+  }
   /* 보드 전체(시안 캔버스 1774×887)를 담는 카메라 */
   const kioskTarget = () => { const v = board.view(); return { x: v.x, y: v.y, s: desktop() ? Math.min(V.pw / v.w, V.ph / v.h) : V.pw / (v.iw * 1.08) }; };   /* 데스크톱: 캔버스 전체(하늘까지) · 폰: 섬 폭에 맞춤 */
   let walkers = [], walkerGraphs = null;   /* WALKERS 에서 채움 */
@@ -231,7 +253,7 @@ export function bootLegacy(DATA){
       board.play({ onChief: () => { if(my !== kioskSeq || !KIOSK) return; const [cx, cy] = board.chiefAt(), t = kioskTarget();
         centerOn(cx, cy - 12, t.s * 1.6 ** 2, 0, () => { if(my !== kioskSeq || !KIOSK) return; showChief(true); speech.say(CHIEF_LINES); }); } }); }); }
   /* 전시 연출을 그 자리에서 다 멈추고 평소 상태로(카메라·사이드바는 부르는 쪽이 정한다) */
-  function stopKiosk(){ kioskSeq++; clearTimeout(kioskStartT); stopCycle(); kioskStage = 'off'; speech.hide(); talk.hide(); showChief(false); board?.hide(); walkersTo('home'); chiefTo(false); sideDone?.(false); }
+  function stopKiosk(){ kioskSeq++; clearTimeout(kioskStartT); stopCycle(); kioskStage = 'off'; speech.hide(); talk.hide(); villagerDone(); showChief(false); board?.hide(); walkersTo('home'); chiefTo(false); sideDone?.(false); }
   function kioskRest(){ if(!KIOSK || !board || kioskStage !== 'play') return; kioskStage = 'rest'; board.rest(); const t = kioskTarget(); centerOn(t.x, t.y, t.s, 0); }   /* 이장님 줌인에서 보드 전체로 물러나며 범례·단추 */
   function kioskSkip(){ if(!KIOSK || !board || introOpen || kioskStage !== 'play') return; speech.hide(); talk.hide(); board.skip(); showChief(true); kioskRest(); }
   map.addEventListener('pointerdown', kioskSkip); map.addEventListener('wheel', kioskSkip, { passive: true });
@@ -250,7 +272,7 @@ export function bootLegacy(DATA){
      한 바퀴 끝의 보드 전체 뷰에선 카드를 닫고 사이드바를 접는다. 사람이 끼어들어 멈추면 열린 카드는 그대로 둔다 */
   const IDLE_MS = 5000, DWELL_MS = 6000;
   let idleT = null, cycleT = null, cycleI = 0, cycling = false;
-  const canCycle = () => KIOSK && board && !introOpen && kioskStage === 'rest' && !talk.visible && !speech.visible;
+  const canCycle = () => KIOSK && board && !introOpen && kioskStage === 'rest' && !talk.visible && !speech.visible && !vTalk.visible && !vSpeech.visible;
   const focusZoom = () => kioskTarget().s * (desktop() ? 2.6 : 2.2);   /* 보드 전체 배율에서 ×2.6(폰 ×2.2) */
   function stopCycle(){ clearTimeout(cycleT); if(cycling){ cycling = false; board?.focus(null); } }
   function cycleStep(){
@@ -433,6 +455,7 @@ export function bootLegacy(DATA){
   if(graph.edges.length){
     const scene = createScene({ svg, map, V, landmarks: lmLayer, before: gDist, frontBefore: gDots, isKiosk: () => KIOSK, actorMul: () => (board?.on ? 1.3 : 1) });   /* 보드 위에서는 조금 크게(10-23: 2.6 → 1.3, 사용자 '많이 줄여') */
     walkers = spawnWalkers(scene, { graph, parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, count: 5, speed: 6.5, home: LANDMARKS[0] || {x:W/2, y:H/2} });
+    (DATA.villagers || []).forEach((script, i) => { if(walkers[i]) bindVillager(walkers[i], script); });   /* 대본이 있는 주민: 앞에서부터 하나씩 (지금 신당야학 박소민 강학 1명) */
     walkerGraphs = { home: graph, kiosk: board ? buildRoadGraph(board.roadPath(), board.land, { minLen: 40 }) : graph };   /* 전시 모드: 보드 위의 실제 길(골목까지) */
     const chief = new Chief(scene.layer, DATA.characters.body, DATA.characters.chief); scene.add(chief); chiefActor = chief;
     catActor = new Cat(scene.layer, DATA.characters.cat, chief); scene.add(catActor);
