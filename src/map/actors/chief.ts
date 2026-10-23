@@ -37,7 +37,7 @@ export class Chief implements Actor {
     if (this.g.classList.contains('wk-talk')) return;
     this.g.classList.add('wk-talk');
     const r = el('rect', { class: 'wk-hit', x: -6.5, y: -FEET + 1, width: 13, height: 16, fill: 'transparent' });   /* 그려진 몸(모자까지 가로 13·세로 16칸)만(10-23) */
-    r.style.pointerEvents = 'all'; this.g.style.cursor = 'pointer'; this.g.insertBefore(r, this.g.firstChild);
+    r.style.pointerEvents = 'visible';   /* 'all' 은 숨긴(visibility:hidden) 주민도 마우스를 받아, 이장님 대화 중 안 보이는 주민의 말풍선이 떴다(10-23) */ this.g.style.cursor = 'pointer'; this.g.insertBefore(r, this.g.firstChild);
   }
 
   tick(f: Frame) {

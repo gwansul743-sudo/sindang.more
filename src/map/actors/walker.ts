@@ -45,7 +45,7 @@ export class Walker implements Actor {
     if (this.g.classList.contains('wk-talk')) return;
     this.g.classList.add('wk-talk');
     const r = el('rect', { class: 'wk-hit', x: -5.5, y: -FEET + 1, width: 11, height: 16, fill: 'transparent' });   /* 그려진 몸(가로 11·세로 16칸)만 — 칸 전체(17×19)로 잡으면 옆 빈 곳에서도 대화가 떴다(10-23) */
-    r.style.pointerEvents = 'all'; this.g.style.cursor = 'pointer'; this.g.insertBefore(r, this.g.firstChild);
+    r.style.pointerEvents = 'visible';   /* 'all' 은 숨긴(visibility:hidden) 주민도 마우스를 받아, 이장님 대화 중 안 보이는 주민의 말풍선이 떴다(10-23) */ this.g.style.cursor = 'pointer'; this.g.insertBefore(r, this.g.firstChild);
   }
 
   /* 머리 위 빨간 세모(이장님과 같은 NPC 표시) — 시민이 구글폼으로 인터뷰를 남겨 생긴 주민에게만 붙인다(10-23 사용자 결정). 도안은 chief.json 의 mark */
