@@ -77,7 +77,7 @@ node tools/check_screen.mjs   # 헤드리스 Chrome. 마지막 줄 "통과"
 
 ## 6. 다음 할 일: 전시 기능 (서로 독립, 기능 하나 → 확인 → 커밋)
 우선순위는 전시 기획에 따른다.
-- **주민 클릭 → 인터뷰**(10-23 1명 완료): 대본은 `content/characters/villagers/*.json`(파일 하나 = 주민 하나, 형식은 `sindang-yahak.json`: id·name·store·hook·pages, 3장 미만은 안 띄우고 8장까지). 앞의 주민부터 하나씩 대본을 받는다(`bindVillager`, 임시 엔진 전시 모드 블록). 마우스를 올리면(터치는 첫 탭) 머리 위에 hook 말풍선(다 찍힌 뒤 3초), 누르면(터치는 두 번째 탭) 이장님과 같은 큰 상자에 장마다 넘김(이름표 '가게 · 이름'). 말을 거는 동안 그 주민은 멈춰 선다(`walker.hold/release`), 누를 수 있는 주민은 스프라이트 칸 전체가 투명 사각형으로 잡힌다(`makeClickable`, `.wk-talk`). 평소 지도·전시 보드 둘 다. 남은 것: 고정 행인 2~3명 채우기, 구글폼 설문 주민 FIFO.
+- **주민 클릭 → 인터뷰**(10-23 1명 완료): 대본은 `content/characters/villagers/*.json`(파일 하나 = 주민 하나, 형식은 `sindang-yahak.json`: id·name·store·hook·pages, 3장 미만은 안 띄우고 8장까지). 앞의 주민부터 하나씩 대본을 받는다(`bindVillager`, 임시 엔진 전시 모드 블록). 마우스를 올리면(터치는 첫 탭) 머리 위에 hook 말풍선(다 찍힌 뒤 3초), 누르면(터치는 두 번째 탭) 이장님과 같은 큰 상자에 장마다 넘김(이름표 '가게 · 이름'). 말을 거는 동안 그 주민은 멈춰 선다(`walker.hold/release`), 누를 수 있는 주민은 스프라이트 칸 전체가 투명 사각형으로 잡힌다(`makeClickable`, `.wk-talk`). 평소 지도·전시 보드 둘 다. **빨간 세모(이장님과 같은 표시)는 `kind: "form"`(시민이 구글폼으로 남긴 인터뷰) 주민에게만** — 가게 인터뷰 주민(`shop`)은 표시 없음(10-23 사용자 결정, `walker.showMark`). 남은 것: 고정 행인 2~3명 채우기, 구글폼 설문 주민 FIFO.
 - **이장님 영상·자막**: `actors/chief.ts`의 이장님 `g`에 클릭(`pointer-events` 켜기) → `features/chief/`가 `<video>`와 동물의 숲식 자막 상자를 띄운다. 영상 `public/chief/chief.mp4` 20MB 이하, 자막 `content/chief/subtitles.json`.
 - **구글폼 → 캐릭터**: §9. service role 키는 Apps Script 속성에만.
 - **이스터에그**: 상단 "MORE" 5회 클릭 → 경관 대시보드(별도 Pages 프로젝트). `features/easter-egg/`.

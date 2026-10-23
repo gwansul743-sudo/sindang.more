@@ -15,7 +15,7 @@ export interface EngineData {
   characters: Record<string, unknown>;
   stores: unknown[];
   kioskArea?: { name: string; polygon: [number, number][] };   // 전시 모드에서 강조할 구역 (content/map/kiosk-area.json)
-  villagers?: { id: string; name: string; store?: string; hook: string; pages: string[] }[];   // 마을 사람 인터뷰 대본 (content/characters/villagers/*.json)
+  villagers?: { id: string; kind?: string; name: string; store?: string; hook: string; pages: string[] }[];   // kind: 'shop'(가게 인터뷰, 표시 없음) | 'form'(시민 구글폼 응답, 머리 위 빨간 세모). 대본은 content/characters/villagers/*.json
   chiefTalk?: { name: string; pages: string[][] };   // 이장님 인터뷰 대본 (content/characters/chief-talk.json)
   kioskCut?: { name: string; polygon: [number, number][] };   // 전시 보드 재단선 (content/map/kiosk-cut.json)
   kioskBoard?: { hideRoads?: (number[] | number[][])[]; hideMain?: (number[] | number[][])[]; title?: string; sub?: string; titleAt?: number[]; chiefAt?: number[]; props?: (string | number)[][]; sky?: (string | number)[][]; waves?: number[][] };   // 전시 보드(시안 캔버스 단위) (content/map/kiosk-board.json)

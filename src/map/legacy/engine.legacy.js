@@ -232,6 +232,7 @@ export function bootLegacy(DATA){
   function villagerDone(){ clearTimeout(vHookT); vSpeech.hide(); if(vTalk.visible) vTalk.hide(); villager?.w.release(); villager = null; }
   function bindVillager(w, script){
     w.makeClickable();
+    if(script.kind === 'form') w.showMark(DATA.characters.chief.mark);   /* 시민이 인터뷰를 남겨 생긴 주민만 빨간 세모. 가게 인터뷰 주민(shop)은 표시 없음 */
     w.g.addEventListener('pointerenter', e => { if(e.pointerType === 'mouse') villagerHook(w, script); });
     w.g.addEventListener('click', e => { e.stopPropagation(); if(V.moved) return;
       const firstTouch = e.pointerType && e.pointerType !== 'mouse' && !(villager?.w === w && (vSpeech.visible || vTalk.visible));

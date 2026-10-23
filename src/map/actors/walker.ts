@@ -48,6 +48,14 @@ export class Walker implements Actor {
     r.style.pointerEvents = 'all'; this.g.style.cursor = 'pointer'; this.g.insertBefore(r, this.g.firstChild);
   }
 
+  /* 머리 위 빨간 세모(이장님과 같은 NPC 표시) — 시민이 구글폼으로 인터뷰를 남겨 생긴 주민에게만 붙인다(10-23 사용자 결정). 도안은 chief.json 의 mark */
+  private mark: SVGGElement | null = null; private markB = -1;
+  showMark(M: { outline: string; fill: string; shine: string; colors: { outline: string; fill: string; shine: string } }) {
+    if (this.mark) return;
+    this.mark = el('g', { class: 'wk-mark' }, this.g);
+    el('path', { d: M.outline, fill: M.colors.outline }, this.mark); el('path', { d: M.fill, fill: M.colors.fill }, this.mark); el('path', { d: M.shine, fill: M.colors.shine }, this.mark);
+  }
+
   /* 다른 길 그래프로 옮겨 타기 — 전시 모드의 5길 울타리(안쪽 길만) ⇄ 평소의 큰 길. 보이지 않을 때 부른다(그 자리에서 순간이동) */
   setGraph(G: RoadGraph) {
     if (G === this.G || !G.edges.length) return;
@@ -120,6 +128,7 @@ export class Walker implements Actor {
     let front = false; const fx = this.x + this.ox, fy = this.y + this.oy;
     for (const l of lms) { if (Math.abs(fx - l.x) < 18 * LK + 5 * k && fy > l.y - 2.5 * LK && fy < l.y + 2 * LK + 18 * k) { front = true; break; } }
     if (front !== this.front) { f.setFront(this, front); this.front = front; }
+    if (this.mark) { const mb = still ? 0 : Math.floor(now / 520) % 2; if (mb !== this.markB) { this.mark.setAttribute('transform', `translate(${-SW / 2},${-FEET - mb - hop})`); this.markB = mb; } }   /* 세모: 0.52초마다 한 칸 오르내림(이장님과 같은 박자) */
     f.place(this, sx, sy, this.mode === 'walk' && this.face === 'side' && this.dir < 0 ? -1 : 1, hop, mul);
   }
 }

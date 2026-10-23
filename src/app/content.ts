@@ -21,7 +21,7 @@ import type { Store } from '../entities/store/types';
 import type { EngineData } from '../map/engine';
 
 /* 마을 사람 인터뷰 대본(content/characters/villagers/*.json) — 파일 하나 = 주민 하나. 형식은 그 폴더의 파일 참고 */
-const villagerFiles = import.meta.glob('../../content/characters/villagers/*.json', { import: 'default', eager: true }) as Record<string, { id: string; name: string; store?: string; hook: string; pages: string[]; fixed?: boolean }>;
+const villagerFiles = import.meta.glob('../../content/characters/villagers/*.json', { import: 'default', eager: true }) as Record<string, { id: string; kind?: string; name: string; store?: string; hook: string; pages: string[]; fixed?: boolean }>;
 const decorArt = import.meta.glob('../../content/map/decor/*.pixel.txt', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 
 export function loadContent(stores: Store[]): EngineData {
@@ -38,7 +38,7 @@ export function loadContent(stores: Store[]): EngineData {
     characters: { head, body, wave, palette, looks, chief, cat },
     stores,
     kioskArea: { name: kioskArea.name, polygon: kioskArea.polygon.map(([lat, lng]) => [lat, lng] as [number, number]) },
-    villagers: Object.values(villagerFiles).filter((v) => v.pages && v.pages.length >= 3).map((v) => ({ id: v.id, name: v.name, store: v.store, hook: v.hook, pages: v.pages.slice(0, 8) })),   /* 3장 미만은 띄우지 않고, 8장 넘으면 자른다(설계 메모) */
+    villagers: Object.values(villagerFiles).filter((v) => v.pages && v.pages.length >= 3).map((v) => ({ id: v.id, kind: v.kind, name: v.name, store: v.store, hook: v.hook, pages: v.pages.slice(0, 8) })),   /* 3장 미만은 띄우지 않고, 8장 넘으면 자른다(설계 메모) */
     chiefTalk: { name: chiefTalk.name, pages: chiefTalk.pages },
     kioskCut: { name: kioskCut.name, polygon: kioskCut.polygon.map(([lat, lng]) => [lat, lng] as [number, number]) },
     kioskBoard: { hideRoads: (kioskBoard as { hideRoads?: (number[] | number[][])[] }).hideRoads, hideMain: (kioskBoard as { hideMain?: (number[] | number[][])[] }).hideMain, title: kioskBoard.title, sub: (kioskBoard as { sub?: string }).sub, titleAt: kioskBoard.titleAt, chiefAt: kioskBoard.chiefAt, props: kioskBoard.props, sky: kioskBoard.sky, waves: kioskBoard.waves },
