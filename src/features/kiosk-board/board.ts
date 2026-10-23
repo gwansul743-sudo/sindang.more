@@ -25,6 +25,8 @@ export interface Board {
   rest(): void;                                               // 범례·주민
   hide(): void;
   setStores(list: BoardStore[]): void; setFilter(cat: string | null): void; select(id: string | null): void;
+  focusList(): { id: string; x: number; y: number }[];        // 자동 순환용: 보이는(필터에 걸리지 않은) 단추 자리(지도 좌표), 왼쪽→오른쪽
+  focus(id: string | null): void;                             // 자동 순환 중 강조(콩콩 뛰는 단추)
   roadPath(): string;                                         // 지도 좌표의 길(주민 그래프)
   land: BoardLand;                                            // 섬 덩어리(지도 좌표)
   chiefAt(): XY;                                              // 이장님 자리(지도 좌표)
@@ -121,7 +123,7 @@ export function mountBoard(o: BoardOptions): Board {
 
   /* 단추(가게 — 실제 자리) */
   const btnG = el('g', { class: 'kb-buttons' }, board);
-  let btns: { id: string; cat: string; g: SVGGElement }[] = [], filter: string | null = null, selected: string | null = null;
+  let btns: { id: string; cat: string; g: SVGGElement; x: number; y: number }[] = [], filter: string | null = null, selected: string | null = null;
   const inward = (x: number, y: number): XY => {   /* 섬 밖이면 가장 가까운 가장자리에서 안쪽으로 */
     if (inPoly(ISLAND, x, y)) return [x, y];
     let best = Infinity, px = x, py = y;
@@ -143,7 +145,7 @@ export function mountBoard(o: BoardOptions): Board {
       el('path', { class: 'kb-thr', d: 'M-6 -6 L6 6 M6 -6 L-6 6' }, b);
       const lab = el('text', { class: 'kb-lab', x: 0, y: -34 }, b); lab.textContent = s.name;
       bo.addEventListener('click', (e) => { e.stopPropagation(); o.onStore(s.id); });
-      btns.push({ id: s.id, cat, g: bo });
+      btns.push({ id: s.id, cat, g: bo, x, y });
     });
     applyBtnState(); renderLegend();
   }
@@ -208,5 +210,7 @@ export function mountBoard(o: BoardOptions): Board {
     rest() { html.classList.add('kb-rest'); legend.classList.add('show'); if (btnsOn) return; btnsOn = true; const my = run; btns.forEach((b, i) => at(() => { if (my === run) b.g.classList.add('in'); }, 250 + i * 120)); },   /* ⑨ 범례·주민·단추(차례로 탕탕) */
     hide() { ++run; on = false; reset(); g.classList.remove('mounted'); },
     setStores, setFilter, select(id) { selected = id; applyBtnState(); },
+    focusList: () => btns.filter((b) => !filter || b.cat === filter).sort((a, b) => a.x - b.x).map((b) => { const [x, y] = toMap([b.x, b.y]); return { id: b.id, x, y }; }),
+    focus(id) { btns.forEach((b) => b.g.classList.toggle('focus', b.id === id)); },
   };
 }
