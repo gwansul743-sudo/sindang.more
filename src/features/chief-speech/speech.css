@@ -2,9 +2,9 @@
    #stage 위 오버레이, 지도(#map)보다 위, 관리 패널(35)보다 아래. 글자는 한 자씩 찍힌다(타자). 색은 시안 값(--kb-*, kiosk-board/board.css). */
 .speech{position:absolute;z-index:24;width:max-content;max-width:min(300px,calc(100% - 24px));transform:translate(-50%,-100%) translateY(-4px) scale(.9);transform-origin:50% 100%;pointer-events:none;opacity:0;transition:opacity .25s ease,transform .25s cubic-bezier(.2,1.3,.3,1)}
 .speech.show{opacity:1;transform:translate(-50%,-100%) translateY(-4px);pointer-events:auto;cursor:pointer}
-.speech .sp-box{position:relative;z-index:1;background:linear-gradient(#f6eedcd1,#f6eedcd1),#efe3cb url(/board/linen.webp);background-size:auto,120px;color:#7d2030;border:1px solid #c4ae8f;border-radius:5px;box-shadow:0 3px 4px #2e3b4338;padding:10px 14px 11px;font:600 14px/1.5 var(--font-ui);letter-spacing:-.3px;word-break:keep-all}
+.speech .sp-box{position:relative;z-index:1;background:linear-gradient(#f1e2c5d1,#f1e2c5d1),#efe3cb url(/board/linen.webp);background-size:auto,120px;color:#7d2030;border:1px solid #c4ae8f;border-radius:5px;box-shadow:0 3px 4px #2e3b4338;padding:10px 14px 11px;font:600 14px/1.5 var(--font-ui);letter-spacing:-.3px;word-break:keep-all}
 .speech .sp-box::after{content:"";position:absolute;inset:4px;border:1.8px dashed #9b3d49;border-radius:2px;opacity:.95;pointer-events:none}
 .speech .sp-box b{color:#b23a48;font-weight:700}
 .speech .sp-text{white-space:pre-line}   /* 대사의 \n 은 줄바꿈 */
-.speech .sp-tail{position:absolute;z-index:0;left:calc(50% - 7px);bottom:-9px;width:14px;height:14px;background:linear-gradient(#f6eedcd1,#f6eedcd1),#efe3cb url(/board/linen.webp);background-size:auto,120px;border-right:1px solid #c4ae8f;border-bottom:1px solid #c4ae8f;transform:rotate(45deg)}
+.speech .sp-tail{position:absolute;z-index:0;left:calc(50% - 7px);bottom:-9px;width:14px;height:14px;background:linear-gradient(#f1e2c5d1,#f1e2c5d1),#efe3cb url(/board/linen.webp);background-size:auto,120px;border-right:1px solid #c4ae8f;border-bottom:1px solid #c4ae8f;transform:rotate(45deg)}
 @media(prefers-reduced-motion:reduce){.speech{transition:opacity .2s}}

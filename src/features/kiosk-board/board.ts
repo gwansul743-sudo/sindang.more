@@ -87,6 +87,7 @@ export function mountBoard(o: BoardOptions): Board {
   const body = el('g', { 'clip-path': 'url(#kb-clip)' }, board);
   el('rect', { class: 'kb-base', x: ib.x0, y: ib.y0, width: ib.x1 - ib.x0, height: ib.y1 - ib.y0 }, body);
   const linen = el('image', { class: 'kb-cloth', x: ib.x0, y: ib.y0, width: ib.x1 - ib.x0, height: ib.y1 - ib.y0, preserveAspectRatio: 'none' }, body);
+  el('rect', { class: 'kb-tint', x: ib.x0, y: ib.y0, width: ib.x1 - ib.x0, height: ib.y1 - ib.y0 }, body);   /* 리넨 위 옅은 베이지(10-23) */
   el('rect', { x: ib.x0, y: ib.y0, width: ib.x1 - ib.x0, height: ib.y1 - ib.y0, fill: 'url(#kb-glow)' }, body);
   /* 길(실제): 큰 길 a·b = 굵은 띠 + 양 가장자리 홈질(띠보다 넓은 점선을 아래 깔아 끝만 보인다), 골목 c = 흰 띠 위 점선 */
   const roadsG = el('g', { class: 'kb-roads' }, body);

@@ -26,6 +26,7 @@ html.kb-dark .pixel-terrain,html.kb-dark .roads,html.kb-dark .pixel-props,html.k
 .kb.on .kb-board{opacity:1;pointer-events:none}
 .kb-shadow{fill:#2b1a16;opacity:.22}
 .kb-base{fill:#e9dcc2}
+.kb-tint{fill:#d6b688;opacity:.12;mix-blend-mode:multiply;pointer-events:none}   /* 섬 바닥에 아주 살짝 베이지(10-23) */
 .kb-cloth{opacity:0;transition:opacity .5s ease}.kb-cloth.ready{opacity:1}
 
 /* ③ 가장자리: 실 + 블랭킷 빗금 */
@@ -87,7 +88,7 @@ html.kb-dark .pixel-terrain,html.kb-dark .roads,html.kb-dark .pixel-props,html.k
 
 /* ⑨ 범례(HTML, 시안의 legend) */
 /* 범례 바탕(10-23): 리넨 결을 촘촘하게(310 → 120px) + 크림색 82% 로 덮어 연하게 — 결이 강해 글자가 안 보였다 */
-.kb-legend{position:absolute;z-index:4;left:25px;top:28px;width:clamp(200px,15vw,250px);padding:14px 14px 10px;background:linear-gradient(#f6eedcd1,#f6eedcd1),var(--kb-cream) url(/board/linen.webp);background-size:auto,120px;border:1px solid #c4ae8f;border-radius:5px;box-shadow:0 3px 4px #2e3b4338;color:var(--kb-wine);opacity:0;transform:translateY(-10px);transition:opacity .5s ease,transform .5s ease;pointer-events:none;zoom:var(--ui)}
+.kb-legend{position:absolute;z-index:4;left:25px;top:28px;width:clamp(200px,15vw,250px);padding:14px 14px 10px;background:linear-gradient(#f1e2c5d1,#f1e2c5d1),var(--kb-cream) url(/board/linen.webp);background-size:auto,120px;border:1px solid #c4ae8f;border-radius:5px;box-shadow:0 3px 4px #2e3b4338;color:var(--kb-wine);opacity:0;transform:translateY(-10px);transition:opacity .5s ease,transform .5s ease;pointer-events:none;zoom:var(--ui)}
 .kb-legend.show{opacity:1;transform:none;pointer-events:auto}
 .kb-legend::after{content:"";position:absolute;inset:4px;border:1.8px dashed var(--kb-stitch);border-radius:2px;opacity:.95;pointer-events:none}
 .kb-legend::before{content:"";position:absolute;left:50%;top:-9px;width:14px;height:14px;margin-left:-7px;border:2px solid var(--kb-thread);border-radius:50%;border-bottom-color:transparent;transform:rotate(45deg)}
