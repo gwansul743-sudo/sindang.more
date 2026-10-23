@@ -38,6 +38,6 @@ export function loadContent(stores: Store[]): EngineData {
     kioskArea: { name: kioskArea.name, polygon: kioskArea.polygon.map(([lat, lng]) => [lat, lng] as [number, number]) },
     chiefTalk: { name: chiefTalk.name, portrait: chiefTalk.portrait, pages: chiefTalk.pages },
     kioskCut: { name: kioskCut.name, polygon: kioskCut.polygon.map(([lat, lng]) => [lat, lng] as [number, number]) },
-    kioskBoard: { title: kioskBoard.title, sub: kioskBoard.sub, props: kioskBoard.props as { kind: string; lat: number; lng: number; h?: number }[] },
+    kioskBoard: { title: kioskBoard.title, sub: kioskBoard.sub, titleAt: kioskBoard.titleAt, chiefAt: kioskBoard.chiefAt, props: kioskBoard.props, sky: kioskBoard.sky, waves: kioskBoard.waves },
   };
 }

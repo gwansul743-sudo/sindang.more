@@ -13,6 +13,7 @@ export interface Frame {
   k: number;        // 1칸 = 지도 단위 k
   R: number;        // 손 흔드는 거리(px)
   P: Pointer | null; live: boolean; still: boolean; kiosk: boolean;
+  mul: number;      // 스프라이트 배율 보정(전시 보드 위에서는 크게). 엔진이 actorMul 로 준다
   nearPx: number;   // 화면 가장자리에서 이만큼(px) 넘게 벗어나면 '멀어진' 것
   lms: { x: number; y: number }[]; LK: number;   // 랜드마크 위치와 아이콘 배율
   place(a: Actor, sx: number, sy: number, flip: 1 | -1, hop: number, mul?: number): void;   // mul: 스프라이트 배율 보정(전시 모드의 주민·이장님·고양이 0.5). 전체 SVG가 crispEdges 라 반 픽셀도 번지지 않는다
@@ -23,6 +24,7 @@ export interface SceneOptions {
   before: Element;                 // 보통 층을 이 요소 앞에 (권역 이름 앞)
   frontBefore: Element;            // 앞 층을 이 요소 앞에 (가게 점 앞)
   isKiosk?: () => boolean;
+  actorMul?: () => number;         // 주민·이장님·고양이 배율(기본 1)
 }
 export interface Scene { layer: SVGGElement; layerFront: SVGGElement; actors: Actor[]; add(a: Actor): void; start(): void; destroy(): void }
 
@@ -64,7 +66,7 @@ export function createScene(o: SceneOptions): Scene {
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
     const s = V.scale(); if (!(s > 0) || V.pw < 10) return;
     const q = pixelSize(s), k = q / s;
-    const f: Frame = { now, dt, V, s, q, k, R: waveRadius(q), P, live: !!P && !still, still, kiosk: !!o.isKiosk?.(), nearPx: 15 * q + 50, lms: o.landmarks.items, LK: o.landmarks.k(s), place, setFront };
+    const f: Frame = { now, dt, V, s, q, k, R: waveRadius(q), P, live: !!P && !still, still, kiosk: !!o.isKiosk?.(), mul: o.actorMul?.() ?? 1, nearPx: 15 * q + 50, lms: o.landmarks.items, LK: o.landmarks.k(s), place, setFront };
     for (const a of actors) a.tick(f, actors);
   }
   return {

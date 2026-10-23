@@ -1,8 +1,0 @@
-/* 전시 모드 와펜 스탬프 오버레이 — #stage 위, 지도(#map)보다 위·관리 패널(35)보다 아래. 클릭은 전부 통과 */
-.stamps{position:absolute;inset:0;z-index:24;pointer-events:none;overflow:hidden}
-.stamp{position:absolute;display:block;opacity:0;transform-origin:50% 50%;will-change:transform,opacity,filter;user-select:none;-webkit-user-drag:none;image-rendering:auto}
-.stamp-puff{position:absolute;display:block;border-radius:50%;border:2px solid var(--ink,#f4e3b5);opacity:0;transform-origin:50% 50%;box-sizing:border-box}
-/* 이름표 펄스(이름표는 SVG 안 .area-label — 상자와 글자만 커졌다 돌아온다) */
-.area-label.pulse .area-box,.area-label.pulse .area-name{transform-box:fill-box;transform-origin:center;animation:stamp-pulse .32s cubic-bezier(.2,1.4,.3,1)}
-@keyframes stamp-pulse{0%{transform:scale(1)}35%{transform:scale(1.18)}100%{transform:scale(1)}}
-@media(prefers-reduced-motion:reduce){.area-label.pulse .area-box,.area-label.pulse .area-name{animation:none}}

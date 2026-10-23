@@ -34,7 +34,7 @@ export class Chief implements Actor {
 
   tick(f: Frame) {
     const { now, dt, V, s, R, P, live, still, kiosk } = f;
-    const mul = kiosk ? 0.5 : 1, q = f.q * mul;   /* 전시 모드(10-21): 주민과 같이 절반 크기. 이름표는 px/q 환산이라 글자 크기는 그대로 */
+    const mul = f.mul, q = f.q * mul;   /* 배율은 엔진이 준다(주민과 같이). 이름표는 px/q 환산이라 글자 크기는 그대로 */
     const sx = (this.x - V.x) * s, sy = (this.y - V.y) * s;
     const pd = live && P ? Math.hypot(P.x - sx, P.y - (sy - 8 * q)) : Infinity, near = pd < R;
     if (pd > R * 1.4) this.armed = true;

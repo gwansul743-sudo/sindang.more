@@ -11,12 +11,8 @@ import { mountRoads } from '../layers/roads';
 import { mountTerrain } from '../layers/terrain';
 import { mountLandmarks, mountDistricts } from '../layers/landmarks';
 import { mountDots } from '../layers/dots';
-import { mountArea } from '../layers/area';
-import { mountStamps } from '../../features/kiosk-stamps/stamps';
-import { mountPatch } from '../../features/kiosk-patch/patch';
-import { mountFocus } from '../../features/kiosk-focus/focus';
 import { mountBoard } from '../../features/kiosk-board/board';
-import { withCurtain } from '../../features/kiosk-focus/curtain';
+import { withCurtain } from '../../features/kiosk-board/curtain';
 import { mountSpeech } from '../../features/chief-speech/speech';
 import { mountTalk } from '../../features/chief-talk/talk';
 import { majorRoadPath } from '../layers/roads';
@@ -51,12 +47,8 @@ export function bootLegacy(DATA){
   const { props: pixelProps } = mountTerrain(svg, { pixelDefs: DATA.pixelDefs, terrain: DATA.terrain }, gRoads);
   const districts = mountDistricts(svg, P, DATA.land.districts), gDist = districts.g;
   const lmLayer = mountLandmarks(svg, P, DATA.landmarks.items, DATA.landmarks), LANDMARKS = lmLayer.items;
-  const area = DATA.kioskArea ? mountArea(svg, P, DATA.kioskArea) : null;   /* 전시 구역(신당 5길) 외곽선·이름표. 전시 모드에서만 보인다 */
-  const kioskAreaXY = DATA.kioskArea ? DATA.kioskArea.polygon.map(([lat, lng]) => proj(lat, lng)) : null;
-  const patch = kioskAreaXY ? mountPatch({ svg, before: gRoads, polygon: kioskAreaXY, roads: ROADS.p }) : null;
-  const focus = kioskAreaXY ? mountFocus({ svg, polygon: kioskAreaXY }) : null;   /* 전시 모드 집중: 비우기 → 5길만 → 낮춘 복귀 (features/kiosk-focus). 순서는 kioskView 위 주석 */   /* 전시 구역 바닥의 천 조각(길 아래, 구역 안 길은 굵은 복사본). 전시 모드 봉제 연출 → 와펜 */
   const lmK = s => lmLayer.k(s);
-  /* 전시 보드(features/kiosk-board): 전시 모드에서 섬 전체가 되는 '신당 5길' 천 섬 — 실제 길·사용자가 둔 장식·업종 단추. 지금은 ?board=1 로만 켠다(전환 연출은 다음 조각) */
+  /* 전시 보드(features/kiosk-board, 10-23): 전시 모드를 켜면 섬이 통째로 '신당 5길' 천 섬이 된다(시안 v2 그대로, 길만 실제 길). 천 조각·집중·와펜(kiosk-patch·focus·stamps)은 이것으로 대체 */
   let board = null;
 
   /* 가게 · 컬렉션 (데이터는 db에서 옴) */
@@ -102,12 +94,12 @@ export function bootLegacy(DATA){
   const V = createViewport({ map, svg, W, H, landBounds: LAND.bounds, focus: DATA.land.focus, onApply: render, onActivity: () => wake(), keepViewOnResize: () => !introOpen, holdOnResize: () => sideAnimating });
   const scale = () => V.scale(), apply = () => V.apply(), homeView = () => V.homeView(), resetHome = () => V.resetHome();
   const centerOn = (x,y,s,oy,then) => V.centerOn(x,y,s,oy,then);
-  const kioskCutXY = DATA.kioskCut ? DATA.kioskCut.polygon.map(([lat, lng]) => proj(lat, lng)) : null;   /* 전시 보드 재단선 */
-  if(kioskAreaXY && kioskCutXY) board = mountBoard({ svg, before: gDist, host: map, cut: kioskCutXY, area: kioskAreaXY, roads: ROADS.p, landBounds: LAND.bounds, decor: DATA.props.decor, landmarks: LANDMARKS, extra: DATA.kioskBoard, proj,
+  const kioskCutXY = DATA.kioskCut ? DATA.kioskCut.polygon.map(([lat, lng]) => proj(lat, lng)) : null;   /* 전시 보드 재단선(실이 도는 선, 보드에 넣을 실제 길·가게의 범위) */
+  if(kioskCutXY && DATA.kioskBoard) board = mountBoard({ svg, before: gDist, host: map, cut: kioskCutXY, roads: ROADS.p, landBounds: LAND.bounds, content: DATA.kioskBoard,
     onStore: id => { const st = STORES.find(s => s.id === id); if(st){ board.select(id); select(st, false); } } });
   function render(s){
     document.body.classList.toggle('far', s < 3.5);
-    lmLayer.update(s); districts.update(s); dots.update(s); area?.update(s); patch?.update(s);
+    lmLayer.update(s); districts.update(s); dots.update(s);
     placeCluster(); speech.place();
     const hideHint = s >= dotShowAt() || introOpen || STORES.length===0;
     document.getElementById('hint').classList.toggle('hide', hideHint);
@@ -197,12 +189,13 @@ export function bootLegacy(DATA){
   document.getElementById('zout').onclick = () => { V.zoomSmooth(1/1.6, V.pw/2, V.ph/2); wake(); };
   let msgT; function toast(t){ const m=document.getElementById('msg'); m.textContent=t; m.classList.add('show'); clearTimeout(msgT); msgT=setTimeout(()=>m.classList.remove('show'),2200); }
 
-  /* 전시 모드: 30초 무입력 시 자동 순환 */
-  /* 전시 모드: 켜면 카메라가 이장님(신당 5길) 자리로 들어가 거기 머문다(kioskView). 가게를 자동으로 넘기던 기능은 10-14에 뺐다. */
+  /* 전시 모드 (10-23, 시안 v2 그대로): 켜면 사이드바가 접히고 카메라가 보드 전체를 담는 자리로 간 뒤 보드 연출(features/kiosk-board.play)이 돈다 —
+     ① 재단선 실 ② 옛 섬이 사라지며 조각이 떠올라 섬만큼 펴짐 ③ 가장자리 꿰매기·하늘·물결 ④ 길 ⑤ 집·나무 ⑥ 단추 ⑦ 제목 → ⑧ 이장님 등장·말풍선·큰 상자(여기) → 마지막 장이 닫히면 ⑨ 범례·주민(kioskRest).
+     연출 중 지도를 만지면 바로 다 보이게(kioskSkip, 이장님도 그때). 낮춘 상태에서 30초 무입력이면 카메라만 보드 전체 뷰로. OFF 는 커튼 아래서 되돌린다(kioskOff). */
   let KIOSK = new URLSearchParams(location.search).has('kiosk');
+  const BOARD_DEBUG = new URLSearchParams(location.search).has('board');   /* ?board=1: 연출 없이 보드가 다 보이는 상태로 시작(개발·확인용) */
   const kioskBtn = document.getElementById('kiosk');
-  function renderKiosk(){ kioskBtn.textContent = '전시 모드 ' + (KIOSK?'ON':'OFF'); kioskBtn.setAttribute('aria-pressed', KIOSK);  area?.show(KIOSK); }
-  /* 폰에서는 전시 구역을 '처음 화면에서 + 한 번' 배율로만 본다(너무 들어가면 답답). 끄면 처음 화면으로 돌아간다 */
+  function renderKiosk(){ kioskBtn.textContent = '전시 모드 ' + (KIOSK?'ON':'OFF'); kioskBtn.setAttribute('aria-pressed', KIOSK); }
   /* 사이드바 접힘(0.42초)과 카메라 비행을 동시에 돌리면 두 속도 곡선이 겹쳐 화면이 좌우로 흔들린다 → 순서대로: 사이드바가 다 접힌(펴진) 뒤 카메라.
      사이드바 상태가 이미 원하는 쪽이면(손으로 접어 둔 경우) 바로 카메라만 */
   /* 전환 중엔 뷰포트가 재배치하지 않는다(holdOnResize) — 재배치의 미세한 배율 변화가 1~2px 떨림으로 보인다.
@@ -214,42 +207,37 @@ export function bootLegacy(DATA){
     const t = setTimeout(() => done(true), 700);   /* transitionend 가 안 오는 경우(감춰진 탭 등) 대비 */
     const done = (run) => { stage.removeEventListener('transitionend', onEnd); clearTimeout(t); sideDone = null; sideAnimating = false; if(run){ V.fit(); then(); } };   /* 접힘이 끝난 뒤의 지도 폭으로 다시 재고 출발 — 안 재면 옛 폭으로 중심을 잡아 치우친다 (10-21) */
     sideDone = done; stage.addEventListener('transitionend', onEnd); }
-  /* 전시 구역에 카메라가 도착하면(then) 와펜 스탬프 연출(features/kiosk-stamps): 5장이 탕·탕 찍히고 '신당 5길' 이름표로 빨려 들어간다 */
-  /* 와펜 연출이 끝나면 그 자리에서 한 단계(×1.6) 더 당긴다 — 데스크톱·모바일 공통. 그 사이 전시 모드를 껐으면 안 움직인다 */
-  let chiefActor = null;   /* 이장님 배우 (WALKERS 에서 채움) — 말풍선이 머리 위를 따라간다 */
-  const talk = mountTalk(stage, { onEnd: () => kioskRest() });   /* 큰 말풍선(인터뷰). 작은 말풍선의 인사가 끝나면 시작. 마지막 장이 닫히면 동네가 낮춘 상태로 돌아온다 */
+  let chiefActor = null, catActor = null, chiefHome = null;   /* 이장님 배우 (WALKERS 에서 채움) — 말풍선이 머리 위를 따라간다. chiefHome: 평소 자리 */
+  const talk = mountTalk(stage, { onEnd: () => kioskRest() });   /* 큰 말풍선(인터뷰). 작은 말풍선의 인사가 끝나면 시작. 마지막 장이 닫히면 범례·주민 */
   const speech = mountSpeech(stage, {
     anchor: () => { if(!chiefActor || chiefActor.g.getAttribute('display') === 'none') return null; const r = chiefActor.g.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { x: r.left + r.width / 2 - st.left, y: r.top - st.top }; },
     bounds: () => { const m = map.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { left: m.left - st.left, top: m.top - st.top, width: m.width, height: m.height }; },
     onEnd: () => { if(KIOSK && DATA.chiefTalk) talk.start(DATA.chiefTalk); },
   });
   const CHIEF_LINES = ['오호! 처음 보는 얼굴이구먼!\n**신당 5길**에 어서와!!', '잠깐 이야기 좀 듣고 갈 텐가?'];
-  const stamps = mountStamps(stage, { map, frame: () => patch ? patch.frame() : null, target: () => area ? area.labelCenter() : null, onArrive: () => area?.pulse(),
-    onDone: () => { if(!KIOSK) return; const tw = V.clampView(V.x, V.y, V.w / 1.6)[2];   /* 최대 확대 한계를 먼저 적용한 폭 — 안 그러면 폭만 잘리고 왼쪽이 남아 중심이 오른쪽으로 민다 */
-      centerOn(V.x + V.w / 2, V.y + V.h / 2, V.pw / tw, 0, () => { if(KIOSK){ showChief(true); speech.say(CHIEF_LINES); } }); } });   /* 지금 화면 가운데 그대로 ×1.6 (10-21: 이장님 쪽으로 옮기지 않는다) */
-  /* 전시 모드 ON 순서 (10-21): ① 켜는 순간 섬 위의 모든 것을 비운다(focus.blank, 0.6s — 사이드바가 접히고 카메라가 가는 동안)
-     ② 도착 → 천 조각 봉제(patch.play 1.7s) → 5길 안쪽만 돌아온다(focus.five) → ③ 와펜(stamps) → ④ 그 자리에서 ×1.6 → 이장님 등장·말풍선·큰 상자
-     ⑤ 큰 상자가 닫히면 카메라가 첫 전시 뷰로 물러나며 동네 나머지가 낮춘 상태로 돌아온다(kioskRest). ①~④ 중 지도를 만지면 바로 ⑤(kioskSkip).
-     OFF 는 커튼으로 덮고 상태·주민·사이드바·카메라를 한 번에 되돌린 뒤 걷는다(kioskOff) — 바닥·주변이 통째로 바뀌는 중간 프레임을 안 보이게 */
-  const kioskTarget = () => { const d = desktop(), c = DATA.characters.chief; return { x: d ? c.x : c.x - 12, y: c.y - 6, s: homeView().s * 1.6 ** (d ? 4 : 3) }; };   /* 처음 화면에서 줌 + 4번(폰은 3번) 누른 배율(10-21 사용자 조정), 카메라는 이장님(신당 5길)보다 조금 위를, 폰에선 조금 왼쪽을 본다 */
+  /* 보드 전체(시안 캔버스 1774×887)를 담는 카메라 */
+  const kioskTarget = () => { const v = board.view(); return { x: v.x, y: v.y, s: desktop() ? Math.min(V.pw / v.w, V.ph / v.h) : V.pw / (v.iw * 1.08) }; };   /* 데스크톱: 캔버스 전체(하늘까지) · 폰: 섬 폭에 맞춤 */
   let walkers = [], walkerGraphs = null;   /* WALKERS 에서 채움 */
-  const walkersTo = (which) => { if(walkerGraphs) walkers.forEach(w => w.setGraph(walkerGraphs[which])); };   /* 주민을 5길 안 길 ⇄ 큰 길로 — 보이지 않을 때만(비운 뒤 도착 시 · 커튼 아래) */
-  function inPolyXY(poly, x, y){ let c = false; for(let i = 0, j = poly.length - 1; i < poly.length; j = i++){ const [x1, y1] = poly[i], [x2, y2] = poly[j]; if((y1 > y) !== (y2 > y) && x < ((x2 - x1) * (y - y1)) / (y2 - y1) + x1) c = !c; } return c; }
-  function kioskView(){ const t = kioskTarget(); focus?.blank();
-    withSide(true, () => centerOn(t.x, t.y, t.s, 0, () => { if(!KIOSK) return; walkersTo('kiosk'); const go = () => { if(!KIOSK) return; focus?.five(); stamps.play(); }; if(patch) patch.play(go); else go(); })); }   /* 도착 → 천 조각 봉제 → 5길만 → 와펜 */
-  function kioskRest(){ if(!KIOSK || !focus || focus.stage === 'rest') return; focus.rest(); const t = kioskTarget(); centerOn(t.x, t.y, t.s, 0); }
-  function kioskSkip(){ if(!KIOSK || !focus || focus.stage === 'rest' || focus.stage === 'off') return; stamps.cancel(); speech.hide(); talk.hide(); showChief(true); focus.rest(); }
+  const walkersTo = (which) => { if(walkerGraphs) walkers.forEach(w => w.setGraph(walkerGraphs[which])); };   /* 주민을 보드 위 길 ⇄ 평소 큰 길로 — 보이지 않을 때만 */
+  /* 이장님을 보드 자리 ⇄ 평소 자리로 (고양이는 이장님을 따라간다) */
+  const chiefTo = (onBoard) => { if(!chiefActor) return; if(!chiefHome) chiefHome = { x: chiefActor.x, y: chiefActor.y }; const p = onBoard ? board.chiefAt() : [chiefHome.x, chiefHome.y]; chiefActor.x = p[0]; chiefActor.y = p[1]; if(catActor){ catActor.x = p[0]; catActor.y = p[1]; } };
+  let kioskStage = 'off';   /* off | play | rest */
+  function kioskView(){ if(!board) return; kioskStage = 'play'; const t = kioskTarget();
+    withSide(true, () => { const t2 = kioskTarget(); centerOn(t2.x, t2.y, t2.s, 0); walkersTo('kiosk'); chiefTo(true);
+      board.play({ onChief: () => { if(!KIOSK) return; showChief(true); speech.say(CHIEF_LINES); } }); }); void t; }
+  function kioskRest(){ if(!KIOSK || !board || kioskStage === 'rest') return; kioskStage = 'rest'; board.rest(); }
+  function kioskSkip(){ if(!KIOSK || !board || kioskStage !== 'play') return; speech.hide(); talk.hide(); board.skip(); showChief(true); kioskRest(); }
   map.addEventListener('pointerdown', kioskSkip); map.addEventListener('wheel', kioskSkip, { passive: true });
   function goHome(){ withSide(false, () => { const hv = homeView(); centerOn(hv.x, hv.y, hv.s, 0); }); }
-  /* 이장님·고양이는 평소엔 숨겨 두고(body.chief-hidden), 전시 모드의 두 번째 줌인이 끝난 뒤 등장한다. 끄면 다시 숨김 (10-21) */
+  /* 이장님·고양이는 평소엔 숨겨 두고(body.chief-hidden), 보드 연출의 제목 뒤에 등장한다. 끄면 다시 숨김 */
   const showChief = (on) => { document.body.classList.toggle('chief-hidden', !on); document.querySelectorAll('.wk-chief,.wk-cat').forEach(g => g.classList.toggle('appear', on)); };
-  function kioskOff(){ stamps.cancel(); speech.hide(); talk.hide();
-    withCurtain(() => { showChief(false); patch?.set(false); focus?.off(); walkersTo('home'); sideDone?.(false); side.classList.remove('closed'); V.fit(); resetHome(); }); }
+  function kioskOff(){ speech.hide(); talk.hide(); kioskStage = 'off';
+    withCurtain(() => { showChief(false); board?.hide(); walkersTo('home'); chiefTo(false); sideDone?.(false); side.classList.remove('closed'); V.fit(); resetHome(); }); }
   kioskBtn.onclick = () => { KIOSK=!KIOSK; renderKiosk(); if(KIOSK){ showChief(false); closeCard(); kioskView(); } else kioskOff(); };
   renderKiosk();
-  /* 쉬고 있을 때의 모습: 낮춘 상태에서 30초 동안 아무 입력이 없으면 카메라만 첫 전시 뷰로 돌아온다(연출은 다시 틀지 않는다) */
+  /* 쉬고 있을 때의 모습: 범례가 뜬 뒤 30초 동안 아무 입력이 없으면 카메라만 보드 전체 뷰로 돌아온다(연출은 다시 틀지 않는다) */
   let idleT = null;
-  const idle = () => { clearTimeout(idleT); idleT = setTimeout(() => { if(KIOSK && focus && focus.stage === 'rest' && !talk.visible){ const t = kioskTarget(); centerOn(t.x, t.y, t.s, 0); } }, 30000); };
+  const idle = () => { clearTimeout(idleT); idleT = setTimeout(() => { if(KIOSK && board && kioskStage === 'rest' && !talk.visible){ const t = kioskTarget(); centerOn(t.x, t.y, t.s, 0); } }, 30000); };
   ['pointerdown', 'wheel', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, idle, { passive: true })); idle();
   function wake(){}   /* 예전엔 30초 뒤 자동 전환을 다시 걸었다. 호출 자리는 남겨 둔다 */
 
@@ -258,9 +246,9 @@ export function bootLegacy(DATA){
   const intro = document.getElementById('intro');
   function endIntro(){ if(!introOpen) return; introOpen=false; intro.classList.add('done'); apply();
     document.getElementById('empty').classList.toggle('show', STORES.length===0); wake();
-    setTimeout(()=>{ if(KIOSK) kioskView(); else goHome(); }, 100); }
+    setTimeout(()=>{ if(KIOSK) kioskView(); else if(BOARD_DEBUG && board){ const t = kioskTarget(); withSide(true, () => { const t2 = kioskTarget(); centerOn(t2.x, t2.y, t2.s, 0); }); void t; } else goHome(); }, 100); }
   function openMap(){ if(intro.classList.contains('open')) return; intro.classList.add('open'); clearTimeout(introT); introT=setTimeout(endIntro, +intro.dataset.ms || 1900); }
-  function playIntro(){ introOpen=true; closeCard(); stamps.cancel(); speech.hide(); talk.hide(); clearTimeout(introT); intro.classList.remove('open'); intro.classList.remove('done'); apply();
+  function playIntro(){ introOpen=true; closeCard(); speech.hide(); talk.hide(); clearTimeout(introT); intro.classList.remove('open'); intro.classList.remove('done'); apply();
     document.getElementById('empty').classList.remove('show');
     resetHome(); }
   document.getElementById('openMap').onclick = openMap;
@@ -400,18 +388,18 @@ export function bootLegacy(DATA){
     V.fit(); V.resetHome();
     setStores(DATA.stores);
     connect();
-    if(board && new URLSearchParams(location.search).has('board')) board.show();   /* 보드만 바로 보기(개발·확인용) */
+    if(board && BOARD_DEBUG){ board.skip(); walkersTo('kiosk'); chiefTo(true); showChief(true); board.rest(); }   /* 보드만 바로 보기(개발·확인용): 연출 없이 다 보이는 상태. 카메라는 인트로가 끝날 때(endIntro) */
   }
   document.fonts ? document.fonts.ready.then(init) : init();
 
 /* ═══════════════ WALKERS — map/actors/* (4-1 ⑤) ═══════════════ */
   const graph = buildRoadGraph(majorRoadPath(ROADS), LAND);
   if(graph.edges.length){
-    const scene = createScene({ svg, map, V, landmarks: lmLayer, before: gDist, frontBefore: gDots, isKiosk: () => KIOSK });
+    const scene = createScene({ svg, map, V, landmarks: lmLayer, before: gDist, frontBefore: gDots, isKiosk: () => KIOSK, actorMul: () => (board?.on ? 2.6 : 1) });   /* 보드 위에서는 시안처럼 크게(주민 약 46px, 이장님 62px) */
     walkers = spawnWalkers(scene, { graph, parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, count: 5, speed: 6.5, home: LANDMARKS[0] || {x:W/2, y:H/2} });
-    walkerGraphs = { home: graph, kiosk: kioskAreaXY ? buildRoadGraph(String(ROADS.p.a||'') + String(ROADS.p.b||'') + String(ROADS.p.c||''), LAND, { within: (x, y) => inPolyXY(kioskAreaXY, x, y), minLen: 40 }) : graph };   /* 전시 모드: 5길 안의 길(c 등급까지)만 — 5길 안엔 큰길이 거의 없다 */
+    walkerGraphs = { home: graph, kiosk: board ? buildRoadGraph(board.roadPath(), board.land, { minLen: 40 }) : graph };   /* 전시 모드: 보드 위의 실제 길(골목까지) */
     const chief = new Chief(scene.layer, DATA.characters.body, DATA.characters.chief); scene.add(chief); chiefActor = chief;
-    scene.add(new Cat(scene.layer, DATA.characters.cat, chief));
+    catActor = new Cat(scene.layer, DATA.characters.cat, chief); scene.add(catActor);
     document.body.classList.add('chief-hidden');   /* 전시 모드 연출 뒤에만 보인다 (showChief) */
     scene.start();
   }

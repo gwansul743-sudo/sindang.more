@@ -1,56 +1,87 @@
-/* 전시 보드(신당 5길 천 섬) — 색은 사용자 시안(MORE_exhibition_embroidery.html)의 값 그대로, 여기 한 곳에만 둔다 */
-:root{--kb-wine:#7d2030;--kb-thread:#b23a48;--kb-stitch:#9b3d49;--kb-cream:#efe3cb;--kb-band:#fdf7ea;--kb-hand:Gaegu,"IBM Plex Sans KR",var(--font-ui)}
+/* 전시 보드 — 색·수치는 시안(MORE_exhibition_dynamic_v2.html) 그대로. 여기 한 곳에만 둔다. 낮/밤 구분 없음 */
+:root{--kb-wine:#7d2030;--kb-thread:#b23a48;--kb-stitch:#9b3d49;--kb-cream:#efe3cb;--kb-sea:#7793b1;--kb-hand:"Nanum Pen Script","IBM Plex Sans KR",var(--font-ui);--kb-title:Gaegu,"IBM Plex Sans KR",var(--font-ui)}
 
-/* 켜짐/꺼짐 — 연출은 다음 조각에서. 지금은 켜지면 .4s 로 나타나고, 꺼지면 숨는다 */
-.kb{display:none;opacity:0;transition:opacity .4s ease;pointer-events:none}
-.kb.on{display:inline;opacity:1}
-/* 보드가 켜진 동안 섬 위의 원래 층은 숨긴다(바다·하늘·커튼은 그대로). 주민 층은 보드 길 그래프로 갈아탄 뒤(다음 조각) 켠다 */
+/* 층: 켜지기 전엔 없는 것. mounted = 연출 중/켜짐 */
+.kb{display:none;pointer-events:none}
+.kb.mounted{display:inline}
+/* 켜진 동안(html.kb-on) 섬 위 원래 층은 1.1s 로 사라지고(시안의 .on .atlas), 바다는 시안 색·리넨 결 */
+.pixel-terrain,.roads,.pixel-props,.dots,.lms,.lm-labels,text.dist,.area,.patch,.night-ground,.night-lamps,.night-shadows,.night-houselight,.kf-clone,.day-sky,.night-sky{transition:opacity 1.1s ease}
 html.kb-on .pixel-terrain,html.kb-on .roads,html.kb-on .pixel-props,html.kb-on .dots,html.kb-on .lms,html.kb-on .lm-labels,html.kb-on text.dist,
 html.kb-on .area,html.kb-on .patch,html.kb-on .night-ground,html.kb-on .night-lamps,html.kb-on .night-shadows,html.kb-on .night-houselight,html.kb-on .kf-clone,
-html.kb-on .walkers,html.kb-on #hint,html.kb-on .map-title,html.kb-on #cluster-pop{display:none!important}
+html.kb-on .day-sky,html.kb-on .night-sky{opacity:0!important;pointer-events:none}
+html.kb-on #hint,html.kb-on .map-title,html.kb-on #cluster-pop,html.kb-on .night-vignette{display:none!important}
+#map{transition:background-color 1.1s ease}
+html.kb-on #map{background-color:var(--kb-sea)!important;background-image:url(/board/linen.webp)!important;background-size:310px!important;background-blend-mode:multiply}
+/* 주민은 범례가 뜬 뒤(kb-rest)에야 보인다. 이장님·고양이는 엔진(body.chief-hidden)이 */
+html.kb-on:not(.kb-rest) .wk:not(.wk-chief):not(.wk-cat){visibility:hidden}
 
+/* ① 재단선 실 */
+.kb-cutline{fill:none;stroke:var(--kb-thread);stroke-width:1.3;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;opacity:0;vector-effect:non-scaling-stroke}
+.kb.cutting .kb-cutline{opacity:1;animation:kb-draw .85s linear both}
+@keyframes kb-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+
+/* ② 보드: 조각 자리에서 떠올라 펴진다(transform 은 JS 가 fold/open 으로 준다) */
+.kb-board{transform-box:view-box;transform-origin:0 0;opacity:0;pointer-events:none;transition:transform 1.5s cubic-bezier(.4,0,.2,1),opacity .4s ease}
+.kb.on .kb-board{opacity:1;pointer-events:none}
 .kb-shadow{fill:#2b1a16;opacity:.22}
 .kb-base{fill:#e9dcc2}
 .kb-cloth{opacity:0;transition:opacity .5s ease}.kb-cloth.ready{opacity:1}
-.kb-night{fill:#4a3a6a;opacity:0;mix-blend-mode:multiply;transition:opacity .4s}
-html[data-theme="night"] .kb-night{opacity:.45}
-html[data-theme="night"] .kb-shore{display:none}
-html.kb-on .day-shore{display:none}
 
-/* 가장자리 */
-.kb-edge-line{fill:none;stroke:var(--kb-thread);stroke-width:2;stroke-linejoin:round;opacity:.95}
-.kb-tick{stroke:var(--kb-thread);stroke-width:2;stroke-linecap:round;opacity:.95}
-html[data-theme="night"] .kb-edge-line,html[data-theme="night"] .kb-tick{stroke:#d98a94}
+/* ③ 가장자리: 실 + 블랭킷 빗금 */
+.kb-edge-line{fill:none;stroke:var(--kb-thread);stroke-width:2;stroke-linejoin:round;opacity:0;transition:opacity .3s}
+.kb.arrived .kb-edge-line{opacity:.95}
+.kb-tick{stroke:var(--kb-thread);stroke-width:2;stroke-linecap:round;opacity:0}
+.kb-tick.show{opacity:.95}
+/* 하늘·물결(바다 위) */
+.kb-skyimg{opacity:0;transition:opacity .8s ease;transform-box:fill-box;transform-origin:50% 50%}
+.kb.on .kb-skyimg.in{opacity:1}
+.kb-cloud-b,.kb-cloud-g{animation:kb-drift 9s ease-in-out infinite alternate}
+.kb-cloud-g{animation-delay:-4s}
+@keyframes kb-drift{to{transform:translateX(14px)}}
+.kb-sun{animation:kb-spin 60s linear infinite}
+@keyframes kb-spin{to{transform:rotate(360deg)}}
+.kb-wave{fill:none;stroke:#f3ead8;stroke-width:3;stroke-linecap:round;opacity:0;transition:opacity .8s ease}
+.kb.on .kb-wave.in{opacity:.9}
 
-/* 길: 크림 아플리케 띠 + 양 가장자리 홈질(띠보다 넓은 점선이 아래에 깔려 끝만 보인다) */
-.kb-band{fill:none;stroke:var(--kb-band);stroke-linecap:round;stroke-linejoin:round}
-.kb-stitch{fill:none;stroke:var(--kb-thread);stroke-linecap:butt;stroke-linejoin:round;stroke-dasharray:7 5}
-html[data-theme="night"] .kb-band{stroke:#e3d6bb}html[data-theme="night"] .kb-stitch{stroke:#e07a86}
+/* ④ 길: 크림 아플리케 띠 + 홈질. 큰 길은 양 가장자리(띠보다 넓은 점선이 아래), 골목은 띠 위 가운데 점선 */
+.kb-band{fill:none;stroke:#fdf7ea;stroke-linecap:round;stroke-linejoin:round;opacity:0;transition:opacity .5s ease}
+.kb-band.main{stroke-width:34}.kb-band.alley{stroke-width:17}
+.kb-stitch{fill:none;stroke:var(--kb-thread);stroke-linecap:butt;stroke-linejoin:round;opacity:0;stroke-dashoffset:400}
+.kb-stitch.main{stroke-width:39;stroke-dasharray:7 5}
+.kb-stitch.alley{stroke-width:2.1;stroke-dasharray:5 4}
+.kb.roads-on .kb-band{opacity:1;transition-duration:.25s}
+.kb.roads-on .kb-stitch{opacity:1;animation:kb-run 1.1s linear .25s both}   /* 띠가 먼저 깔린 뒤 홈질 — 안 그러면 큰 길의 넓은 점선이 띠 위로 잠깐 비친다 */
+@keyframes kb-run{from{stroke-dashoffset:400}to{stroke-dashoffset:0}}
 
-/* 장식 */
-.kb-prop{image-rendering:auto}
+/* ⑤ 장식(아플리케) */
+.kb-prop{transform-box:fill-box;transform-origin:50% 100%;opacity:0}
+.kb-prop.in{animation:kb-propin .5s cubic-bezier(.2,1.4,.3,1) both}
+@keyframes kb-propin{0%{opacity:0;transform:scale(.3) translateY(14px)}60%{opacity:1;transform:scale(1.08) translateY(-3px)}100%{opacity:1;transform:scale(1) translateY(0)}}
 
-/* 5길: 가는 실선(점선 홈질) + 손글씨 이름표 */
-.kb-area-line{fill:none;stroke:var(--kb-thread);stroke-width:1.4;stroke-dasharray:6 4;stroke-linejoin:round;opacity:.9}
-.kb-t1{font-family:var(--kb-hand);font-weight:700;font-size:30px;letter-spacing:1px;fill:var(--kb-wine);paint-order:stroke;stroke:#f4e9d2;stroke-width:6px;stroke-linejoin:round;shape-rendering:auto}
-.kb-t3{font-family:var(--kb-hand);font-size:14px;fill:var(--kb-stitch);letter-spacing:1px;shape-rendering:auto}
-.kb-lm{image-rendering:pixelated;shape-rendering:crispEdges}
-
-/* 단추 */
-.kb-btn{pointer-events:auto;cursor:pointer;transition:opacity .35s ease,filter .35s ease;shape-rendering:auto}
+/* ⑥ 단추 */
+.kb-btn{transform-box:fill-box;transform-origin:center;opacity:0;cursor:pointer;transition:opacity .35s ease,filter .35s ease;shape-rendering:auto}
+.kb-btn.in{opacity:1;animation:kb-slam .42s cubic-bezier(.2,1.3,.3,1) both;pointer-events:auto}
+@keyframes kb-slam{0%{transform:scale(2.2) rotate(-12deg);opacity:0}30%{opacity:1}60%{transform:scale(.92) rotate(2deg)}100%{transform:scale(1) rotate(0)}}
 .kb-btn-shadow{fill:#3a2418;opacity:.22}
 .kb-rim{stroke:#8a4a3e;stroke-width:1.2;stroke-opacity:.55}
 .kb-ring{fill:none;stroke:#8a4a3e;stroke-width:1.2;stroke-opacity:.5;stroke-dasharray:2 1.6}
 .kb-hole{fill:#6b3a30}
 .kb-thr{stroke:#4a2a22;stroke-width:3;stroke-linecap:round;fill:none}
-.kb-lab{font-family:var(--kb-hand);font-size:22px;fill:var(--kb-wine);text-anchor:middle;paint-order:stroke;stroke:#fbf3e2;stroke-width:7px;stroke-linejoin:round;pointer-events:none}
-.kb-btn.dim{opacity:.25;filter:saturate(.25)}
+.kb-num{font-family:var(--kb-hand);font-size:26px;fill:#fff8ea;text-anchor:middle;font-weight:700;paint-order:stroke;stroke:var(--kb-wine);stroke-width:5px;stroke-linejoin:round;pointer-events:none}
+.kb-lab{font-family:var(--kb-hand);font-size:28px;fill:var(--kb-wine);text-anchor:middle;paint-order:stroke;stroke:#fbf3e2;stroke-width:7px;stroke-linejoin:round;pointer-events:none}
+.kb-btn.in.dim{opacity:.25;filter:saturate(.25)}
 .kb-btn.sel .kb-rim{stroke:var(--kb-wine);stroke-width:3;stroke-opacity:1}
 .kb-btn.up .kb-rim{stroke-dasharray:3 2}
-.kb-btn:hover .kb-rim{stroke-opacity:1}
 
-/* 범례(HTML) — 리넨 바탕에 홈질 테두리. 지도 칸 왼쪽 위 */
-.kb-legend{position:absolute;z-index:4;left:16px;top:16px;width:200px;padding:14px 14px 10px;background:#e9dcc2 url(/board/linen.webp);background-size:310px;border:1px solid #c4ae8f;border-radius:5px;box-shadow:0 3px 4px #2e3b4338;color:var(--kb-wine);opacity:0;transform:translateY(-10px);transition:opacity .5s ease,transform .5s ease;pointer-events:none;zoom:var(--ui)}
+/* ⑦ 제목(천 글자) */
+.kb-title{opacity:0;transform-box:fill-box;transform-origin:center}
+.kb-title.in{animation:kb-propin .6s cubic-bezier(.2,1.4,.3,1) both}
+.kb-t1,.kb-t2{font-family:var(--kb-title);font-weight:700;font-size:78px;letter-spacing:2px;paint-order:stroke fill;stroke:#f4e9d2;stroke-width:14px;stroke-linejoin:round;shape-rendering:auto}
+.kb-t2{paint-order:stroke;fill:none;stroke:var(--kb-thread);stroke-width:1.6px;stroke-dasharray:5 3.5}
+.kb-t3{font-family:var(--kb-hand);font-size:26px;fill:var(--kb-stitch);letter-spacing:1px;shape-rendering:auto}
+
+/* ⑨ 범례(HTML, 시안의 legend) */
+.kb-legend{position:absolute;z-index:4;left:25px;top:28px;width:clamp(200px,15vw,250px);padding:14px 14px 10px;background:var(--kb-cream) url(/board/linen.webp);background-size:310px;border:1px solid #c4ae8f;border-radius:5px;box-shadow:0 3px 4px #2e3b4338;color:var(--kb-wine);opacity:0;transform:translateY(-10px);transition:opacity .5s ease,transform .5s ease;pointer-events:none;zoom:var(--ui)}
 .kb-legend.show{opacity:1;transform:none;pointer-events:auto}
 .kb-legend::after{content:"";position:absolute;inset:4px;border:1.8px dashed var(--kb-stitch);border-radius:2px;opacity:.95;pointer-events:none}
 .kb-legend::before{content:"";position:absolute;left:50%;top:-9px;width:14px;height:14px;margin-left:-7px;border:2px solid var(--kb-thread);border-radius:50%;border-bottom-color:transparent;transform:rotate(45deg)}
@@ -64,3 +95,4 @@ html[data-theme="night"] .kb-band{stroke:#e3d6bb}html[data-theme="night"] .kb-st
 .kb-legend li small{margin-left:auto;font-family:var(--kb-hand);font-size:14px;color:var(--kb-stitch)}
 .kb-legend .kb-note{margin:8px 0 0;font-size:10px;color:#9a7a60;letter-spacing:-.3px}
 @media(max-width:899px){.kb-legend{left:10px;top:auto;bottom:14px;width:auto;max-width:60vw;padding:10px 10px 8px}.kb-legend h2{font-size:18px;margin-bottom:4px}.kb-legend li{padding:3px 6px;font-size:12px}.kb-legend .kb-note{display:none}}
+@media(prefers-reduced-motion:reduce){.kb-board{transition:none}.kb-cloud-b,.kb-cloud-g,.kb-sun{animation:none}}

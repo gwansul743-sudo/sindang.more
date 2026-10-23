@@ -30,7 +30,7 @@ sindang.more/
 ├─ content/            ★ 그림·좌표·파츠. 코드 아님. 정본(옛 HTML에서 다시 추출하지 않음)
 │  ├─ landmarks/       랜드마크 그림(*.pixel.txt) + landmarks.json
 │  ├─ characters/      parts/*.json, palette.json, looks.json(주민 조합), chief.json, cat.json
-│  └─ map/             roads.json, land.json, props.json, terrain*.svg.txt, decor/(나무·집)
+│  └─ map/             roads.json, land.json, props.json, terrain*.svg.txt, decor/(나무·집), kiosk-cut.json(전시 재단선) · kiosk-board.json(보드 장식·하늘·제목 자리) · kiosk-area.json(5길 다각형, 지금은 안 씀)
 ├─ src/
 │  ├─ map/             ★ 지도 엔진. React·Supabase·features 모름(`shared`만 본다)
 │  │  ├─ engine.ts     바깥 얼굴(아직 임시 엔진을 켜기만 함 → ⑦에서 진짜 조립)
@@ -38,8 +38,8 @@ sindang.more/
 │  │  └─ legacy/engine.legacy.js   남은 옛 코드(부품화 끝나면 삭제)
 │  ├─ features/theme-toggle/   낮밤 버튼
 │  ├─ features/admin-gate/     관리자 입구(holdGate.ts, gate.css)
-│  ├─ features/kiosk-patch/    전시 구역(신당 5길) 바닥 천 조각 + 봉제 연출 → kiosk-stamps/ 와펜 → chief-speech/ 말풍선
-│  ├─ features/kiosk-focus/    전시 모드 집중: 비우기 → 5길만 → 이장님 말 끝나면 낮춘 복귀 + OFF 커튼(curtain.ts)
+│  ├─ features/kiosk-board/    ★ 전시 보드: 전시 모드를 켜면 섬이 통째로 '신당 5길' 천 섬이 된다(board.ts 그리기+연출, geometry.ts, curtain.ts OFF 커튼). 시안 v2 그대로, 길만 실제 길
+│  ├─ features/chief-speech/   이장님 말풍선 · chief-talk/ 큰 대화 상자(인터뷰)
 │  ├─ entities/        가게·랜드마크·캐릭터 타입. store/api.ts = Supabase 읽기·쓰기, DB 없으면 seed JSON
 │  ├─ app/             App.tsx(조립), content.ts(content/ 읽기), legacy-markup.html(옛 마크업)
 │  └─ shared/          styles/(tokens·낮·밤 CSS), lib/(supabase.ts·auth.ts·geocode.ts)
@@ -59,7 +59,7 @@ node tools/check_screen.mjs   # 헤드리스 Chrome. 마지막 줄 "통과"
 ```
 - `check_screen.mjs`가 보는 것: 데스크톱·모바일 × 낮·밤 4화면에서 숫자(가게점 11 · 주민 7 · 장식 217 · 가로등 53 · 랜드마크 6 · 권역 2 · 도로 4), 이장님·고양이 path 해시, SVG 층 순서, viewBox, 가게 점 클릭 → 카드·사진, 테마 버튼, 휠·드래그·확대, 주민이 걷는지, 이장님 호버 손인사, 콘솔 오류 0.
 - 기준값 `tools/.baseline.json`(git 무시)은 **일부러 화면을 바꿨을 때만** `--baseline`으로 다시 찍는다. 빌드 로그의 "chunk 600KB" 경고는 무시.
-- **전시 직전 점검(한 번)**: 전체화면 장시간 실행(전시 모드 30초 무입력 → 6초 순환), 네트워크 끊김 뒤 복구, 사진 로딩 실패, 핀치 확대, 새로고침, 절전 복귀, 가게 0개, 아주 긴 인터뷰, 인스타 URL 없음, 테마 전환 후 새로고침.
+- **전시 직전 점검(한 번)**: 전체화면 장시간 실행(전시 모드 30초 무입력 → 카메라 복귀), 네트워크 끊김 뒤 복구, 사진 로딩 실패, 핀치 확대, 새로고침, 절전 복귀, 가게 0개, 아주 긴 인터뷰, 인스타 URL 없음, 테마 전환 후 새로고침.
 - 모바일 390px 폭에서 먼저 확인. 인스타 버튼은 항상 눈에 띄게.
 
 ## 5. 연결된 서비스 설정 메모 (키는 전부 `.env`, git 무시)
@@ -135,9 +135,12 @@ interviews   인터뷰    id, source(form|shop), answers(json), summary_md, stor
 ```
 - 외형은 look을 비워 두고 앱이 처음 볼 때 seed로 랜덤 생성(더 단순). 쿠폰 코드 검증이 필요하면 폼 항목 + Apps Script 대조.
 - 이장님: 클릭 시 영상 재생 + 동물의 숲식 자막 상자. 이스터에그: MORE 5회 클릭 → 경관 대시보드.
-- **전시 모드 ON 순서**(10-21, 정본은 `engine.legacy.js` `kioskView` 위 주석): ① 켜는 순간 섬 위의 모든 것을 0.6s 비운다(`focus.blank`) ② 사이드바 접힘 → 카메라 이장님 자리(처음 화면 × 1.6⁴, 폰 1.6³) 도착 → 천 조각 봉제(`patch.play` 1.7s) → **5길 안쪽만** 가운데서부터 돌아온다(`focus.five`) ③ 와펜 ④ 그 자리에서 ×1.6 → 이장님·고양이 등장 → 말풍선 → 큰 상자 ⑤ 큰 상자 마지막 장이 닫히면(`talk.onEnd`) 카메라가 첫 전시 뷰로 물러나며 나머지가 **낮춘 상태**로(`kioskRest`). ①~④ 중 지도를 만지면 바로 ⑤(`kioskSkip`, 이장님도 그때 등장). 낮춘 상태에서 30초 무입력이면 카메라만 첫 전시 뷰로. **OFF 는 커튼**(`kiosk-focus/curtain.ts`, 낮밤 전환과 같은 요령)으로 덮고 천 조각·이장님·상태·주민·사이드바·카메라를 한 번에 되돌린 뒤 걷는다.
-  - 낮춘 상태(5길 밖): 집·나무 72% · 가게 점 60%(클릭은 됨) · 길 80% · 랜드마크 그림 75%+이름표 숨김 · 권역 글자 숨김 · 밤 등불·집 불빛 45%·길 불빛 50%·그림자 60%. 5길 안은 100%. 수치는 `focus.css`, 상태는 `html.kf-{blank,five,rest}`.
-  - 분류: `focus.ts`가 처음 켤 때 집·나무(`<use>`)·가게 점·묶음·랜드마크를 5길 다각형 안/밖으로 `kf-in/kf-out`. 밤 층(가로등·그림자·집 불빛·길 불빛)처럼 한 덩어리인 층은 5길 clip 사본(`.kf-clone`, `style.clipPath` — 원본에 CSS clip-path 가 있으면 속성은 밀린다)으로 안쪽을 그린다. 길은 kiosk-patch 가 구역 안 굵은 복사본을 그리므로 원본만 '밖'.
-  - 주민: 전시 중엔 5길 안의 길만 걷는다 — 5길 안엔 큰길이 거의 없어(a 등급 56단위) c 등급 골목까지 넣은 울타리 그래프(`buildRoadGraph(..., { within, minLen: 40 })`)로 `walker.setGraph` 갈아타기. 안 보일 때만(비운 뒤 도착 시 · 커튼 아래).
-  - 헤드리스 캡처 요령: 인트로를 DOM 에서 지우면 `introOpen` 이 true 로 남아 칸 크기가 바뀔 때마다 `resetHome` — `#openMap` 클릭 → `#intro` 클릭으로 끝낼 것. `?patch_slow=N` 은 kiosk-patch·kiosk-focus 공통.
+- **전시 모드 = 전시 보드**(10-23, 정본은 `features/kiosk-board/board.ts` 머리 주석과 `engine.legacy.js` 전시 모드 블록): 켜면 사이드바가 접히고 카메라가 보드 전체(시안 캔버스 1774×887, 폰은 섬 폭)를 담는 자리로 간 뒤 `board.play` — ① 재단선(`kiosk-cut.json`)을 따라 실이 한 바퀴(0.9s) ② 옛 섬이 1.1s 로 사라지며 조각이 떠올라 섬만큼 펴진다(1.5s) ③ 블랭킷 스티치·하늘(해·구름·별)·물결 ④ 길 홈질 ⑤ 집·나무 ⑥ 단추 ⑦ 제목 → ⑧ 이장님 등장·말풍선·큰 상자(엔진) → 마지막 장이 닫히면 ⑨ 범례·주민(`kioskRest` → `board.rest`, `html.kb-rest`). 연출 중 지도를 만지면 바로 다 보이게(`kioskSkip`). 30초 무입력이면 카메라만 보드 뷰로. **OFF 는 커튼**(`kiosk-board/curtain.ts`)으로 덮고 보드·이장님·주민·사이드바·카메라를 한 번에 되돌린다.
+  - 모양·톤·연출·png 자리는 시안 `MORE_exhibition_dynamic_v2.html` 그대로(사용자 결정, 낮/밤 구분 없음 — 바다 #7793b1 + 리넨, 섬 덩어리는 시안의 sine 블롭). **길만 실제 길**: 재단선 안의 `roads.json`(a·b 큰 길 = 굵은 띠 + 양 가장자리 홈질, c 골목 = 흰 띠 위 점선, d 생략)을 재단선 상자 → 섬 덩어리 상자(0.92)로 균일 변환해 넣는다. 가게 단추도 실제 자리(재단선 밖 12단위까지 포함, 섬 밖이면 안쪽으로 밀어 넣음). 업종은 `stores.category`(없으면 기타) → 단추 무늬·범례 필터.
+  - 좌표: 시안 캔버스 단위를 지도 좌표에 1:1 평행이동(캔버스 가운데 = 섬 가운데)으로 놓는다. `kiosk-board.json` 의 props·sky·waves·titleAt·chiefAt 는 전부 캔버스 단위.
+  - 켜진 동안 `html.kb-on`: 섬 위 원래 층(땅·길·장식·점·랜드마크·밤 층·하늘)은 opacity 0, `#map` 바탕은 바다색. 주민은 `kb-rest` 뒤에만 보이고(`visibility`), 보드 위의 실제 길 그래프(`buildRoadGraph(board.roadPath(), board.land, { minLen: 40 })`)로 갈아탄다. 스프라이트 배율은 `scene.actorMul`(보드 위 2.6). 이장님·고양이는 `chiefTo(true)` 로 시안 자리(`chiefAt`)에.
+  - 리넨은 `public/board/linen.webp` 를 캔버스에 타일링해 큰 `<image>` 하나로(SVG `<pattern>` 타일은 줌아웃에서 줄무늬). 아플리케·하늘 그림은 `public/board/*.webp`(사용자 제공 png).
+  - `?board=1` 로 연출 없이 다 보이는 상태로 시작(개발·확인용). `?patch_slow=N` 은 연출 N배 느리게.
+  - 알려진 흠: 가게 이름표가 5길 안에서 겹친다(실제 자리가 촘촘함). 제목이 그 근처 단추 이름표와 겹칠 수 있다.
+  - 헤드리스 캡처 요령: 인트로를 DOM 에서 지우면 `introOpen` 이 true 로 남아 칸 크기가 바뀔 때마다 `resetHome` — `#openMap` 클릭 → `#intro` 클릭으로 끝낼 것.
 - **낮/밤 전환은 커튼으로 덮고 바꾼다**(10-16, `features/theme-toggle/switchTheme`): 목표 테마 바탕색 커튼 .25s → 시트 둘 다 로드 확인 → `html.theme-switching`으로 transition 끄고 `setTheme` → 2프레임+120ms → .32s 걷기. 폰에서 스타일시트 교체·SVG 재래스터화 중간 프레임이 지지직거려 보이던 것을 숨긴다. 근본 수정(시트 한 벌 + 변수)은 §7 스타일 정리 때.

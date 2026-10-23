@@ -65,7 +65,7 @@ export class Walker implements Actor {
 
   tick(f: Frame, others: Actor[]) {
     const { now, dt, V, s, R, P, live, still, kiosk, nearPx, lms, LK } = f, G = this.G;
-    const mul = kiosk ? 0.5 : 1, q = f.q * mul, k = f.k * mul;   /* 전시 모드(10-21): 주민은 절반 크기 — 카메라가 1.6⁴까지 들어가 있어 원래 크기면 너무 크다. 이장님·고양이도 같이 */
+    const mul = f.mul, q = f.q * mul, k = f.k * mul;   /* 배율은 엔진이 준다(전시 보드 위에서는 크게, 10-23). 이장님·고양이도 같이 */
     if (!still) {
       const fx = (this.x - V.x) * s, fy = (this.y - V.y) * s;
       this.offT = fx < -nearPx || fx > V.pw + nearPx || fy < -nearPx || fy > V.ph + nearPx ? this.offT + dt : 0;
