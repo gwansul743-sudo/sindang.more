@@ -106,7 +106,7 @@ export function mergeChains(pls: XY[][], tol = 1.5): XY[][] {
   }
 }
 /* 막다른 끝을 진행 방향으로 섬 밖까지 늘린다(maxLen 안에서 닿을 때만). 섬으로 잘리므로 길이 가장자리 실에 물려 끝난다 */
-export function extendToCoast(pls: XY[][], island: XY[], others: XY[][], maxLen = 160, joinTol = 22): XY[][] {
+export function extendToCoast(pls: XY[][], island: XY[], others: XY[][], maxLen = 160, joinTol = 22, keep: (p: XY) => boolean = () => false): XY[][] {   /* keep(p): 이 끝은 늘리지 않는다(숨긴 자리에서 잘린 끝) */
   /* 이어진 끝 = 다른 길의 '중간'에 닿았거나(T자), 다른 길의 끝과 거의 맞붙음(ㄱ자). 왕복 두 줄처럼 끝끼리 나란히 떨어져 끝나는 건 막다른 끝으로 본다 */
   const d = (p: XY, q: XY) => Math.hypot(q[0] - p[0], q[1] - p[1]);
   const isJoined = (p: XY, self: XY[]) => others.some((o) => o !== self && o.some((q) => { const nearEnd = Math.min(d(q, o[0]), d(q, o[o.length - 1])) < joinTol * 2; return nearEnd ? d(p, q) < 3 : d(p, q) < joinTol; }));
@@ -118,9 +118,9 @@ export function extendToCoast(pls: XY[][], island: XY[], others: XY[][], maxLen 
   return pls.map((pl) => {
     let r = pl;
     const tail = r[r.length - 1], tailFrom = r[Math.max(0, r.length - 4)];
-    if (!isJoined(tail, pl)) { const e = reach(tail, tailFrom); if (e) r = r.concat([e]); }
+    if (!isJoined(tail, pl) && !keep(tail)) { const e = reach(tail, tailFrom); if (e) r = r.concat([e]); }
     const head = r[0], headFrom = r[Math.min(r.length - 1, 3)];
-    if (!isJoined(head, pl)) { const e = reach(head, headFrom); if (e) r = [e as XY].concat(r); }
+    if (!isJoined(head, pl) && !keep(head)) { const e = reach(head, headFrom); if (e) r = [e as XY].concat(r); }
     return r;
   });
 }
@@ -130,3 +130,9 @@ export function insideRuns(pls: XY[][], poly: XY[]): XY[][] {
   for (const pl of pls) { let cur: XY[] = []; for (const p of pl) { if (inPoly(poly, p[0], p[1])) cur.push(p); else { if (cur.length > 1) out.push(cur); cur = []; } } if (cur.length > 1) out.push(cur); }
   return out;
 }
+
+/* 숨길 자리에서 r 안쪽인지(가운데 + 둘레 12점) */
+export function nearHidden(hidden: (x: number, y: number) => boolean, r = 25): (p: XY) => boolean {
+  return ([x, y]) => hidden(x, y) || Array.from({ length: 12 }, (_, i) => (i / 12) * Math.PI * 2).some((a) => hidden(x + Math.cos(a) * r, y + Math.sin(a) * r));
+}
+export const polyLen = (pl: XY[]) => pl.reduce((s, p, i) => (i ? s + Math.hypot(p[0] - pl[i - 1][0], p[1] - pl[i - 1][1]) : 0), 0);
