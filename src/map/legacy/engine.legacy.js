@@ -227,10 +227,12 @@ export function bootLegacy(DATA){
   let kioskSeq = 0, kioskStartT = null;
   function kioskView(){ if(!board || introOpen) return; const my = ++kioskSeq; clearTimeout(kioskStartT); kioskStage = 'play';
     withSide(true, () => { if(my !== kioskSeq || !KIOSK) return; const t2 = kioskTarget(); centerOn(t2.x, t2.y, t2.s, 0); walkersTo('kiosk'); chiefTo(true);
-      board.play({ onChief: () => { if(my !== kioskSeq || !KIOSK) return; showChief(true); speech.say(CHIEF_LINES); } }); }); }
+      /* ⑧ 이장님: 먼저 이장님 쪽으로 두 단계(×1.6²) 줌인하고, 도착하면 등장·말풍선 → 큰 상자(10-23). 대화가 끝나면 kioskRest 가 보드 전체로 물러난다 */
+      board.play({ onChief: () => { if(my !== kioskSeq || !KIOSK) return; const [cx, cy] = board.chiefAt(), t = kioskTarget();
+        centerOn(cx, cy - 12, t.s * 1.6 ** 2, 0, () => { if(my !== kioskSeq || !KIOSK) return; showChief(true); speech.say(CHIEF_LINES); }); } }); }); }
   /* 전시 연출을 그 자리에서 다 멈추고 평소 상태로(카메라·사이드바는 부르는 쪽이 정한다) */
   function stopKiosk(){ kioskSeq++; clearTimeout(kioskStartT); stopCycle(); kioskStage = 'off'; speech.hide(); talk.hide(); showChief(false); board?.hide(); walkersTo('home'); chiefTo(false); sideDone?.(false); }
-  function kioskRest(){ if(!KIOSK || !board || kioskStage !== 'play') return; kioskStage = 'rest'; board.rest(); }
+  function kioskRest(){ if(!KIOSK || !board || kioskStage !== 'play') return; kioskStage = 'rest'; board.rest(); const t = kioskTarget(); centerOn(t.x, t.y, t.s, 0); }   /* 이장님 줌인에서 보드 전체로 물러나며 범례·단추 */
   function kioskSkip(){ if(!KIOSK || !board || introOpen || kioskStage !== 'play') return; speech.hide(); talk.hide(); board.skip(); showChief(true); kioskRest(); }
   map.addEventListener('pointerdown', kioskSkip); map.addEventListener('wheel', kioskSkip, { passive: true });
   function goHome(){ withSide(false, () => { const hv = homeView(); centerOn(hv.x, hv.y, hv.s, 0); }); }
@@ -246,7 +248,7 @@ export function bootLegacy(DATA){
      한 바퀴 뒤엔 보드 전체를 6초 보여 주고 다시. 범례 필터가 켜져 있으면 그 업종만. 클릭·터치·휠·키가 오면 바로 멈추고 다시 30초를 센다.
      비출 때마다 단추를 눌렀을 때처럼 가게 카드(오른쪽 사이드바·폰 바텀시트)를 연다. 사이드바가 다 펴진 뒤(withSide) 카메라를 옮긴다 — 같이 돌리면 흔들린다.
      한 바퀴 끝의 보드 전체 뷰에선 카드를 닫고 사이드바를 접는다. 사람이 끼어들어 멈추면 열린 카드는 그대로 둔다 */
-  const IDLE_MS = 30000, DWELL_MS = 6000;
+  const IDLE_MS = 5000, DWELL_MS = 6000;
   let idleT = null, cycleT = null, cycleI = 0, cycling = false;
   const canCycle = () => KIOSK && board && !introOpen && kioskStage === 'rest' && !talk.visible && !speech.visible;
   const focusZoom = () => kioskTarget().s * (desktop() ? 2.6 : 2.2);   /* 보드 전체 배율에서 ×2.6(폰 ×2.2) */
