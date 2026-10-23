@@ -26,7 +26,7 @@ export interface SceneOptions {
   isKiosk?: () => boolean;
   actorMul?: () => number;         // 주민·이장님·고양이 배율(기본 1)
 }
-export interface Scene { layer: SVGGElement; layerFront: SVGGElement; actors: Actor[]; add(a: Actor): void; start(): void; destroy(): void }
+export interface Scene { layer: SVGGElement; layerFront: SVGGElement; actors: Actor[]; add(a: Actor): void; remove(a: Actor): void; start(): void; destroy(): void }
 
 export function createScene(o: SceneOptions): Scene {
   const { svg, map, V } = o;
@@ -72,6 +72,7 @@ export function createScene(o: SceneOptions): Scene {
   return {
     layer, layerFront, actors,
     add: (a) => { actors.push(a); },
+    remove: (a) => { const i = actors.indexOf(a); if (i >= 0) actors.splice(i, 1); a.g.remove(); },
     start: () => { raf = requestAnimationFrame(tick); },
     destroy: () => { cancelAnimationFrame(raf); map.removeEventListener('pointermove', track); map.removeEventListener('pointerdown', track); map.removeEventListener('pointerleave', leave); },
   };

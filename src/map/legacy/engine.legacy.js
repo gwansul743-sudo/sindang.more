@@ -18,7 +18,10 @@ import { mountTalk } from '../../features/chief-talk/talk';
 import { majorRoadPath } from '../layers/roads';
 import { buildRoadGraph } from '../actors/roadGraph';
 import { createScene } from '../actors/scene';
-import { spawnWalkers } from '../actors/walker';
+import { spawnWalkers, spawnWalker } from '../actors/walker';
+import { listFormVillagers, watchFormVillagers } from '../../entities/villager/api';
+import { scriptFromRow, seedOf } from '../../features/villagers/formScript';
+import formSamples from '../../../content/characters/form-samples.json';
 import { Chief } from '../actors/chief';
 import { Cat } from '../actors/cat';
 import { mountNight } from '../night';
@@ -481,6 +484,24 @@ export function bootLegacy(DATA){
     walkers = spawnWalkers(scene, { graph, parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, count: 5, speed: 6.5, home: LANDMARKS[0] || {x:W/2, y:H/2}, fixed: (DATA.villagers || []).map(v => v.look) });   /* 대본에 look 이 있으면 그 주민은 그 모습(10-23) */
     (DATA.villagers || []).forEach((script, i) => { if(walkers[i]) bindVillager(walkers[i], script); });   /* 대본이 있는 주민: 앞에서부터 하나씩 (지금 신당야학 박소민 강학 1명) */
     walkerGraphs = { home: graph, kiosk: board ? buildRoadGraph(board.roadPath(), board.land, { minLen: 40 }) : graph };   /* 전시 모드: 보드 위의 실제 길(골목까지) */
+    /* 시민 인터뷰 주민(10-23): 구글폼 응답 → Apps Script(tools/apps-script/form_to_supabase.gs) → Supabase characters(approved) + interviews(answers).
+       앱이 답으로 대본을 만들고(features/villagers/formScript — 3장이 안 되면 띄우지 않음) 빨간 세모 주민으로 띄운다. 동시에 FORM_SLOTS 명까지,
+       새 사람이 오면 가장 먼저 온 사람부터 퇴장(FIFO, 인터뷰는 DB 에 남는다). 표가 바뀌면 실시간으로, 아니어도 20초마다 맞춘다.
+       새 주민은 화면 밖 길에서 걸어 들어온다. status 를 hidden 으로 바꾸면 다음 맞춤 때 사라진다. ?formdemo=N 은 DB 대신 견본 응답 N건(content/characters/form-samples.json) */
+    const FORM_SLOTS = 6, formOn = new Map();   /* 캐릭터 id → 주민 */
+    const offscreen = (x, y) => { const s = scale(), px = (x - V.x) * s, py = (y - V.y) * s; return px < -40 || py < -40 || px > V.pw + 40 || py > V.ph + 40; };
+    function syncForm(rows){
+      const want = rows.map(r => ({ id: r.id, script: scriptFromRow(r.id, r.answers, r.summary) })).filter(r => r.script).slice(-FORM_SLOTS), ids = new Set(want.map(r => r.id));
+      for(const [id, w] of [...formOn]) if(!ids.has(id)){ if(villager?.w === w) villagerDone(); scene.remove(w); formOn.delete(id); const i = walkers.indexOf(w); if(i >= 0) walkers.splice(i, 1); }
+      for(const r of want){ if(formOn.has(r.id)) continue;
+        const w = spawnWalker(scene, { graph: walkerGraphs[board?.on ? 'kiosk' : 'home'], parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, speed: 6.5, seed: seedOf(r.id), offscreen });
+        walkers.push(w); formOn.set(r.id, w); bindVillager(w, r.script); }
+    }
+    const formDemo = Math.min(formSamples.length, Number(new URLSearchParams(location.search).get('formdemo')) || 0);
+    if(formDemo) syncForm(formSamples.slice(0, formDemo).map(s => ({ id: s.id, answers: s.answers, summary: null })));
+    else { let busy = false, again = false;
+      const refresh = async () => { if(busy){ again = true; return; } busy = true; try { syncForm(await listFormVillagers(FORM_SLOTS * 2)); } finally { busy = false; if(again){ again = false; refresh(); } } };
+      refresh(); watchFormVillagers(refresh); }
     const chief = new Chief(scene.layer, DATA.characters.body, DATA.characters.chief); scene.add(chief); chiefActor = chief;
     chief.makeHoverable();
     chief.g.addEventListener('pointerenter', e => { if(e.pointerType === 'mouse') chiefHook(); });

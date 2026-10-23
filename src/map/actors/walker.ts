@@ -13,8 +13,8 @@ const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 const CYCLE = [1, 2, 3, 2];   // 디딤 → 모음(살짝 올라감) → 반대 디딤 → 모음
 
 /* 주민 색: 윗옷은 겹치지 않게 바깥에서 정해 주고, 나머지는 팔레트에서 뽑는다 */
-export function walkerColors(pal: WalkerPalette, top: string, i: number): Palette {
-  const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
+export function walkerColors(pal: WalkerPalette, top: string, i: number, rand: () => number = Math.random): Palette {
+  const pick = <T,>(a: T[]) => a[Math.floor(rand() * a.length)];
   let hat = pick(pal.hat); if (hat === top) hat = '#f4e8b5';
   return { o: '#2b3f33', e: '#2b3028', c: '#ef9f8a', m: '#a5402f', s: pick(pal.skin), h: pick(i % 7 === 4 ? pal.hair.slice(4) : pal.hair.slice(0, 4)), t: top, p: pick(pal.pant), b: pick(pal.shoe), a: hat, g: pick(pal.bag) };
 }
@@ -154,4 +154,17 @@ export function spawnWalkers(scene: Scene, o: SpawnOptions): Walker[] {
     scene.add(w); out.push(w);
   }
   return out;
+}
+
+/* 주민 한 명을 나중에 더하기(시민 인터뷰 주민, 10-23) — 모습은 seed 로 정해진다(같은 응답이면 늘 같은 사람).
+   자리는 화면 밖 길부터(갑자기 눈앞에 생기지 않게), 없으면 아무 길. 뺄 때는 scene.remove */
+export interface OneWalkerOptions { graph: RoadGraph; parts: CharacterParts; palette: WalkerPalette; looks: Look[]; speed: number; seed: number; offscreen?: (x: number, y: number) => boolean }
+export function spawnWalker(scene: Scene, o: OneWalkerOptions): Walker {
+  let a = o.seed || 1; const rand = () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const look = o.looks[Math.floor(rand() * o.looks.length)], top = o.palette.top[Math.floor(rand() * o.palette.top.length)];
+  const col = walkerColors(o.palette, top, Math.floor(rand() * 7), rand);
+  const G = o.graph; let edge = G.edges[Math.floor(rand() * G.edges.length)];
+  if (o.offscreen) for (let k = 0; k < 40; k++) { const e = G.randomEdge(), x = (G.nodes[e.a].x + G.nodes[e.b].x) / 2, y = (G.nodes[e.a].y + G.nodes[e.b].y) / 2; if (o.offscreen(x, y)) { edge = e; break; } }
+  const w = new Walker(scene.layer, { parts: o.parts, look, col, graph: G, edge, flip: rand() < 0.5, speed: o.speed });
+  scene.add(w); return w;
 }
