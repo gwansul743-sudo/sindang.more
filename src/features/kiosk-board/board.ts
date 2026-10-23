@@ -43,7 +43,7 @@ const CW = 1774, CH = 887;                                   /* 시안 캔버스
 const ISLAND = (() => { const cx = 887, cy = 452, rx = 560, ry = 300, n = 56, pts: XY[] = [];   /* 시안의 섬 덩어리 */
   for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2, w = 1 + 0.06 * Math.sin(a * 5.3 + 1) + 0.045 * Math.sin(a * 9.1 + 2.2) + 0.03 * Math.sin(a * 13.7); pts.push([cx + Math.cos(a) * rx * w * (1 + 0.08 * Math.cos(a * 2)), cy + Math.sin(a) * ry * w]); }
   return pts; })();
-const NEAR = 12, BTN_R = 24, BTN_K = 0.4, TICK_STEP = 13;   /* BTN_K: 단추 축소 배율(10-23 0.55 → 0.4) */
+const NEAR = 12, BTN_R = 24, BTN_K = 0.55, TICK_STEP = 13;   /* BTN_K: 단추 배율(10-23 0.55 → 0.4 → 다시 0.55) */
 const SLOW = Math.max(1, Number(new URLSearchParams(location.search).get('patch_slow')) || 1);
 const T0 = 400 + 300;    /* 어둠(0.4s) + 잠깐(0.3s) 뒤에 보드가 펴지기 시작한다. 빨간 재단선 그리기는 10-23 사용자 요청으로 뺐다(전엔 +1.0s) */
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -128,20 +128,19 @@ export function mountBoard(o: BoardOptions): Board {
     for (let i = 0; i < ISLAND.length; i++) { const p = ISLAND[i], q = ISLAND[(i + 1) % ISLAND.length], dx = q[0] - p[0], dy = q[1] - p[1], l2 = dx * dx + dy * dy || 1; const t = Math.max(0, Math.min(1, ((x - p[0]) * dx + (y - p[1]) * dy) / l2)); const ex = p[0] + t * dx, ey = p[1] + t * dy, dd = Math.hypot(x - ex, y - ey); if (dd < best) { best = dd; px = ex; py = ey; } }
     const L = Math.hypot(887 - px, 452 - py) || 1; return [px + ((887 - px) / L) * (BTN_R * BTN_K + 12), py + ((452 - py) / L) * (BTN_R * BTN_K + 12)];
   };
-  let on = false, composed = false;
+  let on = false, composed = false, btnsOn = false;   /* btnsOn: 단추는 이장님 대화가 끝난 뒤(rest)에 보인다(10-23) */
   function setStores(list: BoardStore[]) {
     btnG.innerHTML = ''; btns = [];
-    list.filter((s) => distToPoly(o.cut, s.x, s.y) <= NEAR).forEach((s, i) => {
+    list.filter((s) => distToPoly(o.cut, s.x, s.y) <= NEAR).forEach((s) => {
       const [x, y] = inward(...R.to(s.x, s.y)), cat = catOf(s);
       const pos = el('g', { transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})` }, btnG);
-      const bo = el('g', { class: 'kb-btn' + (s.status === 'up' ? ' up' : '') + (on && composed ? ' in' : ''), 'data-cat': cat, 'data-id': s.id }, pos);
-      const b = el('g', { transform: `scale(${BTN_K})` }, bo);   /* 10-23 단추·이름표 작게(시안의 0.4배) — 안쪽 그룹에 배율, 바깥(.kb-btn)은 등장 애니메이션 */
+      const bo = el('g', { class: 'kb-btn' + (s.status === 'up' ? ' up' : '') + (on && btnsOn ? ' in' : ''), 'data-cat': cat, 'data-id': s.id }, pos);
+      const b = el('g', { transform: `scale(${BTN_K})` }, bo);   /* 10-23 단추·이름표 배율(시안의 0.55배) — 안쪽 그룹에 배율, 바깥(.kb-btn)은 등장 애니메이션 */
       el('circle', { r: BTN_R + 1, class: 'kb-btn-shadow', transform: 'translate(2.5 4)' }, b);
       el('circle', { class: 'kb-rim', r: BTN_R, fill: `url(#kb-p-${cat})` }, b);
       el('circle', { class: 'kb-ring', r: 18 }, b);
       [[-6, -6], [6, -6], [-6, 6], [6, 6]].forEach(([hx, hy]) => el('circle', { class: 'kb-hole', cx: hx, cy: hy, r: 2.8 }, b));
       el('path', { class: 'kb-thr', d: 'M-6 -6 L6 6 M6 -6 L-6 6' }, b);
-      const num = el('text', { class: 'kb-num', x: 0, y: 50 }, b); num.textContent = String(i + 1);
       const lab = el('text', { class: 'kb-lab', x: 0, y: -34 }, b); lab.textContent = s.name;
       bo.addEventListener('click', (e) => { e.stopPropagation(); o.onStore(s.id); });
       btns.push({ id: s.id, cat, g: bo });
@@ -180,8 +179,8 @@ export function mountBoard(o: BoardOptions): Board {
   let run = 0, timers: number[] = [], raf = 0;
   const at = (fn: () => void, t: number) => timers.push(window.setTimeout(fn, t * SLOW));
   const clear = () => { timers.forEach(clearTimeout); timers = []; cancelAnimationFrame(raf); };
-  const showAll = (yes: boolean) => { ticks.forEach((t) => t.el.classList.toggle('show', yes)); propEls.forEach((p) => p.classList.toggle('in', yes)); btns.forEach((b) => b.g.classList.toggle('in', yes)); titleG.classList.toggle('in', yes); skyEls.forEach((s) => s.classList.toggle('in', yes)); waveEls.forEach((w) => w.classList.toggle('in', yes)); composed = yes; };
-  const reset = () => { clear(); g.classList.remove('on', 'cutting', 'arrived', 'roads-on', 'lift'); dark.classList.remove('on'); showAll(false); html.classList.remove('kb-on', 'kb-dark', 'kb-rest'); legend.classList.remove('show'); setFilter(null); selected = null; applyBtnState(); };
+  const showAll = (yes: boolean) => { ticks.forEach((t) => t.el.classList.toggle('show', yes)); propEls.forEach((p) => p.classList.toggle('in', yes)); titleG.classList.toggle('in', yes); skyEls.forEach((s) => s.classList.toggle('in', yes)); waveEls.forEach((w) => w.classList.toggle('in', yes)); composed = yes; };
+  const reset = () => { clear(); btnsOn = false; btns.forEach((b) => b.g.classList.remove('in')); g.classList.remove('on', 'cutting', 'arrived', 'roads-on', 'lift'); dark.classList.remove('on'); showAll(false); html.classList.remove('kb-on', 'kb-dark', 'kb-rest'); legend.classList.remove('show'); setFilter(null); selected = null; applyBtnState(); };
   const skip = () => { ++run; clear(); on = true; loadLinen(); g.classList.add('mounted', 'on', 'arrived', 'roads-on'); g.classList.remove('cutting', 'lift'); dark.classList.remove('on'); html.classList.add('kb-on'); html.classList.remove('kb-dark'); open(); showAll(true); };
 
   return {
@@ -201,14 +200,12 @@ export function mountBoard(o: BoardOptions): Board {
         skyEls.forEach((s, i) => at(() => s.classList.add('in'), 200 + i * 150)); waveEls.forEach((w, i) => at(() => w.classList.add('in'), 300 + i * 90)); }, T0 + 1500);
       at(() => { if (my !== run) return; g.classList.add('roads-on'); }, T0 + 1500 + 1100);              /* ④ 길 홈질 */
       propEls.forEach((p, i) => at(() => { if (my === run) p.classList.add('in'); }, T0 + 1500 + 1900 + i * 110));   /* ⑤ 집·나무 */
-      const tBtn = T0 + 1500 + 1900 + propEls.length * 110 + 200;
-      btns.forEach((b, i) => at(() => { if (my === run) b.g.classList.add('in'); }, tBtn + i * 150));    /* ⑥ 단추 */
-      const tTitle = tBtn + btns.length * 150 + 200;
+      const tTitle = T0 + 1500 + 1900 + propEls.length * 110 + 200;                                        /* ⑥ 단추는 여기서 안 띄운다 — 이장님 대화가 끝난 뒤 rest() 에서 */
       at(() => { if (my !== run) return; titleG.classList.add('in'); composed = true; }, tTitle);        /* ⑦ 제목 */
       at(() => { if (my === run) onChief(); }, tTitle + 500);                                             /* ⑧ 이장님(엔진) */
     },
     skip,
-    rest() { html.classList.add('kb-rest'); legend.classList.add('show'); },
+    rest() { html.classList.add('kb-rest'); legend.classList.add('show'); if (btnsOn) return; btnsOn = true; const my = run; btns.forEach((b, i) => at(() => { if (my === run) b.g.classList.add('in'); }, 250 + i * 120)); },   /* ⑨ 범례·주민·단추(차례로 탕탕) */
     hide() { ++run; on = false; reset(); g.classList.remove('mounted'); },
     setStores, setFilter, select(id) { selected = id; applyBtnState(); },
   };

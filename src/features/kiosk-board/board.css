@@ -69,7 +69,6 @@ html.kb-dark .pixel-terrain,html.kb-dark .roads,html.kb-dark .pixel-props,html.k
 .kb-ring{fill:none;stroke:#8a4a3e;stroke-width:1.2;stroke-opacity:.5;stroke-dasharray:2 1.6}
 .kb-hole{fill:#6b3a30}
 .kb-thr{stroke:#4a2a22;stroke-width:3;stroke-linecap:round;fill:none}
-.kb-num{font-family:var(--kb-hand);font-size:26px;fill:#fff8ea;text-anchor:middle;font-weight:700;paint-order:stroke;stroke:var(--kb-wine);stroke-width:5px;stroke-linejoin:round;pointer-events:none}
 .kb-lab{font-family:var(--kb-hand);font-size:28px;fill:var(--kb-wine);text-anchor:middle;paint-order:stroke;stroke:#fbf3e2;stroke-width:7px;stroke-linejoin:round;pointer-events:none}
 .kb-btn.in.dim{opacity:.25;filter:saturate(.25)}
 .kb-btn.sel .kb-rim{stroke:var(--kb-wine);stroke-width:3;stroke-opacity:1}
