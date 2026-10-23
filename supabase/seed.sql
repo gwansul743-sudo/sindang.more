@@ -1,5 +1,5 @@
 -- 현재 내장 가게 11곳 (게임_낮밤_초안.html의 EMBEDDED_STORES). 사진 4장은 사이트의 정적 파일(/seed-photos/…)을 그대로 가리킨다. schema.sql → storage.sql 뒤에 한 번 실행.
-insert into stores (slug, name, addr, lat, lng, ig_url, photo_path, interview_md, issue, "order", published) values
+insert into stores (slug, name, addr, lat, lng, ig_url, photo_path, interview_md, issue, "order", published, category) values
   ('nadal', '나달케이크', null, 37.5663, 127.0205, 'https://www.instagram.com/p/DdlDZTUGE-e/?img_index=1', '/seed-photos/nadal.jpg', '슬라이드 2 — 소개 
 Q. 사장님과 가게 소개 부탁드려요. 
 신당역 2번 출구 근처에서 계절 과일 케이크를 만들고 있어요. 재작년 12월에 문을 열어서 햇수로는 3년 차, 실제로는 아직 2년이 채 안 됐죠. 나달케이크의 전주연입니다.
@@ -57,7 +57,7 @@ Q. 매거진에 꼭 담고 싶은 이야기가 있다면요?
 슬라이드 11 — 시리즈 시그니처
 Q. 나달케이크를 한마디로 표현하자면 무엇일까요?
 새로운 계절이 찾아올 때마다 생각나는 가게.
-내 계절을, 함께하고 싶은 가게.', '24호', 1, true),
+내 계절을, 함께하고 싶은 가게.', '24호', 1, true, 'coffee'),
   ('chorongbul', '초롱불', '서울 중구 퇴계로87길 49-1', 37.56791, 127.01977, 'https://www.instagram.com/p/DdBDUwGGBpj/?img_index=1', '/seed-photos/chorongbul.jpg', '슬라이드 02 — 가게 소개
 Q. 가게와 사장님 소개 부탁드립니다.
 신당동 중앙시장 끝자락에 있는 작은 심야식당, 초롱불입니다.
@@ -112,7 +112,7 @@ Q. 오픈하고 가장 기억에 남는 순간이 있다면요?
 며칠 전에 커플 손님이 오셨어요. 콘튀김을 드시더니 한 번 더 주문하시길래, 양이 부족했냐고 여쭤봤어요.
 아니라고 하시더라고요.
 일본에서 먹은 것보다 맛있어서, 또 시켰다고.
-그때 이미 제가 듣고 싶었던 말을 다 들어버렸어요.', '2호', 2, true),
+그때 이미 제가 듣고 싶었던 말을 다 들어버렸어요.', '2호', 2, true, 'wine'),
   ('snoopy', '스누피 소품샵', null, 37.5672, 127.0195, 'https://www.instagram.com/p/DdtcjsZmLtR/?img_index=1', '/seed-photos/snoopy.jpg', '슬라이드 02 — 소개
 Q. 어떤 공간인지 소개 부탁드립니다.
 신당동에 있는 스누피 소품샵입니다.
@@ -184,7 +184,7 @@ Q. 스누피를 한마디로 표현하자면 무엇일까요?
 손님들이 엄마한테 자주 물어보세요. 왜 하필 스누피냐고.
 그럼 엄마가 그래요. 이 존재 자체가 너무 귀엽지 않냐고.
 집에는 엄마 때부터 갖고 있던 인형이 아직 있어요. 엄마는 그 인형을 붙잡고 혼잣말을 해요. 오늘은 뭐 어땠어, 하면서.
-사랑스러운 존재요. 그냥, 그 존재만으로.', '3호', 3, true),
+사랑스러운 존재요. 그냥, 그 존재만으로.', '3호', 3, true, 'etc'),
   ('beefjung', '비프정', null, 37.5666, 127.0168, 'https://www.instagram.com/p/DdQ2q48mB3g/?img_index=1', '/seed-photos/beefjung.jpg', 'Q. 사장님과 가게 소개, 부탁드려요.
 비프정을 운영하는 92년생 정원국입니다.
 외식을 좋아해서, 외식에 수천만 원 가까이 썼어요. 음식의 식견을 쌓는 게, 진심이거든요.
@@ -239,11 +239,11 @@ Q. 앞으로의 계획이 궁금해요.
 
 Q. 마지막으로 — 비프정을 한마디로 표현하자면, 무엇일까요?
 저와 지인들, 그리고 손님들이 자연스럽게 만들어내는 분위기.
-다른 고깃집에서는, 표현해 낼 수 없는 거라고 생각해요.', '4호', 4, true),
-  ('heywave', '헤이 웨이브', null, 37.5648, 127.016, 'https://www.instagram.com/sindang.more/', null, null, '5호', 5, true),
-  ('gwendang', '괸당', null, 37.5648, 127.0172, 'https://www.instagram.com/sindang.more/', null, null, '6호', 6, true),
-  ('nonnowa', '논노와', null, 37.5645, 127.019, 'https://www.instagram.com/sindang.more/', null, null, '7호', 7, true),
-  ('durun', '두런두런', null, 37.5657, 127.0153, 'https://www.instagram.com/sindang.more/', null, null, '8호', 8, true),
-  ('yahak', '신당야학', null, 37.5636, 127.0182, 'https://www.instagram.com/sindang.more/', null, null, '특집', 9, true),
-  ('next-9', '다음 호', null, 37.5637, 127.0138, null, null, null, '9호', 10, false),
-  ('next-10', '다음 호', null, 37.5655, 127.0205, null, null, null, '10호', 11, false);
+다른 고깃집에서는, 표현해 낼 수 없는 거라고 생각해요.', '4호', 4, true, 'restaurant'),
+  ('heywave', '헤이 웨이브', null, 37.5648, 127.016, 'https://www.instagram.com/sindang.more/', null, null, '5호', 5, true, 'wine'),
+  ('gwendang', '괸당', null, 37.5648, 127.0172, 'https://www.instagram.com/sindang.more/', null, null, '6호', 6, true, 'wine'),
+  ('nonnowa', '논노와', null, 37.5645, 127.019, 'https://www.instagram.com/sindang.more/', null, null, '7호', 7, true, 'wine'),
+  ('durun', '두런두런', null, 37.5657, 127.0153, 'https://www.instagram.com/sindang.more/', null, null, '8호', 8, true, 'restaurant'),
+  ('yahak', '신당야학', null, 37.5636, 127.0182, 'https://www.instagram.com/sindang.more/', null, null, '특집', 9, true, 'etc'),
+  ('next-9', '다음 호', null, 37.5637, 127.0138, null, null, null, '9호', 10, false, 'etc'),
+  ('next-10', '다음 호', null, 37.5655, 127.0205, null, null, null, '10호', 11, false, 'etc');

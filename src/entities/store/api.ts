@@ -11,6 +11,7 @@ type Row = {
   id: string; slug: string | null; name: string; addr: string | null; lat: number; lng: number;
   ig_url: string | null; photo_path: string | null; interview_md: string | null; issue: string | null;
   order: number; published: boolean; video_url?: string | null;   // video_url 은 10-21 추가 컬럼(없는 DB 도 읽힌다)
+  category?: string | null;    // category 는 10-23 추가 컬럼(업종 키). 없거나 비면 'etc'
 };
 
 export type StoreSource = 'db' | 'seed';
@@ -28,7 +29,7 @@ function photoUrl(path: string | null): string | undefined {
   return supabase!.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 function rowToStore(r: Row): Store {
-  return { id: r.id, name: r.name, addr: r.addr ?? '', lat: r.lat, lng: r.lng, ig: r.ig_url ?? '', video: r.video_url ?? '', photoUrl: photoUrl(r.photo_path),
+  return { id: r.id, name: r.name, addr: r.addr ?? '', lat: r.lat, lng: r.lng, ig: r.ig_url ?? '', video: r.video_url ?? '', category: r.category ?? 'etc', photoUrl: photoUrl(r.photo_path),
     interview: r.interview_md ?? '', issue: r.issue ?? '', order: r.order, status: r.published ? 'pub' : 'up', photoPath: r.photo_path ?? undefined };
 }
 
@@ -46,7 +47,7 @@ export async function listStores(): Promise<Store[]> {
   return mock.map((s) => ({ ...s }));
 }
 
-export type StoreInput = Pick<Store, 'name' | 'addr' | 'lat' | 'lng' | 'ig' | 'video' | 'interview' | 'issue' | 'status'>;
+export type StoreInput = Pick<Store, 'name' | 'addr' | 'lat' | 'lng' | 'ig' | 'video' | 'category' | 'interview' | 'issue' | 'status'>;
 
 /* 저장. editing 이 있으면 수정, 없으면 추가. photo: 새 사진 파일, removePhoto: 기존 사진 지우기 */
 export async function saveStore(editing: Store | null, input: StoreInput, photo: File | null, removePhoto: boolean): Promise<{ warning?: string } | void> {   /* 저장은 됐지만 알릴 게 있으면 warning (실패가 아니다 — 10-21 중복 저장 사고의 교훈) */
@@ -75,15 +76,25 @@ export async function saveStore(editing: Store | null, input: StoreInput, photo:
     order = ((data?.[0] as { order: number } | undefined)?.order ?? 0) + 1;
   }
   const row: Record<string, unknown> = { name: input.name, addr: input.addr || null, lat: input.lat, lng: input.lng, ig_url: input.ig || null, photo_path,
-    interview_md: input.interview || null, issue: input.issue || null, order, published: input.status === 'pub', video_url: input.video || null };
+    interview_md: input.interview || null, issue: input.issue || null, order, published: input.status === 'pub', video_url: input.video || null, category: input.category || null };
   const write = (r: Record<string, unknown>) => (editing ? db.from('stores').update(r).eq('id', editing.id) : db.from('stores').insert(r));
   let { error } = await write(row);
-  if (error && /video_url/.test(error.message)) {   /* DB 에 아직 video_url 컬럼이 없으면(schema.sql 의 alter 미실행) 영상 빼고 저장 */
-    delete row.video_url; ({ error } = await write(row));
-    if (!error) return { warning: '저장했지만 영상 주소는 빠졌어요. Supabase SQL 에서 alter table stores add column video_url text; 를 한 번 실행한 뒤 다시 저장하세요.' };
+  const dropped: string[] = [];
+  while (error) {   /* DB 에 아직 나중에 붙인 컬럼이 없으면(schema.sql 의 alter 미실행) 그 칸만 빼고 다시 저장. 둘 다 없을 수도 있어 반복 */
+    const msg = error.message;
+    const col = Object.keys(LATE_COLUMNS).find((c) => c in row && new RegExp(`\\b${c}\\b`).test(msg));   // \b: 'stores_category_chk'(값 제한 위반)는 컬럼 없음으로 치지 않는다
+    if (!col) break;
+    delete row[col]; dropped.push(col); ({ error } = await write(row));
   }
   if (error) throw error;
+  if (dropped.length) return { warning: dropped.map((c) => LATE_COLUMNS[c]).join(' ') };
 }
+
+/* 나중에 붙인 컬럼 → DB 에 그 컬럼이 없어 빼고 저장했을 때의 안내 */
+const LATE_COLUMNS: Record<string, string> = {
+  video_url: '저장했지만 영상 주소는 빠졌어요. Supabase SQL 에서 alter table stores add column video_url text; 를 한 번 실행한 뒤 다시 저장하세요.',
+  category: '저장됐지만 업종은 빠졌어요. Supabase SQL 에서 alter table stores add column category text; 를 한 번 실행하세요.',
+};
 
 export async function deleteStore(s: Store): Promise<void> {
   if (!canWrite()) throw new Error('삭제 권한이 없습니다');

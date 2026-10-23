@@ -11,6 +11,7 @@ create table if not exists stores (
   ig_url        text,
   photo_path    text,
   video_url     text, -- 영상 주소(유튜브·구글 드라이브·mp4). 10-21 추가. 기존 DB: alter table stores add column if not exists video_url text;
+  category      text, -- 업종 키(sewing·supermarket·coffee·restaurant·wine·etc). 10-23 추가. 기존 DB: alter table stores add column if not exists category text;
   interview_md  text,
   issue         text, -- '6호' 표시
   "order"       integer not null default 0,
