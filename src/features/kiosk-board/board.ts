@@ -43,9 +43,9 @@ const CW = 1774, CH = 887;                                   /* 시안 캔버스
 const ISLAND = (() => { const cx = 887, cy = 452, rx = 560, ry = 300, n = 56, pts: XY[] = [];   /* 시안의 섬 덩어리 */
   for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2, w = 1 + 0.06 * Math.sin(a * 5.3 + 1) + 0.045 * Math.sin(a * 9.1 + 2.2) + 0.03 * Math.sin(a * 13.7); pts.push([cx + Math.cos(a) * rx * w * (1 + 0.08 * Math.cos(a * 2)), cy + Math.sin(a) * ry * w]); }
   return pts; })();
-const NEAR = 12, BTN_R = 24, BTN_K = 0.55, TICK_STEP = 13;   /* BTN_K: 단추 축소 배율(10-23) */
+const NEAR = 12, BTN_R = 24, BTN_K = 0.4, TICK_STEP = 13;   /* BTN_K: 단추 축소 배율(10-23 0.55 → 0.4) */
 const SLOW = Math.max(1, Number(new URLSearchParams(location.search).get('patch_slow')) || 1);
-const T0 = 400 + 1000;   /* 어둠(0.4s) + 재단선(1.0s) 뒤에 보드가 펴지기 시작한다 */
+const T0 = 400 + 300;    /* 어둠(0.4s) + 잠깐(0.3s) 뒤에 보드가 펴지기 시작한다. 빨간 재단선 그리기는 10-23 사용자 요청으로 뺐다(전엔 +1.0s) */
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export function mountBoard(o: BoardOptions): Board {
@@ -74,10 +74,6 @@ export function mountBoard(o: BoardOptions): Board {
 
   /* ⓪ 어둠: 지도 칸을 덮는 밤색 막(낮→밤 커튼 색). 그 위에 재단선이 그려지고 보드가 펴진 뒤 걷힌다 */
   const dark = document.createElement('div'); dark.className = 'kb-shade'; dark.setAttribute('aria-hidden', 'true'); o.host.appendChild(dark);
-  /* ① 재단선(실) — 지도 좌표의 재단선을 캔버스 좌표로. 어둠 위에 보이도록 SVG 가 아니라 지도 칸 위 별도 SVG(화면 좌표로 매 프레임 맞추지 않고, 지도 svg 의 CTM 으로 한 번 놓는다) */
-  const cutSvg = document.createElementNS(NS, 'svg'); cutSvg.setAttribute('class', 'kb-cutsvg'); cutSvg.setAttribute('aria-hidden', 'true'); o.host.appendChild(cutSvg);
-  const cutline = el('path', { class: 'kb-cutline', d: pathOf(o.cut), pathLength: 1 }, cutSvg);
-  const placeCut = () => { const m = o.svg.getScreenCTM(), r = o.host.getBoundingClientRect(); if (!m) return; cutline.setAttribute('transform', `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e - r.left} ${m.f - r.top})`); };
   /* 하늘·물결(바다 위, 보드 밖) */
   const skyG = el('g', { class: 'kb-sky' }, g);
   const skyEls = (c.sky || []).map(([kind, x, y, w]) => el('image', { class: 'kb-skyimg kb-' + kind, href: `/board/${kind}.webp`, x, y, width: w, height: +w * (kind === 'sun' ? 0.996 : kind === 'star' ? 1 : 0.7) }, skyG));
@@ -136,7 +132,7 @@ export function mountBoard(o: BoardOptions): Board {
       const [x, y] = inward(...R.to(s.x, s.y)), cat = catOf(s);
       const pos = el('g', { transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})` }, btnG);
       const bo = el('g', { class: 'kb-btn' + (s.status === 'up' ? ' up' : '') + (on && composed ? ' in' : ''), 'data-cat': cat, 'data-id': s.id }, pos);
-      const b = el('g', { transform: `scale(${BTN_K})` }, bo);   /* 10-23 단추·이름표 작게(시안의 0.55배) — 안쪽 그룹에 배율, 바깥(.kb-btn)은 등장 애니메이션 */
+      const b = el('g', { transform: `scale(${BTN_K})` }, bo);   /* 10-23 단추·이름표 작게(시안의 0.4배) — 안쪽 그룹에 배율, 바깥(.kb-btn)은 등장 애니메이션 */
       el('circle', { r: BTN_R + 1, class: 'kb-btn-shadow', transform: 'translate(2.5 4)' }, b);
       el('circle', { class: 'kb-rim', r: BTN_R, fill: `url(#kb-p-${cat})` }, b);
       el('circle', { class: 'kb-ring', r: 18 }, b);
@@ -182,8 +178,8 @@ export function mountBoard(o: BoardOptions): Board {
   const at = (fn: () => void, t: number) => timers.push(window.setTimeout(fn, t * SLOW));
   const clear = () => { timers.forEach(clearTimeout); timers = []; cancelAnimationFrame(raf); };
   const showAll = (yes: boolean) => { ticks.forEach((t) => t.el.classList.toggle('show', yes)); propEls.forEach((p) => p.classList.toggle('in', yes)); btns.forEach((b) => b.g.classList.toggle('in', yes)); titleG.classList.toggle('in', yes); skyEls.forEach((s) => s.classList.toggle('in', yes)); waveEls.forEach((w) => w.classList.toggle('in', yes)); composed = yes; };
-  const reset = () => { clear(); g.classList.remove('on', 'cutting', 'arrived', 'roads-on', 'lift'); cutSvg.classList.remove('cutting'); dark.classList.remove('on'); showAll(false); html.classList.remove('kb-on', 'kb-dark', 'kb-rest'); legend.classList.remove('show'); setFilter(null); selected = null; applyBtnState(); };
-  const skip = () => { ++run; clear(); on = true; loadLinen(); g.classList.add('mounted', 'on', 'arrived', 'roads-on'); g.classList.remove('cutting', 'lift'); cutSvg.classList.remove('cutting'); dark.classList.remove('on'); html.classList.add('kb-on'); html.classList.remove('kb-dark'); open(); showAll(true); };
+  const reset = () => { clear(); g.classList.remove('on', 'cutting', 'arrived', 'roads-on', 'lift'); dark.classList.remove('on'); showAll(false); html.classList.remove('kb-on', 'kb-dark', 'kb-rest'); legend.classList.remove('show'); setFilter(null); selected = null; applyBtnState(); };
+  const skip = () => { ++run; clear(); on = true; loadLinen(); g.classList.add('mounted', 'on', 'arrived', 'roads-on'); g.classList.remove('cutting', 'lift'); dark.classList.remove('on'); html.classList.add('kb-on'); html.classList.remove('kb-dark'); open(); showAll(true); };
 
   return {
     get on() { return on; }, land: { polygon: ISLAND.map(toMap), bounds: { x0: ib.x0 + C.x, y0: ib.y0 + C.y, x1: ib.x1 + C.x, y1: ib.y1 + C.y }, contains: (x, y) => inPoly(ISLAND, x - C.x, y - C.y) },
@@ -195,10 +191,8 @@ export function mountBoard(o: BoardOptions): Board {
       if (reduced()) { skip(); at(onChief, 300); return; }
       /* ⓪ 화면이 밤색으로 어두워진다(0.35s). 어둠이 다 덮이면 옛 섬·바다는 그 아래서 바뀐다(html.kb-dark: 전환 없이 바로) */
       dark.classList.add('on');
-      at(() => { if (my !== run) return; html.classList.add('kb-on', 'kb-dark'); g.classList.add('on'); cutSvg.classList.add('cutting');
-        const follow = () => { if (my !== run || !cutSvg.classList.contains('cutting')) return; placeCut(); raf = requestAnimationFrame(follow); }; follow(); }, 400);   /* ① 검은 화면 위에 빨간 재단선(카메라가 아직 가는 중이라 매 프레임 자리 맞춤) */
+      at(() => { if (my !== run) return; html.classList.add('kb-on', 'kb-dark'); g.classList.add('on'); }, 400);   /* ① 어둠이 다 덮이면 그 아래서 옛 섬·바다를 바꾼다(빨간 재단선은 그리지 않는다) */
       at(() => { if (my !== run) return; g.classList.add('lift'); open(); dark.classList.remove('on'); html.classList.remove('kb-dark'); }, T0);   /* ② 어둠이 걷히는(1.4s) 동안 보드가 윤곽 자리에서 떠올라 펴진다(1.5s) */
-      at(() => { if (my !== run) return; cutSvg.classList.remove('cutting'); }, T0 + 500);                /* 재단선은 보드가 커지기 시작하면 사라진다 */
       at(() => { if (my !== run) return; g.classList.add('arrived');                                     /* ③ 가장자리 꿰매기 · 하늘 · 물결 */
         const t1 = performance.now(); const step = () => { if (my !== run) return; const p = Math.min(1, (performance.now() - t1) / (1300 * SLOW)); ticks.forEach((t) => { if (t.at <= p) t.el.classList.add('show'); }); if (p < 1) raf = requestAnimationFrame(step); }; raf = requestAnimationFrame(step);
         skyEls.forEach((s, i) => at(() => s.classList.add('in'), 200 + i * 150)); waveEls.forEach((w, i) => at(() => w.classList.add('in'), 300 + i * 90)); }, T0 + 1500);

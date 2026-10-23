@@ -212,7 +212,7 @@ export function bootLegacy(DATA){
   const speech = mountSpeech(stage, {
     anchor: () => { if(!chiefActor || chiefActor.g.getAttribute('display') === 'none') return null; const r = chiefActor.g.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { x: r.left + r.width / 2 - st.left, y: r.top - st.top }; },
     bounds: () => { const m = map.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { left: m.left - st.left, top: m.top - st.top, width: m.width, height: m.height }; },
-    onEnd: () => { if(KIOSK && DATA.chiefTalk) talk.start(DATA.chiefTalk); },
+    onEnd: () => { if(KIOSK && !introOpen && kioskStage === 'play' && DATA.chiefTalk) talk.start(DATA.chiefTalk); },
   });
   const CHIEF_LINES = ['오호! 처음 보는 얼굴이구먼!\n**신당 5길**에 어서와!!', '잠깐 이야기 좀 듣고 갈 텐가?'];
   /* 보드 전체(시안 캔버스 1774×887)를 담는 카메라 */
@@ -222,22 +222,28 @@ export function bootLegacy(DATA){
   /* 이장님을 보드 자리 ⇄ 평소 자리로 (고양이는 이장님을 따라간다) */
   const chiefTo = (onBoard) => { if(!chiefActor) return; if(!chiefHome) chiefHome = { x: chiefActor.x, y: chiefActor.y }; const p = onBoard ? board.chiefAt() : [chiefHome.x, chiefHome.y]; chiefActor.x = p[0]; chiefActor.y = p[1]; if(catActor){ catActor.x = p[0]; catActor.y = p[1]; } };
   let kioskStage = 'off';   /* off | play | rest */
-  function kioskView(){ if(!board) return; kioskStage = 'play'; const t = kioskTarget();
-    withSide(true, () => { const t2 = kioskTarget(); centerOn(t2.x, t2.y, t2.s, 0); walkersTo('kiosk'); chiefTo(true);
-      board.play({ onChief: () => { if(!KIOSK) return; showChief(true); speech.say(CHIEF_LINES); } }); }); void t; }
-  function kioskRest(){ if(!KIOSK || !board || kioskStage === 'rest') return; kioskStage = 'rest'; board.rest(); }
-  function kioskSkip(){ if(!KIOSK || !board || kioskStage !== 'play') return; speech.hide(); talk.hide(); board.skip(); showChief(true); kioskRest(); }
+  /* 차례 번호(10-23): 전시 연출을 시작·멈출 때마다 올린다. 사이드바 접힘·커튼·지연 시작처럼 늦게 도착하는 콜백은 자기 차례가 아니면 아무것도 안 한다
+     — 인트로를 다시 열거나 버튼을 빠르게 눌렀을 때 뒤에서 옛 연출이 계속 돌던 것을 막는다 */
+  let kioskSeq = 0, kioskStartT = null;
+  function kioskView(){ if(!board || introOpen) return; const my = ++kioskSeq; clearTimeout(kioskStartT); kioskStage = 'play';
+    withSide(true, () => { if(my !== kioskSeq || !KIOSK) return; const t2 = kioskTarget(); centerOn(t2.x, t2.y, t2.s, 0); walkersTo('kiosk'); chiefTo(true);
+      board.play({ onChief: () => { if(my !== kioskSeq || !KIOSK) return; showChief(true); speech.say(CHIEF_LINES); } }); }); }
+  /* 전시 연출을 그 자리에서 다 멈추고 평소 상태로(카메라·사이드바는 부르는 쪽이 정한다) */
+  function stopKiosk(){ kioskSeq++; clearTimeout(kioskStartT); kioskStage = 'off'; speech.hide(); talk.hide(); showChief(false); board?.hide(); walkersTo('home'); chiefTo(false); sideDone?.(false); }
+  function kioskRest(){ if(!KIOSK || !board || kioskStage !== 'play') return; kioskStage = 'rest'; board.rest(); }
+  function kioskSkip(){ if(!KIOSK || !board || introOpen || kioskStage !== 'play') return; speech.hide(); talk.hide(); board.skip(); showChief(true); kioskRest(); }
   map.addEventListener('pointerdown', kioskSkip); map.addEventListener('wheel', kioskSkip, { passive: true });
   function goHome(){ withSide(false, () => { const hv = homeView(); centerOn(hv.x, hv.y, hv.s, 0); }); }
   /* 이장님·고양이는 평소엔 숨겨 두고(body.chief-hidden), 보드 연출의 제목 뒤에 등장한다. 끄면 다시 숨김 */
   const showChief = (on) => { document.body.classList.toggle('chief-hidden', !on); document.querySelectorAll('.wk-chief,.wk-cat').forEach(g => g.classList.toggle('appear', on)); };
-  function kioskOff(){ speech.hide(); talk.hide(); kioskStage = 'off';
-    withCurtain(() => { showChief(false); board?.hide(); walkersTo('home'); chiefTo(false); sideDone?.(false); side.classList.remove('closed'); V.fit(); resetHome(); }); }
-  kioskBtn.onclick = () => { KIOSK=!KIOSK; renderKiosk(); if(KIOSK){ showChief(false); closeCard(); kioskView(); } else kioskOff(); };
+  function kioskOff(){ speech.hide(); talk.hide(); kioskStage = 'off'; const my = ++kioskSeq; clearTimeout(kioskStartT);
+    withCurtain(() => { if(my !== kioskSeq) return; stopKiosk(); side.classList.remove('closed'); V.fit(); resetHome(); }); }   /* 커튼이 덮이는 사이 다시 켰으면 되돌리지 않는다 */
+  /* 인트로가 떠 있는 동안엔 상태(ON/OFF)만 바꾼다 — 연출은 인트로가 끝난 뒤(endIntro) */
+  kioskBtn.onclick = () => { KIOSK=!KIOSK; renderKiosk(); if(introOpen) return; if(KIOSK){ showChief(false); closeCard(); kioskView(); } else kioskOff(); };
   renderKiosk();
   /* 쉬고 있을 때의 모습: 범례가 뜬 뒤 30초 동안 아무 입력이 없으면 카메라만 보드 전체 뷰로 돌아온다(연출은 다시 틀지 않는다) */
   let idleT = null;
-  const idle = () => { clearTimeout(idleT); idleT = setTimeout(() => { if(KIOSK && board && kioskStage === 'rest' && !talk.visible){ const t = kioskTarget(); centerOn(t.x, t.y, t.s, 0); } }, 30000); };
+  const idle = () => { clearTimeout(idleT); idleT = setTimeout(() => { if(KIOSK && board && !introOpen && kioskStage === 'rest' && !talk.visible){ const t = kioskTarget(); centerOn(t.x, t.y, t.s, 0); } }, 30000); };
   ['pointerdown', 'wheel', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, idle, { passive: true })); idle();
   function wake(){}   /* 예전엔 30초 뒤 자동 전환을 다시 걸었다. 호출 자리는 남겨 둔다 */
 
@@ -246,9 +252,16 @@ export function bootLegacy(DATA){
   const intro = document.getElementById('intro');
   function endIntro(){ if(!introOpen) return; introOpen=false; intro.classList.add('done'); apply();
     document.getElementById('empty').classList.toggle('show', STORES.length===0); wake();
-    setTimeout(()=>{ if(KIOSK) kioskView(); else if(BOARD_DEBUG && board){ const t = kioskTarget(); withSide(true, () => { const t2 = kioskTarget(); centerOn(t2.x, t2.y, t2.s, 0); }); void t; } else goHome(); }, 100); }
+    /* 인트로가 끝나면 먼저 평소 지도(낮/밤 기본 화면) → 카메라가 자리 잡고 1초 뒤 전시 연출 (10-23). 그 사이 인트로를 다시 열거나 전시를 끄면 시작 안 함 */
+    setTimeout(()=>{ if(introOpen) return;
+      if(BOARD_DEBUG && board && !KIOSK){ withSide(true, () => { const t2 = kioskTarget(); centerOn(t2.x, t2.y, t2.s, 0); }); return; }
+      goHome();
+      if(KIOSK){ const my = kioskSeq; clearTimeout(kioskStartT); kioskStartT = setTimeout(() => { if(my === kioskSeq && KIOSK && !introOpen){ showChief(false); closeCard(); kioskView(); } }, 700 + 1000); }   /* 카메라 0.7s + 텀 1s */
+    }, 100); }
   function openMap(){ if(intro.classList.contains('open')) return; intro.classList.add('open'); clearTimeout(introT); introT=setTimeout(endIntro, +intro.dataset.ms || 1900); }
-  function playIntro(){ introOpen=true; closeCard(); speech.hide(); talk.hide(); clearTimeout(introT); intro.classList.remove('open'); intro.classList.remove('done'); apply();
+  /* 인트로 다시 보기: 전시 연출은 그 자리에서 다 멈추고 평소 지도로 되돌린다(인트로 뒤에서 아무것도 돌지 않게, 10-23). 전시 모드 ON/OFF 상태는 그대로 — 인트로가 끝나면 다시 시작 */
+  function playIntro(){ introOpen=true; closeCard(); stopKiosk(); clearTimeout(introT); intro.classList.remove('open'); intro.classList.remove('done');
+    side.classList.remove('closed'); V.fit(); apply();
     document.getElementById('empty').classList.remove('show');
     resetHome(); }
   document.getElementById('openMap').onclick = openMap;

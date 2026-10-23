@@ -20,10 +20,6 @@ html.kb-on:not(.kb-rest) .wk:not(.wk-chief):not(.wk-cat){visibility:hidden}
 .kb-shade.on{opacity:1;transition:opacity .35s ease-in}
 html.kb-dark .pixel-terrain,html.kb-dark .roads,html.kb-dark .pixel-props,html.kb-dark .dots,html.kb-dark .lms,html.kb-dark .lm-labels,html.kb-dark text.dist,html.kb-dark .day-sky,html.kb-dark .night-sky,html.kb-dark .night-ground,html.kb-dark .night-lamps,html.kb-dark .night-shadows,html.kb-dark .night-houselight,html.kb-dark .kf-clone,html.kb-dark #map{transition:none!important}
 /* ① 재단선 실: 어둠 위에 그려지는 별도 SVG(지도 칸 위) */
-.kb-cutsvg{position:absolute;inset:0;width:100%;height:100%;z-index:6;pointer-events:none;overflow:visible}
-.kb-cutline{fill:none;stroke:#e0505f;stroke-width:2;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;opacity:0;vector-effect:non-scaling-stroke;transition:opacity .5s ease}
-.kb-cutsvg.cutting .kb-cutline{opacity:1;animation:kb-draw .85s linear both}
-@keyframes kb-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
 
 /* ② 보드: 조각 자리에서 떠올라 펴진다(transform 은 JS 가 fold/open 으로 준다) */
 .kb-board{transform-box:view-box;transform-origin:0 0;opacity:0;pointer-events:none;transition:transform 1.5s cubic-bezier(.4,0,.2,1),opacity .4s ease}
