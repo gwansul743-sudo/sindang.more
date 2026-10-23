@@ -128,8 +128,8 @@ export function bootLegacy(DATA){
   });
   document.getElementById('side-grip').onclick = collapseSide;
   let current = null;
-  function select(s, focus){
-    speech.hide(); talk.hide(); if(!cycling) villagerDone();
+  function select(s, focus, keepVillager){   /* keepVillager: 주민과 대화하며 그 주민의 가게 카드를 여는 경우 — 대화를 닫지 않는다(10-23) */
+    speech.hide(); talk.hide(); if(!cycling && !keepVillager) villagerDone();
     current = s; dots.select(s._dot);
     const up = s.status==='up', href = s.ig || IG;
     const list = STORES, idx = list.indexOf(s)+1, vid = renderVideo(s.video);   /* 영상이 있으면 포스터 칸에 사진 대신 플레이어 (10-21) */
@@ -220,7 +220,7 @@ export function bootLegacy(DATA){
      말을 거는 동안 그 주민은 그 자리에 서 있다(walker.hold). 말풍선·상자 모양은 이장님 것과 같다(chief-speech · chief-talk). 큰 상자가 닫히면 다시 걷는다 */
   const HOOK_MS = 3000;
   let villager = null, vHookT = null;   /* { w, script } 지금 말을 거는 주민 */
-  const vTalk = mountTalk(stage, { onEnd: () => villagerDone() });
+  const vTalk = mountTalk(stage, { onEnd: () => { villagerDone(); if(KIOSK) idle(); } });   /* 대화가 끝나면 무입력 30초를 다시 센다 → 자동 순환 이어짐 */
   const vSpeech = mountSpeech(stage, {
     anchor: () => { const g = villager?.w.g; if(!g || g.getAttribute('display') === 'none') return null; const r = g.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { x: r.left + r.width / 2 - st.left, y: r.top - st.top }; },
     bounds: () => { const m = map.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { left: m.left - st.left, top: m.top - st.top, width: m.width, height: m.height }; },
@@ -228,7 +228,16 @@ export function bootLegacy(DATA){
   const takeVillager = (w, script) => { clearTimeout(vHookT); if(villager && villager.w !== w){ villager.w.release(); vTalk.hide(); } villager = { w, script }; w.hold(); };
   function villagerHook(w, script){ if(vTalk.visible && villager?.w === w) return; takeVillager(w, script); vSpeech.say([script.hook]);
     vHookT = setTimeout(() => { if(villager?.w === w && !vTalk.visible) villagerDone(); }, script.hook.length * 34 + HOOK_MS); }   /* 다 찍힌 뒤 HOOK_MS 동안 남는다(한 글자 34ms 타자) */
-  function villagerOpen(w, script){ takeVillager(w, script); vSpeech.hide(); vTalk.start({ name: script.store ? `${script.store} · ${script.name}` : script.name, pages: script.pages.map(p => [p]) }); }
+  /* 주민과 대화(10-23): 자동 순환을 멈추고 그 주민을 비춘다 — 큰 상자를 열고, 그 주민의 가게(대본 store = 가게 이름) 카드를 사이드바에 펴고,
+     사이드바가 다 펴진 뒤 카메라가 주민 쪽으로 줌인(전시 보드에선 자동 순환과 같은 배율). 주민은 대화 동안 그 자리에 서 있다(hold) */
+  function villagerOpen(w, script){ takeVillager(w, script); vSpeech.hide(); stopCycle();
+    vTalk.start({ name: script.store ? `${script.store} · ${script.name}` : script.name, pages: script.pages.map(p => [p]) });
+    const st = script.store ? STORES.find(s => s.name === script.store) : null;
+    const go = () => { if(villager?.w !== w) return;
+      if(st){ if(KIOSK && board){ board.select(st.id); board.focus(null); } select(st, false, true); }
+      const s0 = KIOSK && board ? focusZoom() : Math.max(scale(), 4.6);
+      centerOn(w.x + w.ox, w.y + w.oy, s0, desktop() ? V.ph * 0.1 : V.ph * 0.26); };   /* 큰 상자(데스크톱)·바텀시트(폰)가 아래를 덮으니 사람을 조금 위에 */
+    if(st) withSide(false, go); else go(); }
   function villagerDone(){ clearTimeout(vHookT); vSpeech.hide(); if(vTalk.visible) vTalk.hide(); villager?.w.release(); villager = null; }
   function bindVillager(w, script){
     w.makeClickable();
