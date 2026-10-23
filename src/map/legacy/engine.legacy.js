@@ -265,8 +265,12 @@ export function bootLegacy(DATA){
     w.makeClickable();
     if(script.kind === 'form') w.showMark(DATA.characters.chief.mark);   /* 시민이 인터뷰를 남겨 생긴 주민만 빨간 세모. 가게 인터뷰 주민(shop)은 표시 없음 */
     w.g.addEventListener('pointerenter', e => { if(e.pointerType === 'mouse') villagerHook(w, script); });
+    /* 터치 판정(10-23): click 의 pointerType 은 iOS 사파리 등에서 비어 와 첫 탭에 바로 대화가 열렸다 → 닿는 순간(pointerdown)의 종류를 기억해 쓴다. 그것도 없으면 hover 없는 기기를 터치로 */
+    let downType = '';
+    w.g.addEventListener('pointerdown', e => { downType = e.pointerType; });
     w.g.addEventListener('click', e => { e.stopPropagation(); if(V.moved) return;
-      const firstTouch = e.pointerType && e.pointerType !== 'mouse' && !(villager?.w === w && (vSpeech.visible || vTalk.visible));
+      const type = downType || e.pointerType || (matchMedia('(hover: none)').matches ? 'touch' : 'mouse'); downType = '';
+      const firstTouch = type !== 'mouse' && !(villager?.w === w && (vSpeech.visible || vTalk.visible));
       if(firstTouch) villagerHook(w, script); else if(!(villager?.w === w && vTalk.visible)) villagerOpen(w, script); });
   }
   /* 보드 전체(시안 캔버스 1774×887)를 담는 카메라 */
