@@ -62,3 +62,71 @@ export function roadsInside(d: string, poly: XY[], T: BoardTransform, tol = 2.5)
   return out;
 }
 export const polylinePath = (pls: XY[][]) => pls.map((pl) => pathOf(pl, false)).join('');
+
+/* 숨길 자리(kiosk-board.json hideRoads, 캔버스 단위): [x, y, rx, ry] 타원 또는 [[x, y], …] 다각형 */
+export type HideShape = number[] | number[][];
+export function hiddenBy(shapes: HideShape[]): (x: number, y: number) => boolean {
+  return (x, y) => shapes.some((h) => typeof h[0] === 'number'
+    ? (() => { const [cx, cy, rx, ry] = h as number[]; return ((x - cx) / rx) ** 2 + ((y - cy) / (ry || rx)) ** 2 <= 1; })()
+    : inPoly(h as XY[], x, y));
+}
+/* 꺾은선에서 숨길 자리에 든 토막을 잘라 낸다(선분 가운데로 판정). 잘리고 남은 조각이 minLen 보다 짧으면 꼬리처럼 보이니 같이 버린다 */
+export function cutHidden(pls: XY[][], hidden: (x: number, y: number) => boolean, minLen = 30): XY[][] {
+  const out: XY[][] = [], len = (pl: XY[]) => pl.reduce((s, p, i) => (i ? s + Math.hypot(p[0] - pl[i - 1][0], p[1] - pl[i - 1][1]) : 0), 0);
+  for (const pl of pls) {
+    const pieces: XY[][] = []; let cur: XY[] = [], cut = false;
+    for (let i = 0; i + 1 < pl.length; i++) {
+      const [ax, ay] = pl[i], [bx, by] = pl[i + 1];
+      if (hidden((ax + bx) / 2, (ay + by) / 2)) { cut = true; if (cur.length > 1) pieces.push(cur); cur = []; }
+      else { if (!cur.length) cur.push(pl[i]); cur.push(pl[i + 1]); }
+    }
+    if (cur.length > 1) pieces.push(cur);
+    out.push(...(cut ? pieces.filter((p) => len(p) >= minLen) : pieces));
+  }
+  return out;
+}
+/* 끝점이 맞닿은 토막을 한 줄로 잇는다 — 점선 박자가 토막마다 새로 시작해 어긋나 보이던 것을 없앤다.
+   이음점에서 갈래가 여럿이면 가장 곧게 이어지는 쪽과 잇는다 */
+export function mergeChains(pls: XY[][], tol = 1.5): XY[][] {
+  const out = pls.map((p) => p.slice());
+  const near = (a: XY, b: XY) => Math.hypot(a[0] - b[0], a[1] - b[1]) <= tol;
+  const dir = (a: XY, b: XY): XY => { const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; };
+  for (;;) {
+    let best: { A: XY[]; B: XY[]; i: number; j: number; dot: number } | null = null;
+    for (let i = 0; i < out.length; i++) for (const A of [out[i], out[i].slice().reverse()]) {
+      const end = A[A.length - 1], td = dir(A[Math.max(0, A.length - 4)], end);
+      for (let j = 0; j < out.length; j++) if (j !== i) for (const B of [out[j], out[j].slice().reverse()]) {
+        if (!near(end, B[0])) continue;
+        const hd = dir(B[0], B[Math.min(B.length - 1, 3)]), dot = td[0] * hd[0] + td[1] * hd[1];
+        if (dot > 0.7 && (!best || dot > best.dot)) best = { A, B, i, j, dot };   /* 0.7 ≈ 45° 안쪽으로 꺾일 때만 잇는다(갈림길 옆가지는 따로) */
+      }
+    }
+    if (!best) return out;
+    out[best.i] = best.A.concat(best.B.slice(1)); out.splice(best.j, 1);
+  }
+}
+/* 막다른 끝을 진행 방향으로 섬 밖까지 늘린다(maxLen 안에서 닿을 때만). 섬으로 잘리므로 길이 가장자리 실에 물려 끝난다 */
+export function extendToCoast(pls: XY[][], island: XY[], others: XY[][], maxLen = 160, joinTol = 22): XY[][] {
+  /* 이어진 끝 = 다른 길의 '중간'에 닿았거나(T자), 다른 길의 끝과 거의 맞붙음(ㄱ자). 왕복 두 줄처럼 끝끼리 나란히 떨어져 끝나는 건 막다른 끝으로 본다 */
+  const d = (p: XY, q: XY) => Math.hypot(q[0] - p[0], q[1] - p[1]);
+  const isJoined = (p: XY, self: XY[]) => others.some((o) => o !== self && o.some((q) => { const nearEnd = Math.min(d(q, o[0]), d(q, o[o.length - 1])) < joinTol * 2; return nearEnd ? d(p, q) < 3 : d(p, q) < joinTol; }));
+  const reach = (p: XY, from: XY): XY | null => {
+    const l = Math.hypot(p[0] - from[0], p[1] - from[1]) || 1, dx = (p[0] - from[0]) / l, dy = (p[1] - from[1]) / l;
+    for (let t = 2; t <= maxLen; t += 2) if (!inPoly(island, p[0] + dx * t, p[1] + dy * t)) return [p[0] + dx * (t + 30), p[1] + dy * (t + 30)];
+    return null;
+  };
+  return pls.map((pl) => {
+    let r = pl;
+    const tail = r[r.length - 1], tailFrom = r[Math.max(0, r.length - 4)];
+    if (!isJoined(tail, pl)) { const e = reach(tail, tailFrom); if (e) r = r.concat([e]); }
+    const head = r[0], headFrom = r[Math.min(r.length - 1, 3)];
+    if (!isJoined(head, pl)) { const e = reach(head, headFrom); if (e) r = [e as XY].concat(r); }
+    return r;
+  });
+}
+/* 꺾은선을 다각형 안쪽 토막들로 자른다(주민 길 그래프용) */
+export function insideRuns(pls: XY[][], poly: XY[]): XY[][] {
+  const out: XY[][] = [];
+  for (const pl of pls) { let cur: XY[] = []; for (const p of pl) { if (inPoly(poly, p[0], p[1])) cur.push(p); else { if (cur.length > 1) out.push(cur); cur = []; } } if (cur.length > 1) out.push(cur); }
+  return out;
+}

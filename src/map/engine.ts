@@ -17,7 +17,7 @@ export interface EngineData {
   kioskArea?: { name: string; polygon: [number, number][] };   // 전시 모드에서 강조할 구역 (content/map/kiosk-area.json)
   chiefTalk?: { name: string; portrait: string; pages: string[][] };   // 이장님 인터뷰 대본 (content/characters/chief-talk.json)
   kioskCut?: { name: string; polygon: [number, number][] };   // 전시 보드 재단선 (content/map/kiosk-cut.json)
-  kioskBoard?: { title?: string; sub?: string; titleAt?: number[]; chiefAt?: number[]; props?: (string | number)[][]; sky?: (string | number)[][]; waves?: number[][] };   // 전시 보드(시안 캔버스 단위) (content/map/kiosk-board.json)
+  kioskBoard?: { hideRoads?: (number[] | number[][])[]; title?: string; sub?: string; titleAt?: number[]; chiefAt?: number[]; props?: (string | number)[][]; sky?: (string | number)[][]; waves?: number[][] };   // 전시 보드(시안 캔버스 단위) (content/map/kiosk-board.json)
 }
 
 export interface Engine {

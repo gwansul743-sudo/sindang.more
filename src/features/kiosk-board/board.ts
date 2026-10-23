@@ -1,5 +1,5 @@
 import './board.css';
-import { type XY, type Box, bboxOf, distToPoly, inPoly, pathOf, roadsInside, polylinePath, boardTransform, type BoardTransform } from './geometry';
+import { type XY, type Box, bboxOf, distToPoly, inPoly, pathOf, roadsInside, polylinePath, boardTransform, type BoardTransform, type HideShape, hiddenBy, cutHidden, mergeChains, extendToCoast, insideRuns } from './geometry';
 
 /* 전시 보드 — 전시 모드를 켜면 섬이 통째로 '신당 5길' 천 섬이 된다. 모양·연출·톤은 시안 MORE_exhibition_dynamic_v2.html 그대로(10-23 사용자 결정, 낮/밤 구분 없음).
    길만 실제 길이다: 재단선(kiosk-cut.json) 안의 roads.json 길을 섬 덩어리에 맞춰 넣는다 — 큰 길(a·b)은 굵은 띠 + 양 가장자리 홈질, 골목(c)은 흰 띠 위 점선.
@@ -8,7 +8,7 @@ import { type XY, type Box, bboxOf, distToPoly, inPoly, pathOf, roadsInside, pol
    · 켜진 동안 html.kb-on: 섬 위 원래 층은 사라지고(1.1s) 바다는 시안 색. 엔진은 카메라(view)·이장님·주민 그래프(roadPath·land)만 맡는다. */
 
 export interface BoardStore { id: string; name: string; x: number; y: number; category?: string; status?: string }
-export interface BoardContent { title?: string; sub?: string; titleAt?: number[]; chiefAt?: number[]; props?: (string | number)[][]; sky?: (string | number)[][]; waves?: number[][] }
+export interface BoardContent { hideRoads?: HideShape[]; title?: string; sub?: string; titleAt?: number[]; chiefAt?: number[]; props?: (string | number)[][]; sky?: (string | number)[][]; waves?: number[][] }
 export interface BoardOptions {
   svg: SVGSVGElement; before: Element;            // 이 요소 앞에 끼운다(주민 층 앞)
   host: HTMLElement;                              // 범례(HTML)를 붙일 지도 칸
@@ -92,12 +92,19 @@ export function mountBoard(o: BoardOptions): Board {
   el('rect', { x: ib.x0, y: ib.y0, width: ib.x1 - ib.x0, height: ib.y1 - ib.y0, fill: 'url(#kb-glow)' }, body);
   /* 길(실제): 큰 길 a·b = 굵은 띠 + 양 가장자리 홈질(띠보다 넓은 점선을 아래 깔아 끝만 보인다), 골목 c = 흰 띠 위 점선 */
   const roadsG = el('g', { class: 'kb-roads' }, body);
+  /* 정돈(10-23): ① 숨길 자리(hideRoads, 골목만)를 잘라 내고 ② 맞닿은 토막을 한 줄로 이어 점선 박자를 맞추고 ③ 막다른 큰 길은 섬 가장자리까지 늘려 실에 물려 끝나게
+     ④ 골목 점선은 큰 길 띠 안에서 가린다(mask) — 띠 위로 골목 점선이 지나가던 것 */
+  const hidden = hiddenBy(c.hideRoads || []);
   const roadsOf = (keys: string[]) => keys.flatMap((k) => (o.roads[k] ? roadsInside(o.roads[k], o.cut, R, 2.5) : []));
-  const main = roadsOf(['a', 'b']), alley = roadsOf(['c']);
+  const alley = mergeChains(cutHidden(roadsOf(['c']), hidden));
+  const main0 = mergeChains(roadsOf(['a', 'b'])), main = extendToCoast(main0, ISLAND, main0);
   const mainD = polylinePath(main), alleyD = polylinePath(alley);
+  const mask = el('mask', { id: 'kb-alley-mask', maskUnits: 'userSpaceOnUse', x: ib.x0 - 50, y: ib.y0 - 50, width: ib.x1 - ib.x0 + 100, height: ib.y1 - ib.y0 + 100 }, defs);
+  el('rect', { x: ib.x0 - 50, y: ib.y0 - 50, width: ib.x1 - ib.x0 + 100, height: ib.y1 - ib.y0 + 100, fill: '#fff' }, mask);
+  if (mainD) el('path', { d: mainD, fill: 'none', stroke: '#000', 'stroke-width': 36, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, mask);
   if (mainD) { el('path', { class: 'kb-stitch main', d: mainD }, roadsG); el('path', { class: 'kb-band main', d: mainD }, roadsG); }
-  if (alleyD) { el('path', { class: 'kb-band alley', d: alleyD }, roadsG); el('path', { class: 'kb-stitch alley', d: alleyD }, roadsG); }
-  const roadMapD = polylinePath([...main, ...alley].filter((pl) => pl.every(([x, y]) => inPoly(ISLAND, x, y))).map((pl) => pl.map(toMap)));
+  if (alleyD) { el('path', { class: 'kb-band alley', d: alleyD }, roadsG); el('path', { class: 'kb-stitch alley', d: alleyD, mask: 'url(#kb-alley-mask)' }, roadsG); }
+  const roadMapD = polylinePath(insideRuns([...main, ...alley], ISLAND).map((pl) => pl.map(toMap)));
   /* 가장자리: 실 + 블랭킷 빗금(바늘 따라 드러남) */
   const edge = el('g', { class: 'kb-edge' }, board);
   el('path', { class: 'kb-edge-line', d: islandD }, edge);
