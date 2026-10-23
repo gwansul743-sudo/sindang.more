@@ -1,7 +1,7 @@
 /* 이장님 대화 패널 — 시안 MORE_exhibition_dynamic_v2 의 .talk 그대로(10-23): 지도 아래쪽 가운데 리넨 천 상자 + 안쪽 홈질 점선,
    왼쪽 위 와인색 이름 꼬리표(손글씨), 오른쪽 아래 쪽수(손글씨). 얼굴 그림 칸은 없다(10-23). 패널 어디를 눌러도 다음 장.
    #stage 위 오버레이, 작은 말풍선(24)보다 위, 관리 패널(35)보다 아래. 색은 시안 값. */
-.talk{position:absolute;left:50%;bottom:34px;z-index:26;width:min(640px,calc(100% - 48px));box-sizing:border-box;padding:18px 22px 14px;background:#efe3cb url(/board/linen.webp);background-size:310px;color:#7d2030;border:1px solid #c4ae8f;border-radius:5px;box-shadow:0 4px 6px #2e3b4345;transform:translateX(-50%) translateY(16px);opacity:0;pointer-events:none;transition:opacity .3s ease,transform .3s ease}
+.talk{position:absolute;left:50%;bottom:34px;z-index:26;width:min(640px,calc(100% - 48px));box-sizing:border-box;padding:18px 22px 14px;background:linear-gradient(#f6eedcd1,#f6eedcd1),#efe3cb url(/board/linen.webp);background-size:auto,120px;color:#7d2030;border:1px solid #c4ae8f;border-radius:5px;box-shadow:0 4px 6px #2e3b4345;transform:translateX(-50%) translateY(16px);opacity:0;pointer-events:none;transition:opacity .3s ease,transform .3s ease}
 .talk.show{opacity:1;transform:translateX(-50%);pointer-events:auto;cursor:pointer}
 .talk::after{content:"";position:absolute;inset:4px;border:1.8px dashed #9b3d49;border-radius:2px;opacity:.95;pointer-events:none}
 .talk .tk-name{position:absolute;left:14px;top:-13px;z-index:1;padding:3px 10px;background:#8c1e32;color:#fff4df;font-family:"Nanum Pen Script","IBM Plex Sans KR",cursive;font-size:17px;line-height:1.2;border-radius:2px;box-shadow:0 1px 0 #5a0f1e}
