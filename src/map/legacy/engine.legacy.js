@@ -115,8 +115,10 @@ export function bootLegacy(DATA){
   /* 카드 */
   const sheet = document.getElementById('sheet'), card = document.getElementById('card');
   const side = document.getElementById('side');
-  /* 10-23: 사이드바는 가게 카드가 있을 때만 — 빈 화면('우리가 만난 신당의 가게들')과 FIELD NOTES 버튼은 없앴다(CSS). 처음엔 접혀 있고 카드를 닫으면 다시 접힌다 */
-  if(window.innerWidth >= 900) side.classList.add('closed');   /* 데스크톱 사이드바 X 하나로: 카드가 열려 있으면 카드만 닫고, 아니면 사이드바를 접는다. 가게를 고르면 다시 열린다 */
+  /* 10-23: 사이드바는 인트로에서 막 들어왔을 때(소개 '우리가 만난 신당의 가게들', .welcome)와 가게 카드가 있을 때만.
+     처음·인트로 다시 보기 때 인트로 아래서 미리 펴 두고(.welcome), 어떤 이유로든 접히면 소개는 끝(.welcome 제거) — 카드를 닫으면 접힌 채로. FIELD NOTES 버튼은 없앴다(CSS) */
+  side.classList.add('welcome');
+  new MutationObserver(() => { if(side.classList.contains('closed') && side.classList.contains('welcome')) side.classList.remove('welcome'); }).observe(side, { attributes: true, attributeFilter: ['class'] });   /* 데스크톱 사이드바 X 하나로: 카드가 열려 있으면 카드만 닫고, 아니면 사이드바를 접는다. 가게를 고르면 다시 열린다 */
   document.getElementById('side-close').onclick = () => { if(current) closeCard(); else side.classList.add('closed'); };
   document.getElementById('side-open').onclick = () => side.classList.remove('closed');
   /* 오른쪽으로 슥 넘기면 접기: 데스크톱 사이드바는 X 와 같은 동작, 폰 바텀시트는 카드 닫기 */
@@ -279,7 +281,7 @@ export function bootLegacy(DATA){
   skipBtn.addEventListener('pointerdown', e => e.stopPropagation());
   skipBtn.addEventListener('click', e => { e.stopPropagation(); kioskSkip(); });
   const syncSkip = () => skipBtn.classList.toggle('show', KIOSK && !introOpen && kioskStage === 'play');
-  function goHome(){ withSide(true, () => { const hv = homeView(); centerOn(hv.x, hv.y, hv.s, 0); }); }
+  function goHome(){ withSide(!side.classList.contains('welcome'), () => {   /* 소개가 떠 있으면 편 채로 */ const hv = homeView(); centerOn(hv.x, hv.y, hv.s, 0); }); }
   /* 이장님·고양이는 평소엔 숨겨 두고(body.chief-hidden), 보드 연출의 제목 뒤에 등장한다. 끄면 다시 숨김 */
   const showChief = (on) => { document.body.classList.toggle('chief-hidden', !on); document.querySelectorAll('.wk-chief,.wk-cat').forEach(g => g.classList.toggle('appear', on)); };
   function kioskOff(){ speech.hide(); talk.hide(); kioskStage = 'off'; syncSkip?.(); const my = ++kioskSeq; clearTimeout(kioskStartT);
@@ -292,7 +294,7 @@ export function bootLegacy(DATA){
      한 바퀴 뒤엔 보드 전체를 6초 보여 주고 다시. 범례 필터가 켜져 있으면 그 업종만. 클릭·터치·휠·키가 오면 바로 멈추고 다시 30초를 센다.
      비출 때마다 단추를 눌렀을 때처럼 가게 카드(오른쪽 사이드바·폰 바텀시트)를 연다. 사이드바가 다 펴진 뒤(withSide) 카메라를 옮긴다 — 같이 돌리면 흔들린다.
      한 바퀴 끝의 보드 전체 뷰에선 카드를 닫고 사이드바를 접는다. 사람이 끼어들어 멈추면 열린 카드는 그대로 둔다 */
-  const IDLE_MS = 5000, DWELL_MS = 6000;
+  const IDLE_MS = 3000, DWELL_MS = 6000;
   let idleT = null, cycleT = null, cycleI = 0, cycling = false;
   const canCycle = () => KIOSK && board && !introOpen && kioskStage === 'rest' && !talk.visible && !speech.visible && !vTalk.visible && !vSpeech.visible;
   const focusZoom = () => kioskTarget().s * (desktop() ? 2.6 : 2.2);   /* 보드 전체 배율에서 ×2.6(폰 ×2.2) */
@@ -328,7 +330,7 @@ export function bootLegacy(DATA){
   function openMap(){ if(intro.classList.contains('open')) return; intro.classList.add('open'); clearTimeout(introT); introT=setTimeout(endIntro, +intro.dataset.ms || 1900); }
   /* 인트로 다시 보기: 전시 연출은 그 자리에서 다 멈추고 평소 지도로 되돌린다(인트로 뒤에서 아무것도 돌지 않게, 10-23). 전시 모드 ON/OFF 상태는 그대로 — 인트로가 끝나면 다시 시작 */
   function playIntro(){ introOpen=true; closeCard(); stopKiosk(); clearTimeout(introT); intro.classList.remove('open'); intro.classList.remove('done');
-    side.classList.add('closed'); V.fit(); apply();
+    side.classList.remove('closed'); side.classList.add('welcome'); V.fit(); apply();   /* 인트로 아래서 사이드바(소개)를 미리 편다 */
     document.getElementById('empty').classList.remove('show');
     resetHome(); }
   document.getElementById('openMap').onclick = openMap;
