@@ -101,3 +101,9 @@ html.kb-dark .pixel-terrain,html.kb-dark .roads,html.kb-dark .pixel-props,html.k
 .kb-legend .kb-note{margin:8px 0 0;font-size:10px;color:#9a7a60;letter-spacing:-.3px}
 @media(max-width:899px){.kb-legend{left:10px;top:auto;bottom:14px;width:auto;max-width:60vw;padding:10px 10px 8px}.kb-legend h2{font-size:18px;margin-bottom:4px}.kb-legend li{padding:3px 6px;font-size:12px}.kb-legend .kb-note{display:none}}
 @media(prefers-reduced-motion:reduce){.kb-board{transition:none}.kb-cloud-b,.kb-cloud-g,.kb-sun{animation:none}}
+
+/* 건너뛰기(10-23): 전시 연출 중에만. 지도 칸 오른쪽 위(데스크톱은 FIELD NOTES 버튼 아래), 범례와 같은 천 톤 */
+.kb-skip{position:absolute;z-index:6;top:12px;right:12px;display:none;padding:8px 12px;font:700 13px var(--font-ui);letter-spacing:-.01em;color:var(--kb-wine);background:linear-gradient(#f1e2c5d1,#f1e2c5d1),var(--kb-cream) url(/board/linen.webp);background-size:auto,120px;border:1px dashed var(--kb-stitch);border-radius:4px;box-shadow:0 2px 3px #2e3b4338;cursor:pointer;zoom:var(--ui)}
+.kb-skip.show{display:block;animation:panel-in .3s both}
+.kb-skip:hover{background-color:#e3cfa8}
+@media(min-width:900px){.kb-skip{top:52px}}
