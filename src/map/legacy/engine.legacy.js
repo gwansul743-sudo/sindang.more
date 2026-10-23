@@ -467,7 +467,7 @@ export function bootLegacy(DATA){
   const graph = buildRoadGraph(majorRoadPath(ROADS), LAND);
   if(graph.edges.length){
     const scene = createScene({ svg, map, V, landmarks: lmLayer, before: gDist, frontBefore: gDots, isKiosk: () => KIOSK, actorMul: () => (board?.on ? 1.3 : 1) });   /* 보드 위에서는 조금 크게(10-23: 2.6 → 1.3, 사용자 '많이 줄여') */
-    walkers = spawnWalkers(scene, { graph, parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, count: 5, speed: 6.5, home: LANDMARKS[0] || {x:W/2, y:H/2} });
+    walkers = spawnWalkers(scene, { graph, parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, count: 5, speed: 6.5, home: LANDMARKS[0] || {x:W/2, y:H/2}, fixed: (DATA.villagers || []).map(v => v.look) });   /* 대본에 look 이 있으면 그 주민은 그 모습(10-23) */
     (DATA.villagers || []).forEach((script, i) => { if(walkers[i]) bindVillager(walkers[i], script); });   /* 대본이 있는 주민: 앞에서부터 하나씩 (지금 신당야학 박소민 강학 1명) */
     walkerGraphs = { home: graph, kiosk: board ? buildRoadGraph(board.roadPath(), board.land, { minLen: 40 }) : graph };   /* 전시 모드: 보드 위의 실제 길(골목까지) */
     const chief = new Chief(scene.layer, DATA.characters.body, DATA.characters.chief); scene.add(chief); chiefActor = chief;

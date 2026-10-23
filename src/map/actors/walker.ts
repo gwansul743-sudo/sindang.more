@@ -134,7 +134,8 @@ export class Walker implements Actor {
 }
 
 /* 주민 여럿을 길 위에 흩어 놓는다. 처음 다섯은 첫 랜드마크(집) 근처에서, 서로 46단위 이상 떨어뜨려 시작 */
-export interface SpawnOptions { graph: RoadGraph; parts: CharacterParts; palette: WalkerPalette; looks: Look[]; count: number; speed: number; home: { x: number; y: number } }
+export interface FixedLook extends Look { col?: Partial<Palette> }   /* 대본에 지정한 모습(10-23): 머리 모양·가방 + 색(팔레트 키 h·t·p·b·s·a·g). 빠진 색은 무작위 */
+export interface SpawnOptions { graph: RoadGraph; parts: CharacterParts; palette: WalkerPalette; looks: Look[]; count: number; speed: number; home: { x: number; y: number }; fixed?: (FixedLook | undefined)[] }
 export function spawnWalkers(scene: Scene, o: SpawnOptions): Walker[] {
   const G = o.graph, tops = o.palette.top.slice().sort(() => Math.random() - 0.5), out: Walker[] = [];   /* 적은 인원이니 윗옷 색이 겹치지 않게 */
   const spawnEdge = (nearHome: boolean) => {
@@ -147,8 +148,9 @@ export function spawnWalkers(scene: Scene, o: SpawnOptions): Walker[] {
     return G.edges[Math.floor(Math.random() * G.edges.length)];
   };
   for (let i = 0; i < o.count; i++) {
-    const look = o.looks[i % o.looks.length], edge = spawnEdge(i < 5);
-    const w = new Walker(scene.layer, { parts: o.parts, look, col: walkerColors(o.palette, tops[i % tops.length], i), graph: G, edge, flip: Math.random() < 0.5, speed: o.speed });
+    const fx = o.fixed?.[i], look: Look = fx ? { style: fx.style, bun: fx.bun, bag: fx.bag } : o.looks[i % o.looks.length], edge = spawnEdge(i < 5);
+    const col = { ...walkerColors(o.palette, tops[i % tops.length], i), ...(fx?.col || {}) } as Palette;
+    const w = new Walker(scene.layer, { parts: o.parts, look, col, graph: G, edge, flip: Math.random() < 0.5, speed: o.speed });
     scene.add(w); out.push(w);
   }
   return out;
