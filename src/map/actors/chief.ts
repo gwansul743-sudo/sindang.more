@@ -36,7 +36,7 @@ export class Chief implements Actor {
   makeHoverable() {
     if (this.g.classList.contains('wk-talk')) return;
     this.g.classList.add('wk-talk');
-    const r = el('rect', { class: 'wk-hit', x: -SW / 2, y: -FEET - 1, width: SW, height: FEET + 3, fill: 'transparent' });
+    const r = el('rect', { class: 'wk-hit', x: -6.5, y: -FEET + 1, width: 13, height: 16, fill: 'transparent' });   /* 그려진 몸(모자까지 가로 13·세로 16칸)만(10-23) */
     r.style.pointerEvents = 'all'; this.g.style.cursor = 'pointer'; this.g.insertBefore(r, this.g.firstChild);
   }
 

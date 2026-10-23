@@ -44,7 +44,7 @@ export class Walker implements Actor {
   makeClickable() {
     if (this.g.classList.contains('wk-talk')) return;
     this.g.classList.add('wk-talk');
-    const r = el('rect', { class: 'wk-hit', x: -SW / 2, y: -FEET - 1, width: SW, height: FEET + 3, fill: 'transparent' });
+    const r = el('rect', { class: 'wk-hit', x: -5.5, y: -FEET + 1, width: 11, height: 16, fill: 'transparent' });   /* 그려진 몸(가로 11·세로 16칸)만 — 칸 전체(17×19)로 잡으면 옆 빈 곳에서도 대화가 떴다(10-23) */
     r.style.pointerEvents = 'all'; this.g.style.cursor = 'pointer'; this.g.insertBefore(r, this.g.firstChild);
   }
 
