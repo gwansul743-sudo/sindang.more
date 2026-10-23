@@ -19,7 +19,7 @@ const markup = (s: string) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
 export function mountSpeech(stage: HTMLElement, o: SpeechOptions): Speech {
   const charMs = o.charMs ?? 34, holdMs = o.holdMs ?? 2800;
   const el = document.createElement('div'); el.className = 'speech'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite');
-  el.innerHTML = '<div class="sp-box"><span class="sp-text"></span><span class="sp-next">▼</span></div><div class="sp-tail"></div>';
+  el.innerHTML = '<div class="sp-box"><span class="sp-text"></span></div><div class="sp-tail"></div>';   /* 모양은 시안 v2 의 .speech 그대로(10-23) */
   stage.appendChild(el);
   const text = el.querySelector('.sp-text') as HTMLElement;
   let lines: string[] = [], i = 0, run = 0, timer = 0, typing = false, visible = false;

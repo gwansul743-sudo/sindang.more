@@ -1,6 +1,6 @@
 import './talk.css';
 
-/* 이장님 대화 패널 — 작은 말풍선의 인사가 끝나면, 지도 아래쪽 큰 말풍선에 인터뷰가 한 줄씩 쌓인다(타자).
+/* 이장님 대화 패널 — 작은 말풍선의 인사가 끝나면, 지도 아래쪽 큰 말풍선에 인터뷰가 한 줄씩 쌓인다(타자). 모양은 시안 MORE_exhibition_dynamic_v2 의 .talk 그대로(10-23).
    · start(script): 첫 장부터. 한 장(pages[i])의 줄들을 차례로 찍고, 다 찍히면 holdMs 뒤 다음 장. 마지막 장은 lastHoldMs 뒤 닫힌다(onEnd).
    · 패널을 누르면: 찍는 중이면 그 장을 바로 다 보여주고, 다 보였으면 다음 장(마지막이면 닫기).
    · **굵게** 는 <b> 로(강조색). 순수 UI: 지도 엔진·데이터를 모른다. 대본은 content/characters/chief-talk.json. */
@@ -23,8 +23,8 @@ function partial(line: string, n: number) {   /* 앞 n글자(평문 기준)까�
 export function mountTalk(stage: HTMLElement, o: TalkOptions = {}): Talk {
   const charMs = o.charMs ?? 38, lineGapMs = o.lineGapMs ?? 260, holdMs = o.holdMs ?? 3200, lastHoldMs = o.lastHoldMs ?? 5000;
   const el = document.createElement('div'); el.className = 'talk'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-live', 'polite');
-  /* 이름표·캐리커쳐는 상자(.tk-box, 모서리 깎기 clip-path)의 형제로 둔다 — 상자 안에 넣으면 위로 삐져나온 부분이 잘린다 */
-  el.innerHTML = '<img class="tk-portrait" alt=""><div class="tk-name"></div><div class="tk-box"><div class="tk-lines"></div><span class="tk-page"></span><span class="tk-next">▼</span></div>';
+  /* 시안 v2 의 대화 상자(10-23): 리넨 천 + 홈질 테두리, 왼쪽 위 이름 꼬리표, 왼쪽 얼굴 칸(픽셀 이장님) + 글, 오른쪽 아래 쪽수 */
+  el.innerHTML = '<span class="tk-name"></span><div class="tk-body"><img class="tk-portrait" alt=""><div class="tk-lines"></div></div><span class="tk-page"></span>';
   stage.appendChild(el);
   const nameEl = el.querySelector('.tk-name') as HTMLElement, img = el.querySelector('.tk-portrait') as HTMLImageElement, linesEl = el.querySelector('.tk-lines') as HTMLElement, pageEl = el.querySelector('.tk-page') as HTMLElement;
   let script: TalkScript | null = null, page = 0, run = 0, timer = 0, typing = false, visible = false;

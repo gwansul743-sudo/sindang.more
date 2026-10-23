@@ -1,7 +1,7 @@
 {
  "name": "이장님",
- "portrait": "/chief/chief-cat.png",
- "note": "전시 모드 인사 뒤 큰 말풍선에 쌓이는 이장님 인터뷰. 페이지(배열) 하나 = 말풍선 한 번, 줄은 한 줄씩 찍힌다. 그림은 public/chief/ (촌장님 픽셀 스티커 2행 5열)",
+ "portrait": "/chief/chief-pixel.png",
+ "note": "전시 모드 인사 뒤 큰 말풍선에 쌓이는 이장님 인터뷰. 페이지(배열) 하나 = 말풍선 한 번, 줄은 한 줄씩 찍힌다. 얼굴 칸 그림은 public/chief/chief-pixel.png (시안 v2 와 같은 픽셀 이장님, 10-23 큰 캐리커쳐 대신)",
  "pages": [
   [
    "어이구~ 어서 오게!",
