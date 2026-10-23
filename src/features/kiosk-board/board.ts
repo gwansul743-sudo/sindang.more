@@ -151,8 +151,13 @@ export function mountBoard(o: BoardOptions): Board {
 
   /* 범례(HTML) */
   const legend = document.createElement('aside'); legend.className = 'kb-legend'; legend.setAttribute('aria-label', '신당 5길의 가게들');
-  legend.innerHTML = '<h2>신당 5길의 가게들</h2><ul></ul><p class="kb-note">누르면 그 업종만 남아요 · 다시 누르면 전체</p>';
+  legend.innerHTML = '<h2><button type="button" class="kb-fold" aria-expanded="true">신당 5길의 가게들<span class="kb-chev" aria-hidden="true">▾</span></button></h2><ul></ul><p class="kb-note">누르면 그 업종만 남아요 · 다시 누르면 전체</p>';
   o.host.appendChild(legend); const ul = legend.querySelector('ul')!;
+  /* 접기·펴기(10-23): 제목을 누르면 목록·안내가 접혀 제목만 남는다. 처음엔 데스크톱 펼침, 폰 접힘(지도 아래를 가려서) */
+  const foldBtn = legend.querySelector<HTMLButtonElement>('.kb-fold')!;
+  const setFold = (folded: boolean) => { legend.classList.toggle('kb-folded', folded); foldBtn.setAttribute('aria-expanded', String(!folded)); };
+  setFold(window.innerWidth < 900);
+  foldBtn.addEventListener('click', (e) => { e.stopPropagation(); setFold(!legend.classList.contains('kb-folded')); });
   function renderLegend() {
     ul.innerHTML = '';
     Object.entries(CATS).forEach(([k, cc]) => { const n = btns.filter((b) => b.cat === k).length; if (!n && k !== 'etc') return;
