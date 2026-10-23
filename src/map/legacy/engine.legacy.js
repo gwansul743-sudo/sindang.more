@@ -15,6 +15,7 @@ import { mountArea } from '../layers/area';
 import { mountStamps } from '../../features/kiosk-stamps/stamps';
 import { mountPatch } from '../../features/kiosk-patch/patch';
 import { mountFocus } from '../../features/kiosk-focus/focus';
+import { mountBoard } from '../../features/kiosk-board/board';
 import { withCurtain } from '../../features/kiosk-focus/curtain';
 import { mountSpeech } from '../../features/chief-speech/speech';
 import { mountTalk } from '../../features/chief-talk/talk';
@@ -55,6 +56,8 @@ export function bootLegacy(DATA){
   const patch = kioskAreaXY ? mountPatch({ svg, before: gRoads, polygon: kioskAreaXY, roads: ROADS.p }) : null;
   const focus = kioskAreaXY ? mountFocus({ svg, polygon: kioskAreaXY }) : null;   /* 전시 모드 집중: 비우기 → 5길만 → 낮춘 복귀 (features/kiosk-focus). 순서는 kioskView 위 주석 */   /* 전시 구역 바닥의 천 조각(길 아래, 구역 안 길은 굵은 복사본). 전시 모드 봉제 연출 → 와펜 */
   const lmK = s => lmLayer.k(s);
+  /* 전시 보드(features/kiosk-board): 전시 모드에서 섬 전체가 되는 '신당 5길' 천 섬 — 실제 길·사용자가 둔 장식·업종 단추. 지금은 ?board=1 로만 켠다(전환 연출은 다음 조각) */
+  let board = null;
 
   /* 가게 · 컬렉션 (데이터는 db에서 옴) */
   let STORES = [];
@@ -89,6 +92,7 @@ export function bootLegacy(DATA){
     if(current){ const again = STORES.find(s=>s.id===current.id); current=null; if(again) select(again,false); else closeCard(); }
     document.getElementById('empty').classList.toggle('show', STORES.length===0 && !introOpen);
     renderAdminList(); apply();
+    board?.setStores(STORES);
   }
 
   /* 뷰포트 — map/viewport.ts (4-1 ②). 그림 갱신은 render(scale)가 맡는다 */
@@ -98,6 +102,8 @@ export function bootLegacy(DATA){
   const V = createViewport({ map, svg, W, H, landBounds: LAND.bounds, focus: DATA.land.focus, onApply: render, onActivity: () => wake(), keepViewOnResize: () => !introOpen, holdOnResize: () => sideAnimating });
   const scale = () => V.scale(), apply = () => V.apply(), homeView = () => V.homeView(), resetHome = () => V.resetHome();
   const centerOn = (x,y,s,oy,then) => V.centerOn(x,y,s,oy,then);
+  if(kioskAreaXY) board = mountBoard({ svg, before: gDist, host: map, polygon: kioskAreaXY, roads: ROADS.p, landBounds: LAND.bounds, decor: DATA.props.decor, extra: DATA.kioskBoard, proj,
+    onStore: id => { const st = STORES.find(s => s.id === id); if(st){ board.select(id); select(st, false); } } });
   function render(s){
     document.body.classList.toggle('far', s < 3.5);
     lmLayer.update(s); districts.update(s); dots.update(s); area?.update(s); patch?.update(s);
@@ -393,6 +399,7 @@ export function bootLegacy(DATA){
     V.fit(); V.resetHome();
     setStores(DATA.stores);
     connect();
+    if(board && new URLSearchParams(location.search).has('board')) board.show();   /* 보드만 바로 보기(개발·확인용) */
   }
   document.fonts ? document.fonts.ready.then(init) : init();
 

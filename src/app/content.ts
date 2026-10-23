@@ -13,6 +13,7 @@ import looks from '../../content/characters/looks.json';
 import chief from '../../content/characters/chief.json';
 import cat from '../../content/characters/cat.json';
 import kioskArea from '../../content/map/kiosk-area.json';
+import kioskBoard from '../../content/map/kiosk-board.json';
 import chiefTalk from '../../content/characters/chief-talk.json';
 import { loadLandmarks } from '../entities/landmark/load';
 import type { Store } from '../entities/store/types';
@@ -35,5 +36,6 @@ export function loadContent(stores: Store[]): EngineData {
     stores,
     kioskArea: { name: kioskArea.name, polygon: kioskArea.polygon.map(([lat, lng]) => [lat, lng] as [number, number]) },
     chiefTalk: { name: chiefTalk.name, portrait: chiefTalk.portrait, pages: chiefTalk.pages },
+    kioskBoard: { title: kioskBoard.title, sub: kioskBoard.sub, props: kioskBoard.props as { kind: string; lat: number; lng: number; h?: number }[] },
   };
 }
