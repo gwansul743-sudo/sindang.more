@@ -215,6 +215,9 @@ export function bootLegacy(DATA){
     onEnd: () => { if(KIOSK && !introOpen && kioskStage === 'play' && DATA.chiefTalk) talk.start(DATA.chiefTalk); },
   });
   const CHIEF_LINES = ['오호! 처음 보는 얼굴이구먼!\n**신당 5길**에 어서와!!', '잠깐 이야기 좀 듣고 갈 텐가?'];
+  /* 대화가 끝난 뒤(rest) 이장님에게 마우스를 올리면(터치는 탭) 머리 위 말풍선으로 한 줄(10-23). 다 찍히고 2.8초 뒤 스스로 닫힌다 — rest 라 큰 상자로 넘어가지 않는다 */
+  const CHIEF_AGAIN = ['허허, 또 왔구먼!\n아직 못 가 본 가게가 있나?'];
+  function chiefHook(){ if(!KIOSK || introOpen || kioskStage !== 'rest' || talk.visible || speech.visible || vTalk.visible) return; vSpeech.hide(); speech.say(CHIEF_AGAIN); }
   /* 마을 사람 인터뷰(10-23, 설계 메모 '마을 사람 캐릭터 인터뷰' §4): 대본이 있는 주민(content/characters/villagers/*.json)은 이장님과 같은 2단 —
      마우스를 올리면(터치는 첫 탭) 머리 위 작은 말풍선에 hook 한 줄이 HOOK_MS 동안 뜨고, 누르면(터치는 두 번째 탭) 지도 아래 큰 상자에 인터뷰가 장마다 넘어간다.
      말을 거는 동안 그 주민은 그 자리에 서 있다(walker.hold). 말풍선·상자 모양은 이장님 것과 같다(chief-speech · chief-talk). 큰 상자가 닫히면 다시 걷는다 */
@@ -468,6 +471,9 @@ export function bootLegacy(DATA){
     (DATA.villagers || []).forEach((script, i) => { if(walkers[i]) bindVillager(walkers[i], script); });   /* 대본이 있는 주민: 앞에서부터 하나씩 (지금 신당야학 박소민 강학 1명) */
     walkerGraphs = { home: graph, kiosk: board ? buildRoadGraph(board.roadPath(), board.land, { minLen: 40 }) : graph };   /* 전시 모드: 보드 위의 실제 길(골목까지) */
     const chief = new Chief(scene.layer, DATA.characters.body, DATA.characters.chief); scene.add(chief); chiefActor = chief;
+    chief.makeHoverable();
+    chief.g.addEventListener('pointerenter', e => { if(e.pointerType === 'mouse') chiefHook(); });
+    chief.g.addEventListener('click', e => { e.stopPropagation(); if(V.moved) return; chiefHook(); });
     catActor = new Cat(scene.layer, DATA.characters.cat, chief); scene.add(catActor);
     document.body.classList.add('chief-hidden');   /* 전시 모드 연출 뒤에만 보인다 (showChief) */
     scene.start();

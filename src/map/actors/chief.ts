@@ -32,6 +32,14 @@ export class Chief implements Actor {
     if (c.name) { this.label = el('text', { class: 'wk-name', x: 0, 'text-anchor': 'middle' }, this.g); this.label.textContent = c.name; }
   }
 
+  /* 마우스를 올리거나 누를 수 있게 — 스프라이트 칸 전체를 투명 사각형으로 잡는다(주민 makeClickable 과 같은 요령, 10-23) */
+  makeHoverable() {
+    if (this.g.classList.contains('wk-talk')) return;
+    this.g.classList.add('wk-talk');
+    const r = el('rect', { class: 'wk-hit', x: -SW / 2, y: -FEET - 1, width: SW, height: FEET + 3, fill: 'transparent' });
+    r.style.pointerEvents = 'all'; this.g.style.cursor = 'pointer'; this.g.insertBefore(r, this.g.firstChild);
+  }
+
   tick(f: Frame) {
     const { now, dt, V, s, R, P, live, still, kiosk } = f;
     const mul = f.mul, q = f.q * mul;   /* 배율은 엔진이 준다(주민과 같이). 이름표는 px/q 환산이라 글자 크기는 그대로 */
