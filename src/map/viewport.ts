@@ -34,6 +34,7 @@ export interface Viewport {
   centerOn(x: number, y: number, targetScale: number, offsetY?: number, onDone?: () => void): void;
   toMap(clientX: number, clientY: number): [number, number];   // 화면 px → 지도 좌표
   relayout(): void;
+  stop(): void;   // 진행 중인 카메라 이동을 그 자리에서 멈춤(자동 순환 중 사람이 만졌을 때)
   destroy(): void;
 }
 
@@ -148,6 +149,7 @@ export function createViewport(o: ViewportOptions): Viewport {
   }
 
   return {
+    stop: stopAnim,
     get x() { return vx; }, get y() { return vy; }, get w() { return vw; }, get h() { return vh; },
     get pw() { return pw; }, get ph() { return ph; }, get moved() { return moved; },
     scale, apply, fit, homeView, resetHome, clampView, zoomAt, zoomSmooth, animateTo, centerOn, toMap, relayout, destroy,

@@ -4,7 +4,7 @@ import './talk.css';
    · start(script): 첫 장부터. 한 장(pages[i])의 줄들을 차례로 찍고, 다 찍히면 holdMs 뒤 다음 장. 마지막 장은 lastHoldMs 뒤 닫힌다(onEnd).
    · 패널을 누르면: 찍는 중이면 그 장을 바로 다 보여주고, 다 보였으면 다음 장(마지막이면 닫기).
    · **굵게** 는 <b> 로(강조색). 순수 UI: 지도 엔진·데이터를 모른다. 대본은 content/characters/chief-talk.json. */
-export interface TalkScript { name: string; pages: string[][] }
+export interface TalkScript { name: string; pages: string[][]; action?: { label: string; onClick: () => void } }   // action: 이름표 오른쪽 작은 버튼(모바일 주민 대화의 '가게 카드 ›', 10-23)
 export interface TalkOptions { charMs?: number; lineGapMs?: number; holdMs?: number; lastHoldMs?: number; onEnd?: () => void }
 export interface Talk { start(script: TalkScript): void; hide(): void; readonly visible: boolean }
 
@@ -24,8 +24,10 @@ export function mountTalk(stage: HTMLElement, o: TalkOptions = {}): Talk {
   const charMs = o.charMs ?? 38, lineGapMs = o.lineGapMs ?? 260, holdMs = o.holdMs ?? 3200, lastHoldMs = o.lastHoldMs ?? 5000;
   const el = document.createElement('div'); el.className = 'talk'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-live', 'polite');
   /* 시안 v2 의 대화 상자(10-23): 리넨 천 + 홈질 테두리, 왼쪽 위 이름 꼬리표, 글, 오른쪽 아래 쪽수. 얼굴 그림은 없다(10-23 사용자 결정) */
-  el.innerHTML = '<span class="tk-name"></span><div class="tk-lines"></div><span class="tk-page"></span>';
+  el.innerHTML = '<span class="tk-name"></span><button type="button" class="tk-act"></button><div class="tk-lines"></div><span class="tk-page"></span>';
   stage.appendChild(el);
+  const actEl = el.querySelector('.tk-act') as HTMLButtonElement;
+  actEl.addEventListener('click', (e) => { e.stopPropagation(); script?.action?.onClick(); });
   const nameEl = el.querySelector('.tk-name') as HTMLElement, linesEl = el.querySelector('.tk-lines') as HTMLElement, pageEl = el.querySelector('.tk-page') as HTMLElement;
   let script: TalkScript | null = null, page = 0, run = 0, timer = 0, typing = false, visible = false;
   const clear = () => { clearTimeout(timer); timer = 0; };
@@ -61,7 +63,7 @@ export function mountTalk(stage: HTMLElement, o: TalkOptions = {}): Talk {
   });
   return {
     get visible() { return visible; },
-    start(s) { clear(); script = s; page = 0; visible = true; nameEl.textContent = s.name; el.classList.add('show'); showPage(); },
+    start(s) { clear(); script = s; page = 0; visible = true; nameEl.textContent = s.name; actEl.textContent = s.action?.label || ''; actEl.hidden = !s.action; el.classList.add('show'); showPage(); },
     hide,
   };
 }

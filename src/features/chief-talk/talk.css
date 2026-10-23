@@ -11,3 +11,7 @@
 .talk .tk-page{position:absolute;right:14px;bottom:8px;font-family:"Nanum Pen Script","IBM Plex Sans KR",cursive;font-size:15px;color:#9b3d49}
 @media(max-width:700px){.talk{bottom:24px;width:calc(100% - 32px);padding:16px 16px 14px}.talk .tk-lines{font-size:15px}}
 @media(prefers-reduced-motion:reduce){.talk{transition:opacity .2s}}
+
+/* 이름표 오른쪽 작은 버튼(10-23, 모바일 주민 대화의 '가게 카드 ›') — 이름표와 같은 꼬리표 모양, 테두리만 */
+.talk .tk-act{position:absolute;right:14px;top:-13px;z-index:1;padding:3px 10px;background:#fbf3e2;color:#8c1e32;border:1px solid #8c1e32;border-radius:2px;font:700 12px var(--font-ui);line-height:1.35;cursor:pointer}
+.talk .tk-act[hidden]{display:none}
