@@ -68,7 +68,7 @@ html.kb-dark .pixel-terrain,html.kb-dark .roads,html.kb-dark .pixel-props,html.k
 .kb-ring{fill:none;stroke:#8a4a3e;stroke-width:1.2;stroke-opacity:.5;stroke-dasharray:2 1.6}
 .kb-hole{fill:#6b3a30}
 .kb-thr{stroke:#4a2a22;stroke-width:3;stroke-linecap:round;fill:none}
-.kb-lab{font-family:var(--kb-hand);font-size:28px;fill:var(--kb-wine);text-anchor:middle;paint-order:stroke;stroke:#fbf3e2;stroke-width:7px;stroke-linejoin:round;pointer-events:none}
+.kb-lab{font-family:var(--font-ui);font-weight:700;font-size:21px;letter-spacing:-.025em;fill:var(--kb-wine);text-anchor:middle;paint-order:stroke;stroke:#fbf3e2;stroke-width:.48em;stroke-linejoin:miter;shape-rendering:auto;pointer-events:none}   /* 가게 이름: 이장님 '신당 5길' 이름표와 같은 글꼴·굵기·외곽선(10-23, 전엔 손글씨), 색만 보드 톤 */
 .kb-btn.in.dim{opacity:.25;filter:saturate(.25)}
 .kb-btn.sel .kb-rim{stroke:var(--kb-wine);stroke-width:3;stroke-opacity:1}
 /* 자동 순환 중 비추는 단추: 테두리 + 콩콩(10-23) */
