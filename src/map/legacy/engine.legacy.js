@@ -238,7 +238,8 @@ export function bootLegacy(DATA){
   /* 주민과 대화(10-23): 자동 순환을 멈추고 그 주민을 비춘다 — 큰 상자를 열고, 그 주민의 가게(대본 store = 가게 이름) 카드를 사이드바에 펴고,
      사이드바가 다 펴진 뒤 카메라가 주민 쪽으로 줌인(전시 보드에선 자동 순환과 같은 배율). 주민은 대화 동안 그 자리에 서 있다(hold) */
   function villagerOpen(w, script){ takeVillager(w, script); vSpeech.hide(); stopCycle();
-    vTalk.start({ name: script.store ? `${script.store} · ${script.name}` : script.name, pages: script.pages.map(p => [p]) });
+    vTalk.start({ name: script.store && !script.name.startsWith(script.store) ? `${script.store} · ${script.name}` : script.name,   /* 이름이 가게 이름으로 시작하면('신당야학 박소민 강학') 겹치지 않게 이름만 */
+      pages: script.pages.map(p => [p]) });
     const st = script.store ? STORES.find(s => s.name === script.store) : null;
     const go = () => { if(villager?.w !== w) return;
       if(st){ if(KIOSK && board){ board.select(st.id); board.focus(null); } select(st, false, true); }
