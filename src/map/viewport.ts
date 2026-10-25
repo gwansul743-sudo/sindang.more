@@ -49,7 +49,8 @@ export function createViewport(o: ViewportOptions): Viewport {
   let vw = W, vh = H, vx = 0, vy = 0, pw = 1, ph = 1;
   let zoomGoal: number | null = null;   // 버튼 줌 연타 중이면 '가려던 폭'에서 다시 곱한다 (한 번에 1.6배씩 정확히)
   let anim = 0, moved = false, flying = false;   // flying: animateTo/zoomSmooth 가 진행 중 (그동안 칸 크기 변경은 재배치하지 않는다)
-  const stopAnim = () => { cancelAnimationFrame(anim); flying = false; zoomGoal = null; };
+  const cancelAnim = () => { cancelAnimationFrame(anim); flying = false; zoomGoal = null; };
+  const stopAnim = () => { cancelAnim(); if (live) apply(); };   // 멈출 땐 transform 으로만 옮겨 둔 그림을 그 자리에서 커밋
 
   function fit() { const r = map.getBoundingClientRect(); pw = r.width; ph = r.height; }   // 소수점 폭 그대로 (전환 중 칸 폭이 소수인데 정수로 재면 배율이 어긋나 1px 떨림)
   function scale() { return pw / vw; }
@@ -103,10 +104,11 @@ export function createViewport(o: ViewportOptions): Viewport {
     return [lox < hix ? Math.max(lox, Math.min(hix, x)) : (lox + hix) / 2, loy < hiy ? Math.max(loy, Math.min(hiy, y)) : (loy + hiy) / 2, w];
   }
   function clamp() { [vx, vy, vw] = clampView(vx, vy, vw); vh = (vw * ph) / pw; }
-  function zoomAt(f: number, cx: number, cy: number) {
+  function zoomAt(f: number, cx: number, cy: number, liveOnly = false) {   // liveOnly: 휠·핀치 — transform 만, 커밋은 멈춘 뒤
     const s = scale(), mx = vx + cx / s, my = vy + cy / s;
     vw = vw / f; clamp(); const s2 = scale();
-    vx = mx - cx / s2; vy = my - cy / s2; clamp(); apply();
+    vx = mx - cx / s2; vy = my - cy / s2; clamp();
+    if (liveOnly) applyLive(); else apply();
   }
   /* 버튼 줌: 화면의 (cx, cy) 점을 고정한 채 배율이 시간에 따라 기하급수(로그 공간)로 변해 균일하게 보인다. 누르는 중에 또 누르면 현재 상태에서 이어진다 */
   function zoomSmooth(f: number, cx: number, cy: number, dur = 420) {
@@ -118,18 +120,18 @@ export function createViewport(o: ViewportOptions): Viewport {
     const step = (now: number) => {
       const t = Math.max(0, Math.min(1, (now - t0) / dur)), e = ease(t);   // rAF 타임스탬프는 프레임 시작 시각이라 t0 보다 이를 수 있다 → 음수면 한 프레임 역주행
       vw = w0 * Math.pow(tw / w0, e); vh = (vw * ph) / pw;
-      const s = scale(); vx = mx - cx / s; vy = my - cy / s; clamp(); apply();
-      if (t < 1) anim = requestAnimationFrame(step); else { zoomGoal = null; flying = false; }
+      const s = scale(); vx = mx - cx / s; vy = my - cy / s; clamp();
+      if (t < 1) { applyLive(); anim = requestAnimationFrame(step); } else { apply(); zoomGoal = null; flying = false; }   // 도중엔 transform, 마지막 프레임에 커밋
     };
     anim = requestAnimationFrame(step);
   }
   function animateTo(tx: number, ty: number, tw: number, dur = 700, onDone?: () => void) {
-    stopAnim(); flying = true; [tx, ty, tw] = clampView(tx, ty, tw);
+    cancelAnim(); flying = true; [tx, ty, tw] = clampView(tx, ty, tw);   // 앞 이동이 transform 상태여도 커밋하지 않고 그 자리에서 이어 간다
     const x0 = vx, y0 = vy, w0 = vw, t0 = performance.now(), ease = (t: number) => 1 - Math.pow(1 - t, 3);
     const step = (now: number) => {
       const t = Math.max(0, Math.min(1, (now - t0) / dur)), e = ease(t);
-      vx = x0 + (tx - x0) * e; vy = y0 + (ty - y0) * e; vw = w0 + (tw - w0) * e; apply();
-      if (t < 1) anim = requestAnimationFrame(step); else { flying = false; onDone?.(); }
+      vx = x0 + (tx - x0) * e; vy = y0 + (ty - y0) * e; vw = w0 + (tw - w0) * e;
+      if (t < 1) { applyLive(); anim = requestAnimationFrame(step); } else { apply(); flying = false; onDone?.(); }
     };
     anim = requestAnimationFrame(step);
   }
@@ -151,13 +153,18 @@ export function createViewport(o: ViewportOptions): Viewport {
     if (ptrs.size === 1) { const s = scale(); vx -= (e.clientX - prev[0]) / s; vy -= (e.clientY - prev[1]) / s; clamp(); applyLive(); }
     else if (ptrs.size === 2) {
       const [a, c] = [...ptrs.values()]; const d = Math.hypot(a[0] - c[0], a[1] - c[1]);
-      if (lastDist) { const r = map.getBoundingClientRect(); zoomAt(d / lastDist, (a[0] + c[0]) / 2 - r.left, (a[1] + c[1]) / 2 - r.top); }
+      if (lastDist) { const r = map.getBoundingClientRect(); zoomAt(d / lastDist, (a[0] + c[0]) / 2 - r.left, (a[1] + c[1]) / 2 - r.top, true); }   // 핀치도 transform, 손가락을 다 떼면 커밋
       lastDist = d;
     }
     if (!moved && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) { moved = true; try { map.setPointerCapture(e.pointerId); } catch { /* 지원 안 함 */ } }
   };
   const onUp = (e: PointerEvent) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) lastDist = 0; if (ptrs.size === 0 && live) apply(); };   // 손을 떼면 커밋
-  const onWheel = (e: WheelEvent) => { e.preventDefault(); stopAnim(); const r = map.getBoundingClientRect(); zoomAt(Math.exp(-e.deltaY * 0.0018), e.clientX - r.left, e.clientY - r.top); o.onActivity?.(); };
+  /* 휠: transform 으로만 줌하고, 마지막 휠에서 WHEEL_COMMIT_MS 뒤 커밋 (휠마다 커밋하면 매번 전체를 다시 그린다) */
+  const WHEEL_COMMIT_MS = 150; let wheelT = 0;
+  const onWheel = (e: WheelEvent) => {
+    e.preventDefault(); cancelAnim(); const r = map.getBoundingClientRect(); zoomAt(Math.exp(-e.deltaY * 0.0018), e.clientX - r.left, e.clientY - r.top, true); o.onActivity?.();
+    clearTimeout(wheelT); wheelT = window.setTimeout(() => { if (live) apply(); }, WHEEL_COMMIT_MS);
+  };
   map.addEventListener('pointerdown', onDown); map.addEventListener('pointermove', onMove);
   map.addEventListener('pointerup', onUp); map.addEventListener('pointercancel', onUp);
   map.addEventListener('wheel', onWheel, { passive: false });
@@ -176,7 +183,7 @@ export function createViewport(o: ViewportOptions): Viewport {
   const ro = 'ResizeObserver' in window ? new ResizeObserver(relayout) : null; ro?.observe(map);
 
   function destroy() {
-    stopAnim(); ro?.disconnect(); window.removeEventListener('resize', relayout);
+    stopAnim(); clearTimeout(wheelT); ro?.disconnect(); window.removeEventListener('resize', relayout);
     map.removeEventListener('pointerdown', onDown); map.removeEventListener('pointermove', onMove);
     map.removeEventListener('pointerup', onUp); map.removeEventListener('pointercancel', onUp); map.removeEventListener('wheel', onWheel);
   }
