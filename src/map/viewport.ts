@@ -1,6 +1,11 @@
 /* 뷰포트 — 보고 있는 지도 범위(x, y, w, h: 지도 단위)와 화면 크기(pw, ph: px).
    팬·줌·핀치·휠, 이동 한계(clamp), 부드러운 이동(animateTo), 처음 화면(homeView), 창 크기 변경을 맡는다.
-   그림을 어떻게 다시 그릴지는 모른다: viewBox 를 바꾼 뒤 onApply(scale) 를 부를 뿐이다. */
+   그림을 어떻게 다시 그릴지는 모른다: viewBox 를 바꾼 뒤 onApply(scale) 를 부를 뿐이다.
+   10-25 성능: viewBox 를 바꾸면 브라우저가 SVG 전체(요소 2,700여 개)를 다시 래스터한다(팬 중 프레임의 거의 전부).
+   그래서 제스처·애니메이션 중에는 viewBox 를 그대로 두고 마지막으로 커밋한 그림을 CSS transform 으로만 옮기고(applyLive),
+   멈출 때 한 번 viewBox 를 바꾼다(commit = apply).
+   옮긴 만큼 가장자리가 비지 않게 SVG 를 칸보다 사방 BLEED 만큼 크게 그려 두고(칸 밖은 #map 의 overflow:hidden 이 자른다),
+   그 여유를 넘어 빈 곳이 생길 참이면 제스처 중간에도 커밋한다. viewBox 속성 = 보는 범위(x, y, w, h)를 사방 그 여유만큼 넓힌 것. */
 import type { Box } from './layers/land';
 
 export interface ViewportOptions {
@@ -10,7 +15,8 @@ export interface ViewportOptions {
   H: number;
   landBounds: Box;                    // 땅의 범위 — 이동 한계와 처음 화면의 기준
   focus: { x: number; y: number };    // 처음 화면의 중심
-  onApply: (scale: number) => void;   // viewBox 가 바뀐 뒤 (매 프레임일 수 있음)
+  onApply: (scale: number) => void;   // viewBox 가 바뀐 뒤 (커밋 때만 — 제스처 중엔 안 불린다)
+  onLive?: () => void;                // 제스처 중 그림만 CSS transform 으로 옮겼을 때 (화면 px 로 붙는 HTML 말풍선 등을 따라 옮길 때)
   onActivity?: () => void;            // 사용자가 드래그·휠을 했을 때 (전시 모드의 '깨우기')
   keepViewOnResize?: () => boolean;   // 창 크기가 바뀔 때 보던 곳을 유지할지 (false 면 처음 화면으로)
   holdOnResize?: () => boolean;       // true 를 돌려주는 동안은 칸 크기가 바뀌어도 재배치하지 않는다 (옆 패널이 접히는 전환 중: 지도가 오른쪽으로 드러나거나 가려지기만)
@@ -23,7 +29,7 @@ export interface Viewport {
   readonly pw: number; readonly ph: number;
   readonly moved: boolean;            // 마지막 포인터 조작이 드래그였는지 (클릭과 구분)
   scale(): number;
-  apply(): void;
+  apply(): void;                      // = 커밋: 지금 보는 범위로 viewBox 를 바꾸고 transform 을 지운다
   fit(): void;
   homeView(pw?: number, ph?: number): HomeView;   // 칸 크기를 넘기면 그 크기일 때의 처음 화면 (사이드바가 접히는 중에 미리 계산할 때)
   resetHome(): void;
@@ -47,10 +53,37 @@ export function createViewport(o: ViewportOptions): Viewport {
 
   function fit() { const r = map.getBoundingClientRect(); pw = r.width; ph = r.height; }   // 소수점 폭 그대로 (전환 중 칸 폭이 소수인데 정수로 재면 배율이 어긋나 1px 떨림)
   function scale() { return pw / vw; }
-  function apply() {
-    vh = (vw * ph) / pw;
-    svg.setAttribute('viewBox', `${vx} ${vy} ${vw} ${vh}`);
+  /* SVG 를 칸보다 사방 BLEED(칸 크기의 비율)만큼 크게 — 여유 bx, by 는 정수 px (소수면 crispEdges 그림이 1px 씩 어긋난다).
+     transform 의 기준점은 칸의 왼쪽 위 = SVG 안의 (bx, by) */
+  const BLEED = 0.2;
+  let bx = 0, by = 0, boxKey = '';
+  function sizeBox() {
+    bx = Math.round(BLEED * pw); by = Math.round(BLEED * ph);
+    const key = `${bx} ${by} ${pw} ${ph}`; if (key === boxKey) return; boxKey = key;
+    Object.assign(svg.style, { left: `${-bx}px`, top: `${-by}px`, width: `${pw + 2 * bx}px`, height: `${ph + 2 * by}px` });
+  }
+  /* 커밋된 보는 범위(마지막으로 viewBox 에 넣은 값)와, 지금 그림이 transform 으로만 옮겨져 있는지 */
+  let cx0 = 0, cy0 = 0, cw0 = 0, live = false;
+  function apply() {   // 커밋
+    vh = (vw * ph) / pw; sizeBox();
+    const s = scale();
+    svg.setAttribute('viewBox', `${vx - bx / s} ${vy - by / s} ${vw + (2 * bx) / s} ${vh + (2 * by) / s}`);
+    if (live) { svg.style.transform = ''; live = false; }
+    cx0 = vx; cy0 = vy; cw0 = vw;
     o.onApply(scale());
+  }
+  /* 제스처·애니메이션 중 매 프레임: viewBox 는 그대로, 커밋값과의 차이만 transform 으로.
+     칸 좌표의 점 p(커밋 때) → k·p + d 가 지금 범위의 점이 된다 (k = cw0/vw, d = (커밋 원점 − 지금 원점) × 지금 배율).
+     그려 둔 SVG 상자(칸 좌표로 −bx … pw+bx)가 옮긴 뒤에도 칸을 다 덮는지 보고, 모자라면 그 자리에서 커밋 */
+  function applyLive() {
+    vh = (vw * ph) / pw;
+    if (!(cw0 > 0)) { apply(); return; }
+    const s = scale(), k = cw0 / vw, dx = (cx0 - vx) * s, dy = (cy0 - vy) * s;
+    if (dx - k * bx > 0 || dx + k * (pw + bx) < pw || dy - k * by > 0 || dy + k * (ph + by) < ph) { apply(); return; }
+    svg.style.transformOrigin = `${bx}px ${by}px`;
+    svg.style.transform = `translate(${dx}px, ${dy}px) scale(${k})`;
+    live = true;
+    o.onLive?.();
   }
   /* 처음 화면: 초점을 가운데에 두고, 섬 전체가 꽉 차는 줌보다 한 단계 가깝게 (좁은 화면에서는 0.75배까지만) */
   function homeView(w = pw, h = ph): HomeView {
@@ -115,7 +148,7 @@ export function createViewport(o: ViewportOptions): Viewport {
   const onMove = (e: PointerEvent) => {
     if (!ptrs.has(e.pointerId)) return;
     const prev = ptrs.get(e.pointerId)!; ptrs.set(e.pointerId, [e.clientX, e.clientY]);
-    if (ptrs.size === 1) { const s = scale(); vx -= (e.clientX - prev[0]) / s; vy -= (e.clientY - prev[1]) / s; clamp(); apply(); }
+    if (ptrs.size === 1) { const s = scale(); vx -= (e.clientX - prev[0]) / s; vy -= (e.clientY - prev[1]) / s; clamp(); applyLive(); }
     else if (ptrs.size === 2) {
       const [a, c] = [...ptrs.values()]; const d = Math.hypot(a[0] - c[0], a[1] - c[1]);
       if (lastDist) { const r = map.getBoundingClientRect(); zoomAt(d / lastDist, (a[0] + c[0]) / 2 - r.left, (a[1] + c[1]) / 2 - r.top); }
@@ -123,7 +156,7 @@ export function createViewport(o: ViewportOptions): Viewport {
     }
     if (!moved && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) { moved = true; try { map.setPointerCapture(e.pointerId); } catch { /* 지원 안 함 */ } }
   };
-  const onUp = (e: PointerEvent) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) lastDist = 0; };
+  const onUp = (e: PointerEvent) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) lastDist = 0; if (ptrs.size === 0 && live) apply(); };   // 손을 떼면 커밋
   const onWheel = (e: WheelEvent) => { e.preventDefault(); stopAnim(); const r = map.getBoundingClientRect(); zoomAt(Math.exp(-e.deltaY * 0.0018), e.clientX - r.left, e.clientY - r.top); o.onActivity?.(); };
   map.addEventListener('pointerdown', onDown); map.addEventListener('pointermove', onMove);
   map.addEventListener('pointerup', onUp); map.addEventListener('pointercancel', onUp);

@@ -94,7 +94,7 @@ export function bootLegacy(DATA){
   const map = document.getElementById('map');
   const LAND = createLand(DATA.land.landPath, W, H);
   let sideAnimating = false;   /* 사이드바 접힘/펴짐 전환 중 (withSide) */
-  const V = createViewport({ map, svg, W, H, landBounds: LAND.bounds, focus: DATA.land.focus, onApply: render, onActivity: () => wake(), keepViewOnResize: () => !introOpen, holdOnResize: () => sideAnimating });
+  const V = createViewport({ map, svg, W, H, landBounds: LAND.bounds, focus: DATA.land.focus, onApply: render, onLive: () => { placeCluster(); speech.place(); vSpeech.place(); }, onActivity: () => wake(), keepViewOnResize: () => !introOpen, holdOnResize: () => sideAnimating });
   const scale = () => V.scale(), apply = () => V.apply(), homeView = () => V.homeView(), resetHome = () => V.resetHome();
   const centerOn = (x,y,s,oy,then) => V.centerOn(x,y,s,oy,then);
   const kioskCutXY = DATA.kioskCut ? DATA.kioskCut.polygon.map(([lat, lng]) => proj(lat, lng)) : null;   /* 전시 보드 재단선(실이 도는 선, 보드에 넣을 실제 길·가게의 범위) */
