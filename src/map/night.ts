@@ -72,7 +72,8 @@ export function mountNight(o: NightOptions): { destroy(): void } {
   /* 2) 땅 위: 픽셀 결 → 큰 길 불빛 번짐 (모두 길보다 아래 층) */
   const under = keep(el('g', { class: 'night-ground', 'clip-path': 'url(#px-land)', 'pointer-events': 'none', 'aria-hidden': 'true' })); svg.insertBefore(under, o.roads);
   el('rect', { x: 0, y: 0, width: W, height: H, fill: 'url(#n-grain)' }, under);
-  ([[30, 0.03], [16, 0.055]] as [number, number][]).forEach(([w, op]) => el('path', { d: o.majorRoads, fill: 'none', stroke: '#ffb648', 'stroke-opacity': op, 'stroke-width': w, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'vector-effect': 'non-scaling-stroke' }, under));
+  /* 10-25 성능: 이음·끝을 round → miter·square. 굵은(30·16px) 번짐 선의 둥근 이음이 밤 래스터의 큰 몫이었다(처음 화면 프레임 −20%). 불투명도 3~5% 라 모양 차이는 안 보인다(화면 비교 최대 10/255) */
+  ([[30, 0.03], [16, 0.055]] as [number, number][]).forEach(([w, op]) => el('path', { d: o.majorRoads, fill: 'none', stroke: '#ffb648', 'stroke-opacity': op, 'stroke-width': w, 'stroke-linecap': 'square', 'stroke-linejoin': 'miter', 'vector-effect': 'non-scaling-stroke' }, under));
 
   /* 3) 가로등 — 길 위 층. 작은 불빛 점 + 은은한 번짐 */
   const lamps = keep(el('g', { class: 'night-lamps', 'pointer-events': 'none', 'aria-hidden': 'true' })); svg.insertBefore(lamps, o.roads.nextSibling);
