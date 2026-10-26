@@ -262,6 +262,10 @@ export function bootLegacy(DATA){
   function chiefHook(){ if(!KIOSK || introOpen || kioskStage !== 'rest' || talk.visible || vTalk.visible) return false; if(speech.visible) return true; villagerDone(); speech.say(CHIEF_AGAIN); return true; }
   /* hover 판정 보조: 그 자리 맨 위에 실제로 이 캐릭터가 있나(가게 점·말풍선·패널 등에 가려져 있으면 아니다). 커서 밑으로 걸어 들어온 경우도 이것으로 본다 */
   const topAt = (g, P) => { const t = document.elementFromPoint(P.cx, P.cy); return !!t && g.contains(t); };
+  /* 전시 보드에선 충분히 다가갔을 때만 hover 말풍선(10-26 사용자 요청): 보드 전체 화면(kioskTarget)에서 + 버튼(×1.6) HOVER_ZOOMS 번만큼 확대한 배율부터.
+     멀리서는 사람이 작아 안 보이는데 말풍선만 떠서 오류처럼 보였다. 휠·핀치도 배율로 본다. 누르기(클릭·탭)는 배율과 상관없다. 평소 지도는 그대로 */
+  const HOVER_ZOOMS = 3;
+  const hoverNear = () => !(KIOSK && board?.on) || V.scale() >= kioskTarget().s * 1.6 ** HOVER_ZOOMS * 0.98;
   /* 마을 사람 인터뷰(10-23, 설계 메모 '마을 사람 캐릭터 인터뷰' §4): 대본이 있는 주민(content/characters/villagers/*.json)은 이장님과 같은 2단 —
      마우스를 올리면(터치는 첫 탭) 머리 위 작은 말풍선에 hook 한 줄이 HOOK_MS 동안 뜨고, 누르면(터치는 두 번째 탭) 지도 아래 큰 상자에 인터뷰가 장마다 넘어간다.
      말을 거는 동안 그 주민은 그 자리에 서 있다(walker.hold). 말풍선·상자 모양은 이장님 것과 같다(chief-speech · chief-talk). 큰 상자가 닫히면 다시 걷는다 */
@@ -300,7 +304,7 @@ export function bootLegacy(DATA){
   function bindVillager(w, script){
     w.makeClickable();
     if(script.kind === 'form') w.showMark(DATA.characters.chief.mark);   /* 시민이 인터뷰를 남겨 생긴 주민만 빨간 세모. 가게 인터뷰 주민(shop)은 표시 없음 */
-    w.hover.onHover = P => topAt(w.g, P) && villagerHook(w, script);   /* 마우스: 몸 판정 칸 위에 있으면(walker tick → HoverProbe) — pointerenter 대신(10-26) */
+    w.hover.onHover = P => hoverNear() && topAt(w.g, P) && villagerHook(w, script);   /* 마우스: 몸 판정 칸 위에 있으면(walker tick → HoverProbe) — pointerenter 대신(10-26) */
     /* 터치 판정(10-23): click 의 pointerType 은 iOS 사파리 등에서 비어 와 첫 탭에 바로 대화가 열렸다 → 닿는 순간(pointerdown)의 종류를 기억해 쓴다. 그것도 없으면 hover 없는 기기를 터치로 */
     let downType = '';
     w.g.addEventListener('pointerdown', e => { downType = e.pointerType; });
@@ -579,7 +583,7 @@ export function bootLegacy(DATA){
       refresh(); watchFormVillagers(refresh); }
     const chief = new Chief(scene.layer, DATA.characters.body, DATA.characters.chief); scene.add(chief); chiefActor = chief;
     chief.makeHoverable();
-    chief.hover.onHover = P => topAt(chief.g, P) && chiefHook();   /* 주민과 같은 몸 판정 칸·다시 판정하기(10-26) */
+    chief.hover.onHover = P => hoverNear() && topAt(chief.g, P) && chiefHook();   /* 주민과 같은 몸 판정 칸·다시 판정하기(10-26) */
     chief.g.addEventListener('click', e => { e.stopPropagation(); if(V.moved) return; chiefHook(); });
     catActor = new Cat(scene.layer, DATA.characters.cat, chief); scene.add(catActor);
     document.body.classList.add('chief-hidden');   /* 전시 모드 연출 뒤에만 보인다 (showChief) */
