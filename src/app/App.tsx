@@ -4,6 +4,7 @@ import { loadContent } from './content';
 import { createEngine } from '../map/engine';
 import { listStores } from '../entities/store/api';
 import { mountIntroFoil } from '../features/intro-foil/foil';
+import { mountClickBurst } from '../features/click-burst/burst';
 
 /* 조립만 한다.
    지금은 옛 마크업을 통째로 꽂고 임시 엔진을 한 번 켜는 것이 전부다.
@@ -17,6 +18,7 @@ export function App() {
     booted = true;
     host.current.innerHTML = markup;
     mountIntroFoil(document.getElementById('intro'));
+    mountClickBurst();
     listStores().then((stores) => createEngine(loadContent(stores)));
   }, []);
   return <div ref={host} style={{ display: 'contents' }} />;
