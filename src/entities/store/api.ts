@@ -1,10 +1,10 @@
 import seed from '../../../supabase/seed.stores.json';
-import { supabase, PHOTO_BUCKET } from '../../shared/lib/supabase';
+import { hasSupabase, getSupabase, restGet, publicPhotoUrl, PHOTO_BUCKET } from '../../shared/lib/supabase';
 import type { Store } from './types';
 import { shrinkPhoto, extOf, isShrunk, SHRUNK_MARK } from '../../shared/lib/image';
 
 /* 가게 읽기·쓰기.
-   · DB(Supabase)가 연결돼 있으면 stores 표를 읽고 쓴다. 사진은 Storage 버킷 photos 에 올리고 경로만 저장한다(여러 장은 photo_paths, 첫 장은 photo_path 에도).
+   · DB(Supabase)가 연결돼 있으면 stores 표를 읽고 쓴다. 읽기는 REST fetch, 쓰기만 Supabase 라이브러리(getSupabase — 그때 받는다). 사진은 Storage 버킷 photos 에 올리고 경로만 저장한다(여러 장은 photo_paths, 첫 장은 photo_path 에도).
    · DB가 없거나 조회에 실패하면 씨앗(seed.stores.json)으로 지도를 채운다 — 전시장 네트워크 끊김 대비.
      이때 저장은 개발 중(import.meta.env.DEV)에만 메모리 목업으로 흉내 내고, 운영에서는 막는다(읽기 전용). */
 
@@ -20,15 +20,15 @@ export type StoreSource = 'db' | 'seed';
 let source: StoreSource = 'seed';
 let mock: Store[] = [];           // DEV 목업 저장용
 
-export const hasDb = () => !!supabase;
+export const hasDb = () => hasSupabase;
 export const storeSource = () => source;
-export const canWrite = () => (source === 'db') || (!supabase && import.meta.env.DEV);
+export const canWrite = () => (source === 'db') || (!hasSupabase && import.meta.env.DEV);
 export const canUpload = () => source === 'db';
 
 function photoUrl(path: string | null): string | undefined {
   if (!path) return undefined;
   if (path.startsWith('/') || path.startsWith('http')) return path;              // 정적 파일(seed-photos) 또는 완전한 URL
-  return supabase!.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl;
+  return publicPhotoUrl(path);
 }
 const isStored = (path: string) => !path.startsWith('/') && !path.startsWith('http');   // Storage 경로인지(정적 파일·완전한 URL 이 아닌지) — 지울 때
 function rowToStore(r: Row): Store {
@@ -40,13 +40,12 @@ function rowToStore(r: Row): Store {
 const withPhotos = (s: Store): Store => ({ ...s, photos: s.photos ?? (s.photoUrl ? [s.photoUrl] : []) });
 
 export async function listStores(): Promise<Store[]> {
-  if (supabase) {
+  if (hasSupabase) {
     try {
-      const { data, error } = await supabase.from('stores').select('*').order('order');
-      if (!error && data && data.length) { source = 'db'; return (data as Row[]).map(rowToStore); }
-      if (error) console.warn('stores 조회 실패, 씨앗으로 대체:', error.message);
-      else console.warn('stores 표가 비어 있어 씨앗으로 대체');
-    } catch (e) { console.warn('DB 접속 실패, 씨앗으로 대체:', e); }
+      const data = await restGet<Row[]>('stores?select=*&order=order.asc');
+      if (data.length) { source = 'db'; return data.map(rowToStore); }
+      console.warn('stores 표가 비어 있어 씨앗으로 대체');
+    } catch (e) { console.warn('stores 조회 실패, 씨앗으로 대체:', e); }
   }
   source = 'seed';
   if (!mock.length) mock = (seed as Store[]).map(withPhotos);
@@ -67,7 +66,7 @@ export async function saveStore(editing: Store | null, input: StoreInput, photos
     const i = mock.findIndex((m) => m.id === s.id); if (i >= 0) mock[i] = s; else mock.push(s);
     return;
   }
-  const db = supabase!;
+  const db = (await getSupabase())!;
   /* 새 파일을 차례대로 올린다. 하나라도 실패하면 이번에 올린 것을 지우고 멈춘다(표는 그대로) */
   const uploaded: string[] = [], paths: string[] = [];
   for (const p of photos) {
@@ -120,7 +119,7 @@ export const originalPhotoCount = (stores: Store[]) => stores.reduce((n, s) => n
    한 가게가 실패해도 그 가게만 그대로 두고 다음으로. 이미 줄인 사진(-s)·정적 파일(/seed-photos)은 건드리지 않는다 */
 export async function shrinkStoredPhotos(onStep?: (done: number, total: number) => void): Promise<{ count: number; before: number; after: number; failed: number }> {
   if (!canWrite() || source !== 'db') throw new Error('저장 권한이 없습니다');
-  const db = supabase!;
+  const db = (await getSupabase())!;
   const { data, error } = await db.from('stores').select('id, photo_path, photo_paths');
   if (error) throw error;
   const rows = (data as Pick<Row, 'id' | 'photo_path' | 'photo_paths'>[]).map((r) => ({ id: r.id, paths: r.photo_paths?.length ? r.photo_paths : r.photo_path ? [r.photo_path] : [] }));
@@ -153,7 +152,7 @@ export async function shrinkStoredPhotos(onStep?: (done: number, total: number) 
 export async function deleteStore(s: Store): Promise<void> {
   if (!canWrite()) throw new Error('삭제 권한이 없습니다');
   if (source !== 'db') { mock = mock.filter((m) => m.id !== s.id); return; }
-  const db = supabase!;
+  const db = (await getSupabase())!;
   const { error } = await db.from('stores').delete().eq('id', s.id);
   if (error) throw error;
   const stored = (s.photoPaths ?? (s.photoPath ? [s.photoPath] : [])).filter(isStored);
