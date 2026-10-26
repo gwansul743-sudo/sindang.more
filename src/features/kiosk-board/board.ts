@@ -8,7 +8,7 @@ import { type XY, type Box, bboxOf, distToPoly, inPoly, pathOf, roadsInside, pol
    · 켜진 동안 html.kb-on: 섬 위 원래 층은 사라지고(1.1s) 바다는 시안 색. 엔진은 카메라(view)·이장님·주민 그래프(roadPath·land)만 맡는다. */
 
 export interface BoardStore { id: string; name: string; x: number; y: number; category?: string; status?: string }
-export interface BoardContent { hideRoads?: HideShape[]; hideMain?: HideShape[]; title?: string; sub?: string; titleAt?: number[]; chiefAt?: number[]; props?: (string | number)[][]; sky?: (string | number)[][]; waves?: number[][] }
+export interface BoardContent { hideRoads?: HideShape[]; hideMain?: HideShape[]; title?: string; sub?: string; titleAt?: number[]; chiefAt?: number[]; props?: (string | number)[][]; sky?: (string | number)[][]; waves?: number[][]; skyMobile?: (string | number)[][]; wavesMobile?: number[][] }
 export interface BoardOptions {
   svg: SVGSVGElement; before: Element;            // 이 요소 앞에 끼운다(주민 층 앞)
   host: HTMLElement;                              // 범례(HTML)를 붙일 지도 칸
@@ -81,8 +81,11 @@ export function mountBoard(o: BoardOptions): Board {
   const dark = document.createElement('div'); dark.className = 'kb-shade'; dark.setAttribute('aria-hidden', 'true'); o.host.appendChild(dark);
   /* 하늘·물결(바다 위, 보드 밖) */
   const skyG = el('g', { class: 'kb-sky' }, g);
-  const skyEls = (c.sky || []).map(([kind, x, y, w]) => el('image', { class: 'kb-skyimg kb-' + kind, href: `/board/${kind}.webp`, x, y, width: w, height: +w * (kind === 'sun' ? 0.996 : kind === 'star' ? 1 : 0.7) }, skyG));
-  const waveEls = (c.waves || []).map(([x, y]) => el('path', { class: 'kb-wave', d: `M${x} ${y} q 10 -8 20 0 t 20 0 t 20 0` }, skyG));
+  /* 10-26: 섬 위아래에. skyMobile·wavesMobile 은 폰에서만(.kb-mob — 폰은 섬 폭에 맞춰 위아래 바다가 넓게 보인다) */
+  const skyList = [...(c.sky || []).map((v) => [v, '']), ...(c.skyMobile || []).map((v) => [v, ' kb-mob'])] as [(string | number)[], string][];
+  const waveList = [...(c.waves || []).map((v) => [v, '']), ...(c.wavesMobile || []).map((v) => [v, ' kb-mob'])] as [number[], string][];
+  const skyEls = skyList.map(([[kind, x, y, w], mob]) => el('image', { class: 'kb-skyimg kb-' + kind + mob, href: `/board/${kind}.webp`, x, y, width: w, height: +w * (kind === 'sun' ? 0.996 : kind === 'star' ? 1 : 0.7) }, skyG));
+  const waveEls = waveList.map(([[x, y], mob]) => el('path', { class: 'kb-wave' + mob, d: `M${x} ${y} q 10 -8 20 0 t 20 0 t 20 0` }, skyG));
 
   /* 보드(펼쳐지는 덩어리): 그림자 → (clip) 바탕·리넨·빛 → 길 → 가장자리 → 장식 → 제목 → 단추 */
   const board = el('g', { class: 'kb-board' }, g);
