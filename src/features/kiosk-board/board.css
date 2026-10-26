@@ -118,7 +118,7 @@ html.kb-on #cluster-pop .cl-text small,html.kb-on #cluster-pop .cl-go{color:var(
    접히면 알약(제목 · 겹친 단추 · +N · ▸), 펴지면 제목 아래 바늘땀 선 + 3열 격자(단추 · 이름 · 가게 수) + 안내. 이름이 kb-folded 인 건 인트로의 .folded(테마 CSS)와 겹치지 않게 */
 .kb-legend.kb-folded{cursor:pointer}.kb-legend.kb-folded:hover{box-shadow:0 5px 9px #2e3b4352}
 .kb-legend::after{border-radius:inherit}
-.kb-legend h2{position:absolute;left:16px;right:12px;top:0;height:var(--hd);margin:0;display:flex;align-items:center;font-family:var(--kb-hand);font-size:22px;font-weight:400;letter-spacing:.5px;transition:height .5s var(--ease)}
+.kb-legend h2{position:absolute;left:13px;right:12px;top:0;height:var(--hd);margin:0;display:flex;align-items:center;font-family:var(--kb-hand);font-size:18px;font-weight:400;letter-spacing:.5px;transition:height .5s var(--ease)}
 .kb-fold{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:0;border:0;background:none;color:inherit;font:inherit;letter-spacing:inherit;text-align:left;cursor:pointer;white-space:nowrap}
 .kb-chev{font-family:var(--font-ui);font-size:18px;line-height:1;color:var(--kb-stitch);transition:transform .5s var(--ease)}
 .kb-legend.kb-folded .kb-chev{transform:rotate(-90deg)}
@@ -133,16 +133,16 @@ html.kb-on #cluster-pop .cl-text small,html.kb-on #cluster-pop .cl-go{color:var(
 .kb-legend.kb-folded .sw{box-shadow:0 0 0 2px #f1e2c5,0 1px 2px #0003}.kb-legend.kb-folded .sw.img{box-shadow:none;filter:drop-shadow(0 0 1.5px #f1e2c5) drop-shadow(0 1px 1px #0003)}   /* 겹친 단추 사이 크림색 테두리(원본의 ring) */
 .kb-legend:not(.kb-folded) li:hover .sw{transform:translateY(-2px) scale(1.06)}
 .kb-legend li.active .sw{outline:1.6px dashed var(--kb-stitch);outline-offset:3px;border-radius:50%}
-.kb-legend .lb{position:absolute;left:50%;top:calc(var(--s) + 5px);width:var(--cw);margin-left:calc(var(--cw) / -2);text-align:center;white-space:nowrap;font-size:12.5px;font-weight:600;letter-spacing:-.3px;line-height:1.25;opacity:1;transition:opacity .5s var(--ease) var(--ld)}
+.kb-legend .lb{position:absolute;left:50%;top:calc(var(--s) + 5px);width:var(--cw);margin-left:calc(var(--cw) / -2);text-align:center;white-space:nowrap;font-size:11.5px;font-weight:600;letter-spacing:-.3px;line-height:1.25;opacity:1;transition:opacity .5s var(--ease) var(--ld)}
 .kb-legend .lb small{margin-left:4px;font-family:var(--kb-hand);font-size:15px;color:var(--kb-stitch)}
 .kb-legend li.active .lb{color:var(--kb-thread)}
 .kb-legend.kb-folded .lb{opacity:0;transition-delay:0ms}
 .kb-more{position:absolute;top:0;height:var(--hd);display:flex;align-items:center;font-family:var(--kb-hand);font-size:17px;color:var(--kb-stitch);opacity:0;pointer-events:none;transition:opacity .5s var(--ease)}
 .kb-legend.kb-folded .kb-more{opacity:1}
-.kb-legend .kb-note{position:absolute;left:0;right:0;bottom:12px;margin:0;text-align:center;font-size:10px;color:#9a7a60;letter-spacing:-.3px;opacity:1;transition:opacity .5s var(--ease) .25s}
+.kb-legend .kb-note{position:absolute;left:0;right:0;bottom:10px;margin:0;text-align:center;font-size:10px;color:#9a7a60;letter-spacing:-.3px;opacity:1;transition:opacity .5s var(--ease) .25s}
 .kb-legend.kb-folded .kb-note{opacity:0;transition-delay:0ms}
 .kb-probe{position:absolute;left:0;top:0;width:100px;height:0;visibility:hidden}
-@media(max-width:899px){.kb-legend{left:10px;top:auto;bottom:14px}.kb-legend h2{left:13px;font-size:18px}.kb-legend .lb{font-size:11.5px}.kb-legend .kb-note{display:none}}
+@media(max-width:899px){.kb-legend{left:10px;top:auto;bottom:14px}.kb-legend .kb-note{display:none}}
 @media(prefers-reduced-motion:reduce){.kb-legend,.kb-legend *{transition:none!important}}
 @media(prefers-reduced-motion:reduce){.kb-board{transition:none}.kb-cloud-b,.kb-cloud-g,.kb-sun{animation:none}}
 

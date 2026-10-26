@@ -203,8 +203,8 @@ export function mountBoard(o: BoardOptions): Board {
   const setFold = (f: boolean) => { legend.classList.toggle('kb-folded', f); foldBtn.setAttribute('aria-expanded', String(!f)); layoutLegend(); };
   foldBtn.addEventListener('click', (e) => { e.stopPropagation(); setFold(!folded()); });
   legend.addEventListener('click', (e) => { if (folded()) { e.stopPropagation(); setFold(false); } });   /* 접힌 알약은 어디를 눌러도 펼친다 */
-  /* 크기(범례 안 px, zoom 전). 폰은 조금 작게 */
-  const LG = { wide: { W: 252, pad: 16, head: 46, btn: 42, cell: 70, row: 8, note: 24, cH: 46, cBtn: 26, cStep: 17, cShow: 4 },
+  /* 크기(범례 안 px, zoom 전). 데스크톱도 폰과 같은 크기(10-26 사용자 요청), 다른 건 안내 문구 줄뿐(폰은 숨김) */
+  const LG = { wide: { W: 216, pad: 12, head: 38, btn: 34, cell: 60, row: 6, note: 20, cH: 40, cBtn: 22, cStep: 14, cShow: 3 },
                narrow: { W: 216, pad: 12, head: 38, btn: 34, cell: 60, row: 6, note: 0, cH: 40, cBtn: 22, cStep: 14, cShow: 3 } };
   function layoutLegend() {
     const L = window.innerWidth < 900 ? LG.narrow : LG.wide, items = [...ul.children] as HTMLElement[], n = items.length, f = folded();
