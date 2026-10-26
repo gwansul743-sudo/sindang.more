@@ -502,15 +502,30 @@ export function bootLegacy(DATA){
     const q = norm(search.value);
     const rows = q ? STORES.filter(s => norm(s.name).includes(q) || norm(s.issue).includes(q)) : STORES;
     rows.forEach(s => { const r=document.createElement('button'); r.type='button'; r.className='row'+(s.status==='up'?' up':''); r.innerHTML=`<b>${esc(s.name)}</b><small>${esc(s.issue||'')}</small>`; r.onclick=()=>editStore(s); l.appendChild(r); });
+    renderShrinkBtn();
     if(!STORES.length) l.innerHTML='<div class="row" style="opacity:.6">아직 가게가 없습니다. 위 버튼으로 추가하세요.</div>';
     else if(!rows.length) l.innerHTML=`<div class="row" style="opacity:.6">'${esc(search.value.trim())}'에 맞는 가게가 없어요.</div>`;
   }
+  /* 사진 용량 줄이기(10-26): 예전에 원본 그대로 올라간 사진이 있을 때만 목록 아래에 단추. 한 번 누르면 전부 줄이고 사라진다(새로 올리는 사진은 저장 때 자동으로 줄어든다) */
+  const shrinkBox = document.createElement('div'); shrinkBox.style.cssText = 'display:none;margin:4px 0 10px;padding:10px;border:1px dashed var(--line);font-size:12px;line-height:1.5';
+  listWrap.insertBefore(shrinkBox, document.getElementById('alist').nextSibling);
+  let shrinking = false;
+  function renderShrinkBtn(){ if(shrinking) return; const n = storeApi.originalPhotoCount(STORES);
+    shrinkBox.style.display = n && canWrite && storeApi.canUpload() ? '' : 'none'; if(!n) return;
+    shrinkBox.innerHTML = `예전에 올린 사진 <b>${n}장</b>이 원본 크기 그대로예요(카드가 늦게 뜨는 원인).<br><button type="button" class="btn pri" style="margin-top:6px">사진 용량 줄이기</button> <span style="color:#9a9188">한 번만 누르면 돼요</span>`;
+    shrinkBox.querySelector('button').onclick = runShrink; }
+  async function runShrink(){ if(shrinking) return; shrinking = true; const mb = b => (b / 1048576).toFixed(1) + 'MB';
+    shrinkBox.innerHTML = '사진 줄이는 중… 창을 닫지 마세요';
+    try{ const r = await storeApi.shrinkStoredPhotos((d, t) => { shrinkBox.textContent = `사진 줄이는 중… ${d} / ${t}  (창을 닫지 마세요)`; });
+      shrinking = false; await reload(); renderAdminList();
+      toast(r.count ? `사진 ${r.count}장: ${mb(r.before)} → ${mb(r.after)}${r.failed ? ` · 가게 ${r.failed}곳은 실패(다시 누르면 그것만)` : ''}` : '줄일 사진이 없어요'); }
+    catch(e){ shrinking = false; renderShrinkBtn(); toast('실패: ' + (e.message || e)); } }
   function editStore(s){
     editing = s; form.reset();
     if(s){ form.name.value=s.name; form.issue.value=s.issue||''; form.status.value=s.status; form.ig.value=s.ig||''; form.video.value=s.video||''; form.category.value=s.category||'etc'; form.interview.value=s.interview||''; form.addr.value=s.addr||''; form.latlng.value=`${s.lat}, ${s.lng}`; select(s,true); }
     const urls = s?.photos || (s?.photoUrl ? [s.photoUrl] : []), paths = s?.photoPaths || urls;
     photoItems = urls.map((url, i) => ({ path: paths[i], url })); form.photo.value=''; renderPhotos();
-    form.photo.disabled = !storeApi.canUpload(); document.getElementById('photo-note').textContent = storeApi.canUpload() ? '없으면 기본 이미지로 표시됩니다.' : '이 화면에서는 사진 업로드가 지원되지 않아요.';
+    form.photo.disabled = !storeApi.canUpload(); document.getElementById('photo-note').textContent = storeApi.canUpload() ? '폰·PC 원본 그대로 올리면 저장할 때 자동으로 줄여요. 없으면 기본 이미지로 표시됩니다.' : '이 화면에서는 사진 업로드가 지원되지 않아요.';
     document.getElementById('delbtn').style.display = s?'':'none';
     cancelDelete();
     form.classList.add('open'); renderLogin(); admin.scrollTop = 0;

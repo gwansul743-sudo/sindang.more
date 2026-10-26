@@ -124,7 +124,7 @@ node tools/check_screen.mjs   # 헤드리스 Chrome. 마지막 줄 "통과"
 
 **데이터 모델** (실제 정의는 `supabase/schema.sql`):
 ```
-stores       가게      id, slug, name, addr, lat, lng, ig_url, photo_path(표지), photo_paths(여러 장, 10-26), video_url, category, interview_md, issue, order, published
+stores       가게      id, slug, name, addr, lat, lng, ig_url, photo_path(표지), photo_paths(여러 장, 10-26 — 올릴 때 브라우저에서 긴 변 1600px WebP로 자동 축소, 이름 끝 -s. `shared/lib/image.ts`. 옛 원본은 관리 패널 '사진 용량 줄이기' 단추 한 번), video_url, category, interview_md, issue, order, published
 characters   인터뷰이  id, nickname, look(json: 파츠·색 seed), interview_id, status(pending|approved|hidden), created_at
 interviews   인터뷰    id, source(form|shop), answers(json), summary_md, store_id?, created_at
 ```

@@ -1,6 +1,7 @@
 import seed from '../../../supabase/seed.stores.json';
 import { supabase, PHOTO_BUCKET } from '../../shared/lib/supabase';
 import type { Store } from './types';
+import { shrinkPhoto, extOf, isShrunk, SHRUNK_MARK } from '../../shared/lib/image';
 
 /* 가게 읽기·쓰기.
    · DB(Supabase)가 연결돼 있으면 stores 표를 읽고 쓴다. 사진은 Storage 버킷 photos 에 올리고 경로만 저장한다(여러 장은 photo_paths, 첫 장은 photo_path 에도).
@@ -71,9 +72,9 @@ export async function saveStore(editing: Store | null, input: StoreInput, photos
   const uploaded: string[] = [], paths: string[] = [];
   for (const p of photos) {
     if (!p.file) { if (p.path) paths.push(p.path); continue; }
-    const ext = (p.file.name.split('.').pop() || 'jpg').toLowerCase();
-    const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const { error } = await db.storage.from(PHOTO_BUCKET).upload(path, p.file, { contentType: p.file.type, upsert: false });
+    const body = await shrinkPhoto(p.file).catch(() => p.file!);   /* 원본 그대로 골라도 여기서 자동으로 줄인다(10-26, shared/lib/image). 못 읽는 형식이면 원본 */
+    const path = newPhotoPath(body, body !== p.file);
+    const { error } = await db.storage.from(PHOTO_BUCKET).upload(path, body, { contentType: body.type || p.file.type, upsert: false, cacheControl: CACHE_1Y });
     if (error) { if (uploaded.length) await db.storage.from(PHOTO_BUCKET).remove(uploaded).catch(() => {}); throw error; }
     uploaded.push(path); paths.push(path);
   }
@@ -107,6 +108,47 @@ const LATE_COLUMNS: Record<string, string> = {
   category: '저장됐지만 업종은 빠졌어요. Supabase SQL 에서 alter table stores add column category text; 를 한 번 실행하세요.',
   photo_paths: '저장됐지만 사진은 첫 장(표지)만 남았어요. Supabase SQL 에서 alter table stores add column photo_paths text[]; 를 한 번 실행한 뒤 다시 올려 주세요.',
 };
+
+/* 보관함 사진 이름: 시각-무작위(줄인 것은 끝에 -s).확장자. 이름이 늘 새로우니 브라우저가 1년 캐시해도 된다 */
+const CACHE_1Y = '31536000';
+const newPhotoPath = (b: Blob, shrunk: boolean) => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${shrunk ? SHRUNK_MARK : ''}.${extOf(b)}`;
+
+/* 아직 원본 그대로인 보관함 사진 수(관리 패널 '사진 용량 줄이기' 단추를 보일지) */
+export const originalPhotoCount = (stores: Store[]) => stores.reduce((n, s) => n + (s.photoPaths ?? []).filter((p) => isStored(p) && !isShrunk(p)).length, 0);
+
+/* 이미 올라가 있는 원본 사진을 한 번에 줄이기(10-26). 가게마다: 원본을 받아 줄여 새 이름으로 올리고 → 표를 새 경로로 → 옛 파일 삭제.
+   한 가게가 실패해도 그 가게만 그대로 두고 다음으로. 이미 줄인 사진(-s)·정적 파일(/seed-photos)은 건드리지 않는다 */
+export async function shrinkStoredPhotos(onStep?: (done: number, total: number) => void): Promise<{ count: number; before: number; after: number; failed: number }> {
+  if (!canWrite() || source !== 'db') throw new Error('저장 권한이 없습니다');
+  const db = supabase!;
+  const { data, error } = await db.from('stores').select('id, photo_path, photo_paths');
+  if (error) throw error;
+  const rows = (data as Pick<Row, 'id' | 'photo_path' | 'photo_paths'>[]).map((r) => ({ id: r.id, paths: r.photo_paths?.length ? r.photo_paths : r.photo_path ? [r.photo_path] : [] }));
+  const total = rows.reduce((n, r) => n + r.paths.filter((p) => isStored(p) && !isShrunk(p)).length, 0);
+  let done = 0, before = 0, after = 0, count = 0, failed = 0;
+  onStep?.(0, total);
+  for (const r of rows) {
+    if (!r.paths.some((p) => isStored(p) && !isShrunk(p))) continue;
+    const next: string[] = [], made: string[] = [], old: string[] = [];
+    try {
+      for (const p of r.paths) {
+        if (!isStored(p) || isShrunk(p)) { next.push(p); continue; }
+        const { data: blob, error: e1 } = await db.storage.from(PHOTO_BUCKET).download(p); if (e1 || !blob) throw e1 ?? new Error('받기 실패');
+        const out = await shrinkPhoto(blob);
+        const np = newPhotoPath(out, true);   /* 원본이 이미 작아 그대로여도 -s 를 붙여 다시 묻지 않게 */
+        const { error: e2 } = await db.storage.from(PHOTO_BUCKET).upload(np, out, { contentType: out.type || blob.type, upsert: false, cacheControl: CACHE_1Y }); if (e2) throw e2;
+        made.push(np); old.push(p); next.push(np); before += blob.size; after += out.size; count++;
+        onStep?.(++done, total);
+      }
+      const { error: e3 } = await db.from('stores').update({ photo_path: next[0] ?? null, photo_paths: next }).eq('id', r.id); if (e3) throw e3;
+      await db.storage.from(PHOTO_BUCKET).remove(old).catch(() => {});
+    } catch (e) {
+      console.warn('사진 줄이기 실패:', r.id, e); failed++;
+      if (made.length) await db.storage.from(PHOTO_BUCKET).remove(made).catch(() => {});
+    }
+  }
+  return { count, before, after, failed };
+}
 
 export async function deleteStore(s: Store): Promise<void> {
   if (!canWrite()) throw new Error('삭제 권한이 없습니다');
