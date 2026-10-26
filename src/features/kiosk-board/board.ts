@@ -160,17 +160,24 @@ export function mountBoard(o: BoardOptions): Board {
   }
   /* 겹친 단추 묶기(10-26, 평소 지도의 숫자 점과 같은 흐름): 단추 동그라미끼리 겹치는 가게끼리(이름표만 겹치는 건 묶지 않는다 — 10-26 사용자 결정, 이름표까지 보면 가운데 7곳이 한 덩어리였다) 숫자 단추 하나로 묶고, 누르면 onCluster(엔진이 작은 말풍선에서 고르게).
      보드는 단추·이름표가 지도와 같이 커지므로 확대해도 겹침이 풀리지 않는다 → 화면 px 가 아니라 캔버스 단위로 한 번 묶는다(가게·필터가 바뀔 때만).
-     필터로 흐려진 단추는 묶지 않고 그대로 둔다 */
-  const hits = (a: (typeof btns)[number], c: (typeof btns)[number]) => Math.hypot(a.x - c.x, a.y - c.y) < a.r + c.r;
+     업종 필터(10-26): 고른 업종끼리만 다시 묶고(겹치면 숫자), 다른 업종 단추 중 필터 없을 때 묶여 있던 것은 숨긴다(.gone) — 전엔 흐린 단추로 풀려 나와
+     숫자 단추 자리에 겹쳐 보였다(커피를 고를 때 특히). 원래 혼자 서 있던 다른 업종 단추는 그대로 흐리게(.dim) */
+  type Btn = (typeof btns)[number];
+  const hits = (a: Btn, c: Btn) => Math.hypot(a.x - c.x, a.y - c.y) < a.r + c.r;
+  const groupsOf = (list: Btn[]) => {   /* 겹치는 것끼리 이어 붙인다(가게 수가 적어 n² 로 충분) */
+    const group = new Map<Btn, Btn[]>();
+    for (const a of list) {
+      if (group.has(a)) continue; const grp = [a]; group.set(a, grp);
+      for (let i = 0; i < grp.length; i++) for (const c of list) if (!group.has(c) && hits(grp[i], c)) { grp.push(c); group.set(c, grp); }
+    }
+    return [...new Set(group.values())];
+  };
+  let bundled = new Set<Btn>();   /* 필터 없이 묶이는 단추 */
   function regroup() {
     clusters.forEach((c) => c.pos.remove()); clusters = [];
-    const live = btns.filter((b) => !filter || b.cat === filter), group = new Map<(typeof btns)[number], (typeof btns)[number][]>();
     btns.forEach((b) => { b.cl = undefined; });
-    for (const a of live) {   /* 겹치는 것끼리 이어 붙인다(가게 수가 적어 n² 로 충분) */
-      if (group.has(a)) continue; const grp = [a]; group.set(a, grp);
-      for (let i = 0; i < grp.length; i++) for (const c of live) if (!group.has(c) && hits(grp[i], c)) { grp.push(c); group.set(c, grp); }
-    }
-    for (const grp of new Set(group.values())) {
+    bundled = new Set(groupsOf(btns).filter((g) => g.length > 1).flat());
+    for (const grp of groupsOf(btns.filter((b) => !filter || b.cat === filter))) {
       if (grp.length < 2) continue;
       const x = grp.reduce((t, m) => t + m.x, 0) / grp.length, y = grp.reduce((t, m) => t + m.y, 0) / grp.length, ids = grp.map((m) => m.id);
       const pos = el('g', { transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})` }, btnG);
@@ -186,7 +193,7 @@ export function mountBoard(o: BoardOptions): Board {
     applyBtnState();
   }
   const applyBtnState = () => {
-    btns.forEach((b) => { b.g.classList.toggle('dim', !!filter && b.cat !== filter); b.g.classList.toggle('sel', b.id === selected); b.g.classList.toggle('clustered', !!b.cl); });
+    btns.forEach((b) => { const off = !!filter && b.cat !== filter; b.g.classList.toggle('dim', off && !bundled.has(b)); b.g.classList.toggle('gone', off && bundled.has(b)); b.g.classList.toggle('sel', b.id === selected); b.g.classList.toggle('clustered', !!b.cl); });
     clusters.forEach((c) => c.g.classList.toggle('sel', !!selected && c.ids.includes(selected)));
   };
   const shownBtns = () => [...btns.filter((b) => !b.cl).map((b) => ({ g: b.g, x: b.x })), ...clusters.map((c) => ({ g: c.g, x: c.x }))].sort((a, b) => a.x - b.x);   /* 등장(rest) 순서: 왼쪽부터 */
