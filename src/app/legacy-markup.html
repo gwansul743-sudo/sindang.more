@@ -50,6 +50,10 @@
   <div class="intro-curtain left" aria-hidden="true"></div><div class="intro-curtain right" aria-hidden="true"></div>
 </section>
 <!-- [B-1] INTRO:END -->
+<!-- 표지는 JS 보다 먼저 그려진다(index.html 정적). 섬 그림과 그 집·나무 그림(#px-defs, index.html)은 밤 색으로 적혀 있어 낮이면 여기서 바로 낮 색으로 — mountThemes.paintTheme 과 같은 규칙(밤 색은 data-nf/ns 에 보관) -->
+<!-- JS 가 오기 전에 '탐험 시작'을 누르면 기억해 두었다가 엔진이 켜진 뒤 이어서 연다(App.tsx). 엔진이 onclick 을 덮어쓴다 -->
+<script>document.getElementById('openMap').onclick=function(){window.__openEarly=1};
+if(document.documentElement.getAttribute('data-theme')==='day')document.querySelectorAll('#intro [data-df],#intro [data-ds],#px-defs [data-df],#px-defs [data-ds]').forEach(function(e){var d=e.dataset;if(d.df){d.nf=e.getAttribute('fill')||'';e.setAttribute('fill',d.df)}if(d.ds){d.ns=e.getAttribute('stroke')||'';e.setAttribute('stroke',d.ds)}})</script>
 
 <aside id="admin">
   <h3><button class="xbtn" id="aback" aria-label="목록으로" title="목록으로" onclick="cancelEdit()" style="display:none">‹</button><span style="margin-right:auto">가게 관리</span><button class="xbtn" id="aacct" aria-label="계정" title="비밀번호 변경 · 로그아웃" onclick="toggleAccount()" style="display:none;width:auto;padding:0 10px;font-size:12px;font-weight:600">계정</button><button class="xbtn" aria-label="닫기" onclick="closeAdmin()">✕</button></h3>

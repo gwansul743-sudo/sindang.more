@@ -22,7 +22,6 @@ import type { EngineData } from '../map/engine';
 
 /* 마을 사람 인터뷰 대본(content/characters/villagers/*.json) — 파일 하나 = 주민 하나. 형식은 그 폴더의 파일 참고 */
 const villagerFiles = import.meta.glob('../../content/characters/villagers/*.json', { import: 'default', eager: true }) as Record<string, { id: string; kind?: string; name: string; store?: string; hook: string; pages: string[]; fixed?: boolean; look?: { style: 'short' | 'bob' | 'hat'; bun?: number; bag?: number; col?: Record<string, string> } }>;
-const decorArt = import.meta.glob('../../content/map/decor/*.pixel.txt', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 
 export function loadContent(stores: Store[]): EngineData {
   const landmarks = loadLandmarks();
@@ -33,7 +32,7 @@ export function loadContent(stores: Store[]): EngineData {
     land,
     props,
     landmarks,
-    pixelDefs: Object.values(landmarks.art).join('') + Object.values(decorArt).join('') + withLand(terrainDefs),
+    pixelDefs: withLand(terrainDefs),   // 랜드마크·장식 그림(content/landmarks·map/decor 의 *.pixel.txt)은 index.html 의 #px-defs 에 정적으로(표지와 같이 쓴다, vite.config.ts staticShell)
     terrain: withLand(terrain).replace('<!--PROPS-->', uses),
     characters: { head, body, wave, palette, looks, chief, cat },
     stores,

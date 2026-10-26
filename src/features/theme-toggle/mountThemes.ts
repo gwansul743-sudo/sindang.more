@@ -4,7 +4,8 @@ import './theme-toggle.css';
 import { afterRepaint } from '../../shared/lib/repaint';
 
 /* 낮/밤 테마.
-   · mountThemes: 스타일시트 두 벌(css-day / css-night)을 id를 붙여 끼운다. 처음 테마는 주소의 ?theme= → 브라우저에 기억된 선택 → 밤.
+   · mountThemes: 스타일시트 두 벌(css-day / css-night). 보통은 index.html 의 인라인 스크립트가 이미 끼워 두었다(vite.config.ts staticShell — 같은 규칙으로 처음 테마를 고른다).
+     없을 때만 여기서 끼운다. 처음 테마는 주소의 ?theme= → 브라우저에 기억된 선택 → 밤.
    · setTheme: 스타일시트를 바꿔 끼우고, 그림의 색은 요소마다 남겨 둔 낮 색(data-df·data-ds)과 맞바꾼다. 밤 장식은 낮 스타일시트가 숨긴다.
    · switchTheme: 커튼으로 화면을 덮은 뒤 setTheme → 다시 그리기가 가라앉으면 커튼을 걷는다(폰에서 전환 중간 프레임이 지지직거려 보이는 것을 숨김).
    · bindThemeButton: 버튼 글씨·aria 갱신과 클릭 토글(switchTheme). */
@@ -26,6 +27,8 @@ export function mountThemes(): Promise<void> {
   const theme = initialTheme();
   document.documentElement.setAttribute('data-theme', theme);
   const add = (id: string, href: string, on: boolean) => {
+    const had = document.getElementById(id) as HTMLLinkElement | null;
+    if (had) return had;
     const link = document.createElement('link');
     link.id = id; link.rel = 'stylesheet'; link.href = href; link.media = on ? 'all' : 'not all';
     document.head.appendChild(link);
@@ -34,6 +37,7 @@ export function mountThemes(): Promise<void> {
   const day = add('css-day', dayUrl, theme === 'day');
   const night = add('css-night', nightUrl, theme === 'night');
   const loaded = (l: HTMLLinkElement) => new Promise<void>((resolve) => {
+    try { if (l.sheet && l.sheet.cssRules) { resolve(); return; } } catch { /* 아직 */ }
     l.addEventListener('load', () => resolve(), { once: true });
     l.addEventListener('error', () => resolve(), { once: true });
   });
