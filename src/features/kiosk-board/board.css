@@ -109,26 +109,41 @@ html.kb-on #cluster-pop .cl-text small,html.kb-on #cluster-pop .cl-go{color:var(
 
 /* ⑨ 범례(HTML, 시안의 legend) */
 /* 범례 바탕(10-23): 리넨 결을 촘촘하게(310 → 120px) + 크림색 82% 로 덮어 연하게 — 결이 강해 글자가 안 보였다 */
-.kb-legend{position:absolute;z-index:4;left:25px;top:28px;width:clamp(200px,15vw,250px);padding:14px 14px 10px;background:linear-gradient(#f1e2c5d1,#f1e2c5d1),var(--kb-cream) url(/board/linen.webp);background-size:auto,120px;border:1px solid #c4ae8f;border-radius:5px;box-shadow:0 3px 4px #2e3b4338;color:var(--kb-wine);opacity:0;transform:translateY(-10px);transition:opacity .5s ease,transform .5s ease;pointer-events:none;zoom:var(--ui)}
+.kb-legend{position:absolute;z-index:4;left:25px;top:28px;padding:0;background:linear-gradient(#f1e2c5d1,#f1e2c5d1),var(--kb-cream) url(/board/linen.webp);background-size:auto,120px;border:1px solid #c4ae8f;border-radius:5px;box-shadow:0 3px 4px #2e3b4338;color:var(--kb-wine);opacity:0;transform:translateY(-10px);pointer-events:none;zoom:var(--ui);
+  --ease:cubic-bezier(.32,.72,0,1);transition:opacity .5s ease,transform .5s ease,width .5s var(--ease),height .5s var(--ease),border-radius .5s var(--ease)}
 .kb-legend.show{opacity:1;transform:none;pointer-events:auto}
 .kb-legend::after{content:"";position:absolute;inset:4px;border:1.8px dashed var(--kb-stitch);border-radius:2px;opacity:.95;pointer-events:none}
 .kb-legend::before{content:"";position:absolute;left:50%;top:-9px;width:14px;height:14px;margin-left:-7px;border:2px solid var(--kb-thread);border-radius:50%;border-bottom-color:transparent;transform:rotate(45deg)}
-.kb-legend h2{margin:0 0 8px;font-family:var(--kb-hand);font-size:22px;font-weight:400;letter-spacing:.5px}
-/* 접기·펴기(10-23): 제목이 버튼. 접히면 목록·안내를 숨기고 화살표를 돌린다. 이름이 kb-folded 인 건 인트로의 .folded(테마 CSS)와 겹치지 않게 */
-.kb-fold{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:0;border:0;background:none;color:inherit;font:inherit;letter-spacing:inherit;text-align:left;cursor:pointer}
-.kb-chev{font-family:var(--font-ui);font-size:18px;line-height:1;color:var(--kb-stitch);transition:transform .25s ease}
-.kb-legend.kb-folded h2{margin-bottom:0}.kb-legend.kb-folded .kb-chev{transform:rotate(-90deg)}
-.kb-legend.kb-folded ul,.kb-legend.kb-folded .kb-note{display:none}
+/* 펼침 모션(10-26, board.ts layoutLegend): 칸 크기·단추 자리는 JS 가 주고 여기선 옮기기만. 감속 곡선 .32,.72,0,1 · 0.5초.
+   접히면 알약(제목 · 겹친 단추 · +N · ▸), 펴지면 제목 아래 바늘땀 선 + 3열 격자(단추 · 이름 · 가게 수) + 안내. 이름이 kb-folded 인 건 인트로의 .folded(테마 CSS)와 겹치지 않게 */
+.kb-legend.kb-folded{cursor:pointer}.kb-legend.kb-folded:hover{box-shadow:0 5px 9px #2e3b4352}
+.kb-legend::after{border-radius:inherit}
+.kb-legend h2{position:absolute;left:16px;right:12px;top:0;height:var(--hd);margin:0;display:flex;align-items:center;font-family:var(--kb-hand);font-size:22px;font-weight:400;letter-spacing:.5px;transition:height .5s var(--ease)}
+.kb-fold{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:0;border:0;background:none;color:inherit;font:inherit;letter-spacing:inherit;text-align:left;cursor:pointer;white-space:nowrap}
+.kb-chev{font-family:var(--font-ui);font-size:18px;line-height:1;color:var(--kb-stitch);transition:transform .5s var(--ease)}
+.kb-legend.kb-folded .kb-chev{transform:rotate(-90deg)}
+.kb-div{position:absolute;left:14px;right:14px;top:calc(var(--hd) + 2px);border-top:1.6px dashed var(--kb-stitch);opacity:.55;transition:opacity .5s var(--ease)}
+.kb-legend.kb-folded .kb-div{opacity:0}
 .kb-legend ul{list-style:none;margin:0;padding:0}
-.kb-legend li{display:flex;align-items:center;gap:10px;padding:6px;border-radius:3px;cursor:pointer;font-size:13px;font-weight:600;letter-spacing:-.3px;user-select:none}
-.kb-legend li:hover{background:#e8d9bd80}
-.kb-legend li.active{background:#e3cfa8;outline:1.5px dashed var(--kb-stitch);outline-offset:-2px}
-.kb-legend .sw{width:18px;height:18px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 1px #8a4a3e66,0 1px 1px #0003;position:relative}
-.kb-legend .sw.img{width:24px;height:24px;margin:-3px;box-shadow:none;border-radius:0;background:center/contain no-repeat}.kb-legend .sw.img::after{display:none}
-.kb-legend .sw::after{content:"";position:absolute;inset:6px;border-radius:50%;background:radial-gradient(circle,#6b3a30 1.2px,transparent 1.4px) 0 0/50% 50%}
-.kb-legend li small{margin-left:auto;font-family:var(--kb-hand);font-size:14px;color:var(--kb-stitch)}
-.kb-legend .kb-note{margin:8px 0 0;font-size:10px;color:#9a7a60;letter-spacing:-.3px}
-@media(max-width:899px){.kb-legend{left:10px;top:auto;bottom:14px;width:auto;max-width:60vw;padding:10px 10px 8px}.kb-legend h2{font-size:18px;margin-bottom:4px}.kb-legend li{padding:3px 6px;font-size:12px}.kb-legend .kb-note{display:none}}
+.kb-legend li{position:absolute;width:var(--s);height:var(--s);cursor:pointer;user-select:none;transition:left .5s var(--ease),top .5s var(--ease),width .5s var(--ease),height .5s var(--ease),opacity .5s var(--ease)}
+.kb-legend.kb-folded li{cursor:inherit}
+.kb-legend .sw{position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 1px #8a4a3e66,0 1px 2px #0003;transition:transform .3s var(--ease),box-shadow .3s ease}
+.kb-legend .sw.img{box-shadow:none;background:center/contain no-repeat;filter:drop-shadow(0 1px 1px #0003)}.kb-legend .sw.img::after{display:none}
+.kb-legend .sw::after{content:"";position:absolute;inset:30%;border-radius:50%;background:radial-gradient(circle,#6b3a30 1.2px,transparent 1.4px) 0 0/50% 50%}
+.kb-legend.kb-folded .sw{box-shadow:0 0 0 2px #f1e2c5,0 1px 2px #0003}.kb-legend.kb-folded .sw.img{box-shadow:none;filter:drop-shadow(0 0 1.5px #f1e2c5) drop-shadow(0 1px 1px #0003)}   /* 겹친 단추 사이 크림색 테두리(원본의 ring) */
+.kb-legend:not(.kb-folded) li:hover .sw{transform:translateY(-2px) scale(1.06)}
+.kb-legend li.active .sw{outline:1.6px dashed var(--kb-stitch);outline-offset:3px;border-radius:50%}
+.kb-legend .lb{position:absolute;left:50%;top:calc(var(--s) + 5px);width:var(--cw);margin-left:calc(var(--cw) / -2);text-align:center;white-space:nowrap;font-size:12.5px;font-weight:600;letter-spacing:-.3px;line-height:1.25;opacity:1;transition:opacity .5s var(--ease) var(--ld)}
+.kb-legend .lb small{margin-left:4px;font-family:var(--kb-hand);font-size:15px;color:var(--kb-stitch)}
+.kb-legend li.active .lb{color:var(--kb-thread)}
+.kb-legend.kb-folded .lb{opacity:0;transition-delay:0ms}
+.kb-more{position:absolute;top:0;height:var(--hd);display:flex;align-items:center;font-family:var(--kb-hand);font-size:17px;color:var(--kb-stitch);opacity:0;pointer-events:none;transition:opacity .5s var(--ease)}
+.kb-legend.kb-folded .kb-more{opacity:1}
+.kb-legend .kb-note{position:absolute;left:0;right:0;bottom:12px;margin:0;text-align:center;font-size:10px;color:#9a7a60;letter-spacing:-.3px;opacity:1;transition:opacity .5s var(--ease) .25s}
+.kb-legend.kb-folded .kb-note{opacity:0;transition-delay:0ms}
+.kb-probe{position:absolute;left:0;top:0;width:100px;height:0;visibility:hidden}
+@media(max-width:899px){.kb-legend{left:10px;top:auto;bottom:14px}.kb-legend h2{left:13px;font-size:18px}.kb-legend .lb{font-size:11.5px}.kb-legend .kb-note{display:none}}
+@media(prefers-reduced-motion:reduce){.kb-legend,.kb-legend *{transition:none!important}}
 @media(prefers-reduced-motion:reduce){.kb-board{transition:none}.kb-cloud-b,.kb-cloud-g,.kb-sun{animation:none}}
 
 /* 건너뛰기(10-23): 전시 연출 중에만. 지도 칸 오른쪽 위(데스크톱은 FIELD NOTES 버튼 아래), 범례와 같은 천 톤 */

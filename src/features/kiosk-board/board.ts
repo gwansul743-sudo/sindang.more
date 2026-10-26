@@ -191,20 +191,53 @@ export function mountBoard(o: BoardOptions): Board {
   };
   const shownBtns = () => [...btns.filter((b) => !b.cl).map((b) => ({ g: b.g, x: b.x })), ...clusters.map((c) => ({ g: c.g, x: c.x }))].sort((a, b) => a.x - b.x);   /* 등장(rest) 순서: 왼쪽부터 */
 
-  /* 범례(HTML) */
+  /* 범례(HTML). 접힌 알약 ↔ 펼친 카드(10-26, 'voice chat' 펼침 모션을 천 톤으로): 접히면 제목 옆에 업종 단추가 겹쳐 한 줄로 서고(앞 4개 + '+N'),
+     펴지면 칸이 커지며 단추가 하나씩 조금씩 늦게 3열 격자 자리로 날아가고 이름·가게 수가 뒤따라 나타난다. 자리는 JS 가 계산해 left/top 으로 주고 CSS transition 이 옮긴다(board.css .kb-legend).
+     제목(또는 접힌 알약 아무 데)을 누르면 접기·펴기, 펼친 상태에서 업종을 누르면 그 업종만(다시 누르면 전체). 처음엔 데스크톱 펼침, 폰 접힘(지도 아래를 가려서) */
   const legend = document.createElement('aside'); legend.className = 'kb-legend'; legend.setAttribute('aria-label', '신당 5길의 가게들');
-  legend.innerHTML = '<h2><button type="button" class="kb-fold" aria-expanded="true">신당 5길의 가게들<span class="kb-chev" aria-hidden="true">▾</span></button></h2><ul></ul><p class="kb-note">누르면 그 업종만 남아요 · 다시 누르면 전체</p>';
+  legend.innerHTML = '<h2><button type="button" class="kb-fold" aria-expanded="true"><span class="kb-ttl">신당 5길의 가게들</span><span class="kb-chev" aria-hidden="true">▾</span></button></h2>'
+    + '<i class="kb-div" aria-hidden="true"></i><ul></ul><span class="kb-more" aria-hidden="true"></span><p class="kb-note">누르면 그 업종만 남아요 · 다시 누르면 전체</p><i class="kb-probe" aria-hidden="true"></i>';
   o.host.appendChild(legend); const ul = legend.querySelector('ul')!;
-  /* 접기·펴기(10-23): 제목을 누르면 목록·안내가 접혀 제목만 남는다. 처음엔 데스크톱 펼침, 폰 접힘(지도 아래를 가려서) */
-  const foldBtn = legend.querySelector<HTMLButtonElement>('.kb-fold')!;
-  const setFold = (folded: boolean) => { legend.classList.toggle('kb-folded', folded); foldBtn.setAttribute('aria-expanded', String(!folded)); };
+  const foldBtn = legend.querySelector<HTMLButtonElement>('.kb-fold')!, ttl = legend.querySelector<HTMLElement>('.kb-ttl')!, more = legend.querySelector<HTMLElement>('.kb-more')!, probe = legend.querySelector<HTMLElement>('.kb-probe')!;
+  const folded = () => legend.classList.contains('kb-folded');
+  const setFold = (f: boolean) => { legend.classList.toggle('kb-folded', f); foldBtn.setAttribute('aria-expanded', String(!f)); layoutLegend(); };
+  foldBtn.addEventListener('click', (e) => { e.stopPropagation(); setFold(!folded()); });
+  legend.addEventListener('click', (e) => { if (folded()) { e.stopPropagation(); setFold(false); } });   /* 접힌 알약은 어디를 눌러도 펼친다 */
+  /* 크기(범례 안 px, zoom 전). 폰은 조금 작게 */
+  const LG = { wide: { W: 252, pad: 16, head: 46, btn: 42, cell: 70, row: 8, note: 24, cH: 46, cBtn: 26, cStep: 17, cShow: 4 },
+               narrow: { W: 216, pad: 12, head: 38, btn: 34, cell: 60, row: 6, note: 0, cH: 40, cBtn: 22, cStep: 14, cShow: 3 } };
+  function layoutLegend() {
+    const L = window.innerWidth < 900 ? LG.narrow : LG.wide, items = [...ul.children] as HTMLElement[], n = items.length, f = folded();
+    const k = probe.getBoundingClientRect().width / 100 || 1;   /* 화면 배율(zoom:var(--ui)) — 제목 폭을 범례 안 px 로 */
+    const tw = Math.ceil(ttl.getBoundingClientRect().width / k), x0 = L.pad + 2 + tw + 10, shown = Math.min(n, L.cShow), extra = n - shown;
+    const cols = 3, rows = Math.ceil(n / cols), colW = (L.W - L.pad * 2) / cols;
+    const W = f ? x0 + L.cBtn + L.cStep * Math.max(0, shown - 1) + (extra ? 30 : 6) + 26 : L.W;
+    const H = f ? L.cH : L.head + 12 + rows * L.cell + (rows - 1) * L.row + 8 + L.note;
+    legend.style.width = W + 'px'; legend.style.height = H + 'px'; legend.style.borderRadius = f ? L.cH / 2 + 'px' : '6px';
+    legend.style.setProperty('--hd', (f ? L.cH : L.head) + 'px');
+    more.textContent = extra ? '+' + extra : ''; more.style.left = x0 + L.cBtn + L.cStep * Math.max(0, shown - 1) + 6 + 'px';
+    items.forEach((li, i) => {
+      const s = f ? L.cBtn : L.btn, c = i % cols, r = Math.floor(i / cols);
+      const x = f ? x0 + Math.min(i, shown - 1) * L.cStep : L.pad + c * colW + (colW - L.btn) / 2;
+      const y = f ? (L.cH - L.cBtn) / 2 : L.head + 12 + r * (L.cell + L.row);
+      li.style.left = x + 'px'; li.style.top = y + 'px'; li.style.setProperty('--s', s + 'px'); li.style.setProperty('--cw', colW + 'px');
+      li.style.opacity = f && i >= shown ? '0' : '1'; li.style.zIndex = String(f ? L.cShow - i : 1);
+      li.style.transitionDelay = (f ? (n - 1 - i) * 20 : i * 30) + 'ms'; li.style.setProperty('--ld', f ? '0ms' : 150 + i * 30 + 'ms');
+      li.tabIndex = f ? -1 : 0;
+    });
+  }
   setFold(window.innerWidth < 900);
-  foldBtn.addEventListener('click', (e) => { e.stopPropagation(); setFold(!legend.classList.contains('kb-folded')); });
+  window.addEventListener('resize', layoutLegend);
+  document.fonts?.addEventListener?.('loadingdone', layoutLegend);   /* 손글씨체(제목)가 늦게 오면 제목 폭이 바뀐다(index.html 글꼴은 나중에 받음) */
   function renderLegend() {
     ul.innerHTML = '';
     Object.entries(CATS).forEach(([k, cc]) => { const n = btns.filter((b) => b.cat === k).length; if (!n && k !== 'etc') return;
-      const li = document.createElement('li'); li.dataset.cat = k; li.className = filter === k ? 'active' : '';
-      li.innerHTML = `<span class="sw${BTN_IMG[k] ? ' img' : ''}" style="${BTN_IMG[k] ? `background-image:url(${BTN_IMG[k]})` : `background:${cc.sw}`}"></span>${cc.n}<small>${n}</small>`; li.onclick = () => setFilter(filter === k ? null : k); ul.appendChild(li); });
+      const li = document.createElement('li'); li.dataset.cat = k; li.className = filter === k ? 'active' : ''; li.setAttribute('role', 'button');
+      li.innerHTML = `<span class="sw${BTN_IMG[k] ? ' img' : ''}" style="${BTN_IMG[k] ? `background-image:url(${BTN_IMG[k]})` : `background:${cc.sw}`}"></span><span class="lb">${cc.n}<small>${n}</small></span>`;
+      li.onclick = (e) => { if (folded()) return; e.stopPropagation(); setFilter(filter === k ? null : k); };
+      li.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); li.click(); } };
+      ul.appendChild(li); });
+    layoutLegend();
   }
   function setFilter(cat: string | null) { const was = filter; filter = cat; if (was !== cat) regroup(); else applyBtnState(); ul.querySelectorAll('li').forEach((li) => li.classList.toggle('active', (li as HTMLElement).dataset.cat === filter)); }
 
