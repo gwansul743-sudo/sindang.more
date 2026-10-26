@@ -7,4 +7,8 @@
 .speech .sp-box b{color:#b23a48;font-weight:700}
 .speech .sp-text{white-space:pre-line}   /* 대사의 \n 은 줄바꿈 */
 .speech .sp-tail{position:absolute;z-index:0;left:calc(50% - 7px);bottom:-9px;width:14px;height:14px;background:linear-gradient(#f1e2c5d1,#f1e2c5d1),#efe3cb url(/board/linen.webp);background-size:auto,120px;border-right:1px solid #c4ae8f;border-bottom:1px solid #c4ae8f;transform:rotate(45deg)}
+/* 누르면 이야기가 열리는 말풍선(10-26, 주민 hook — 터치): 아래쪽에 안내 한 줄. 색은 위 굵은 글씨 값 */
+.speech .sp-cta{display:none}
+.speech.has-cta .sp-cta{display:block;margin-top:6px;text-align:right;font:700 12px/1.2 var(--font-ui);letter-spacing:-.2px;color:#b23a48}
+.speech.tappable.show:active{transform:translate(-50%,-100%) translateY(-4px) scale(.96)}
 @media(prefers-reduced-motion:reduce){.speech{transition:opacity .2s}}

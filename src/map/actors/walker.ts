@@ -11,6 +11,9 @@ export interface WalkerOptions { parts: CharacterParts; look: Look; col: Palette
 
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 const CYCLE = [1, 2, 3, 2];   // 디딤 → 모음(살짝 올라감) → 반대 디딤 → 모음
+/* 손가락이 주 입력인 기기(폰·전시 터치스크린) — 누르는 칸을 화면에서 최소 44px 로 넓힌다(10-26) */
+const COARSE = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+const TOUCH_PX = 44;
 
 /* 주민 색: 윗옷은 겹치지 않게 바깥에서 정해 주고, 나머지는 팔레트에서 뽑는다 */
 export function walkerColors(pal: WalkerPalette, top: string, i: number, rand: () => number = Math.random): Palette {
@@ -40,14 +43,31 @@ export class Walker implements Actor {
   held = false;
   hitHalf = 5.5;                  /* 몸 판정 칸 가로 반폭(칸). 그려진 몸 가로 11칸 */
   hover = new HoverProbe();       /* 엔진이 hover.onHover 를 단다(대본 있는 주민만) */
-  hold() { this.held = true; if (this.mode === 'walk') { this.mode = 'pause'; this.until = Infinity; } }
-  release() { if (!this.held) return; this.held = false; if (this.mode === 'pause') this.until = 0; }
+  hold() { this.held = true; this.setRing(true); if (this.mode === 'walk') { this.mode = 'pause'; this.until = Infinity; } }
+  release() { if (!this.held) return; this.held = false; this.setRing(false); if (this.mode === 'pause') this.until = 0; }
+  /* 말을 거는 주민 표시(10-26): 발밑에 홈질 점선 타원이 숨 쉬듯 커졌다 작아진다(색은 말풍선 홈질과 같은 값). 붙잡혀 있는 동안(hold~release)만 */
+  private ring: SVGGElement | null = null;
+  private setRing(on: boolean) {
+    if (on && !this.ring) {
+      this.ring = el('g', { class: 'wk-ring' }); this.g.insertBefore(this.ring, this.body);
+      el('ellipse', { cx: 0, cy: -0.6, rx: 7.5, ry: 2.7, fill: '#9b3d49', 'fill-opacity': '.14', stroke: '#9b3d49', 'stroke-width': 0.9, 'stroke-dasharray': '1.8 1.2' }, this.ring);
+    }
+    if (this.ring) this.ring.style.display = on ? '' : 'none';
+  }
+  /* 터치 기기: 그림은 그대로 두고 투명 칸만 화면에서 TOUCH_PX 이상으로(배율이 바뀔 때마다). 마우스 기기는 그려진 몸 칸 그대로 */
+  private hit: SVGRectElement | null = null; private hitQ = 0;
+  private fitHit(q: number) {
+    if (!this.hit || q === this.hitQ || !COARSE()) return;
+    this.hitQ = q; const half = Math.max(this.hitHalf, TOUCH_PX / 2 / q), h = Math.max(HIT_H, TOUCH_PX / q);
+    this.hit.setAttribute('x', String(-half)); this.hit.setAttribute('width', String(half * 2));
+    this.hit.setAttribute('y', String(-HIT_TOP - (h - HIT_H) / 2)); this.hit.setAttribute('height', String(h));
+  }
   /* 누를 수 있는 주민: 스프라이트 칸 전체를 덮는 투명 사각형(픽셀 사이 빈칸도 잡히게) + 손가락 커서. 이벤트는 엔진이 g 에 단다 */
   makeClickable() {
     if (this.g.classList.contains('wk-talk')) return;
     this.g.classList.add('wk-talk');
     const r = el('rect', { class: 'wk-hit', x: -this.hitHalf, y: -HIT_TOP, width: this.hitHalf * 2, height: HIT_H, fill: 'transparent' });   /* 그려진 몸(가로 11·세로 16칸)만 — 칸 전체(17×19)로 잡으면 옆 빈 곳에서도 대화가 떴다(10-23) */
-    r.style.pointerEvents = 'visible';   /* 'all' 은 숨긴(visibility:hidden) 주민도 마우스를 받아, 이장님 대화 중 안 보이는 주민의 말풍선이 떴다(10-23) */ this.g.style.cursor = 'pointer'; this.g.insertBefore(r, this.g.firstChild);
+    r.style.pointerEvents = 'visible';   /* 'all' 은 숨긴(visibility:hidden) 주민도 마우스를 받아, 이장님 대화 중 안 보이는 주민의 말풍선이 떴다(10-23) */ this.g.style.cursor = 'pointer'; this.g.insertBefore(r, this.g.firstChild); this.hit = r as SVGRectElement;
   }
 
   /* 머리 위 빨간 세모(이장님과 같은 NPC 표시) — 시민이 구글폼으로 인터뷰를 남겨 생긴 주민에게만 붙인다(10-23 사용자 결정). 도안은 chief.json 의 mark */
@@ -88,6 +108,7 @@ export class Walker implements Actor {
   tick(f: Frame, others: Actor[]) {
     const { now, dt, V, s, P, live, still, kiosk, nearPx, lms, LK } = f, G = this.G;
     const mul = f.mul, q = f.q * mul, k = f.k * mul;   /* 배율은 엔진이 준다(전시 보드 위에서는 크게, 10-23). 이장님·고양이도 같이 */
+    this.fitHit(q);
     if (!still && !this.held) {
       const fx = (this.x - V.x) * s, fy = (this.y - V.y) * s;
       this.offT = fx < -nearPx || fx > V.pw + nearPx || fy < -nearPx || fy > V.ph + nearPx ? this.offT + dt : 0;

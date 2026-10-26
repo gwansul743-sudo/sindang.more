@@ -11,7 +11,9 @@ export interface SpeechOptions {
   charMs?: number; holdMs?: number;
   onEnd?: () => void;                              // 마지막 줄이 holdMs 동안 보인 뒤(또는 마지막 줄에서 클릭) 한 번. hide() 로 끊기면 안 부름
 }
-export interface Speech { say(lines: string[]): void; hide(): void; place(): void; readonly visible: boolean }
+/* say 의 선택(10-26): onTap 이 있으면 말풍선 자체가 버튼 — 누르면 다음 줄 대신 onTap. cta 는 말풍선 아래쪽에 붙는 안내 한 줄('이야기 듣기 ›') */
+export interface SayOptions { onTap?: () => void; cta?: string }
+export interface Speech { say(lines: string[], opts?: SayOptions): void; hide(): void; place(): void; readonly visible: boolean }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 const markup = (s: string) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
@@ -19,10 +21,10 @@ const markup = (s: string) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
 export function mountSpeech(stage: HTMLElement, o: SpeechOptions): Speech {
   const charMs = o.charMs ?? 34, holdMs = o.holdMs ?? 2800;
   const el = document.createElement('div'); el.className = 'speech'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite');
-  el.innerHTML = '<div class="sp-box"><span class="sp-text"></span></div><div class="sp-tail"></div>';   /* 모양은 시안 v2 의 .speech 그대로(10-23) */
+  el.innerHTML = '<div class="sp-box"><span class="sp-text"></span><span class="sp-cta"></span></div><div class="sp-tail"></div>';   /* 모양은 시안 v2 의 .speech 그대로(10-23) */
   stage.appendChild(el);
-  const text = el.querySelector('.sp-text') as HTMLElement;
-  let lines: string[] = [], i = 0, run = 0, timer = 0, typing = false, visible = false;
+  const text = el.querySelector('.sp-text') as HTMLElement, cta = el.querySelector('.sp-cta') as HTMLElement;
+  let lines: string[] = [], i = 0, run = 0, timer = 0, typing = false, visible = false, onTap: (() => void) | null = null;
   const clear = () => { clearTimeout(timer); timer = 0; };
 
   function showLine() {
@@ -59,15 +61,17 @@ export function mountSpeech(stage: HTMLElement, o: SpeechOptions): Speech {
     if (typing) { clear(); const my = ++run; const line = lines[i]; text.innerHTML = markup(line); finishLine(my); return; }
     if (i < lines.length - 1) { clear(); i++; showLine(); } else if (o.onEnd) { clear(); end(); }
   }
-  el.addEventListener('click', (e) => { e.stopPropagation(); next(); });
+  el.addEventListener('click', (e) => { e.stopPropagation(); if (onTap && visible) { onTap(); return; } next(); });
 
   return {
     get visible() { return visible; },
-    say(ls) { clear(); lines = ls.slice(); i = 0; visible = true; el.classList.add('show'); place(); showLine(); },
+    say(ls, opts) { clear(); lines = ls.slice(); i = 0; visible = true; onTap = opts?.onTap ?? null;
+      cta.textContent = opts?.cta ?? ''; el.classList.toggle('has-cta', !!opts?.cta); el.classList.toggle('tappable', !!onTap);
+      el.classList.add('show'); place(); showLine(); },
     hide,
     place,
   };
-  function hide() { clear(); run++; visible = false; typing = false; el.classList.remove('show', 'done'); }
+  function hide() { clear(); run++; visible = false; typing = false; onTap = null; el.classList.remove('show', 'done'); }
   function place() {
     if (!visible) return;
     const a = o.anchor(); if (!a) { el.style.visibility = 'hidden'; return; }

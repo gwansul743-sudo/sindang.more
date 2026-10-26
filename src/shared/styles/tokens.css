@@ -18,6 +18,10 @@
 /* 이장님·고양이는 전시 모드에서 스탬프 → 두 번째 줌인이 끝난 뒤에만 보인다 (엔진이 body.chief-hidden 을 뗀다, 10-21) */
 body.chief-hidden .wk-chief,body.chief-hidden .wk-cat{display:none}
 .wk-chief.appear,.wk-cat.appear{animation:chief-appear .45s ease-out both}
+/* 말을 거는 주민 발밑 표시(10-26, walker.setRing): 숨 쉬듯 커졌다 작아진다 */
+.wk-ring{transform-box:fill-box;transform-origin:center;animation:wk-ring .9s ease-in-out infinite alternate}
+@keyframes wk-ring{from{transform:scale(.88);opacity:.7}to{transform:scale(1.12);opacity:1}}
+@media(prefers-reduced-motion:reduce){.wk-ring{animation:none}}
 @keyframes chief-appear{from{opacity:0}to{opacity:1}}
 
 /* 10-23: FIELD NOTES(다시 열기) 버튼은 없애고, 빈 화면(소개)은 인트로에서 막 들어왔을 때(#side.welcome)만 — 낮·밤 시트 둘 다 덮음 */
