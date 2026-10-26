@@ -257,7 +257,11 @@ export function bootLegacy(DATA){
   const CHIEF_LINES = ['오호! 처음 보는 얼굴이구먼!\n**신당 5길**에 어서와!!', '잠깐 이야기 좀 듣고 갈 텐가?'];
   /* 대화가 끝난 뒤(rest) 이장님에게 마우스를 올리면(터치는 탭) 머리 위 말풍선으로 한 줄(10-23). 다 찍히고 2.8초 뒤 스스로 닫힌다 — rest 라 큰 상자로 넘어가지 않는다 */
   const CHIEF_AGAIN = ['허허, 또 왔구먼!\n아직 못 가 본 가게가 있나?'];
-  function chiefHook(){ if(!KIOSK || introOpen || kioskStage !== 'rest' || talk.visible || speech.visible || vTalk.visible) return; vSpeech.hide(); speech.say(CHIEF_AGAIN); }
+  /* 말풍선 규칙(10-26, 이장님·주민 똑같이): 작은 말풍선끼리는 새로 나온 쪽이 이긴다(떠 있던 다른 말풍선은 닫힌다). 큰 대화 상자가 열려 있으면 hover 말풍선은 안 뜬다.
+     hook 함수는 말풍선이 떴거나 이미 떠 있으면 true — false 면 HoverProbe 가 0.2초 뒤 다시 묻는다(다시 판정하기) */
+  function chiefHook(){ if(!KIOSK || introOpen || kioskStage !== 'rest' || talk.visible || vTalk.visible) return false; if(speech.visible) return true; villagerDone(); speech.say(CHIEF_AGAIN); return true; }
+  /* hover 판정 보조: 그 자리 맨 위에 실제로 이 캐릭터가 있나(가게 점·말풍선·패널 등에 가려져 있으면 아니다). 커서 밑으로 걸어 들어온 경우도 이것으로 본다 */
+  const topAt = (g, P) => { const t = document.elementFromPoint(P.cx, P.cy); return !!t && g.contains(t); };
   /* 마을 사람 인터뷰(10-23, 설계 메모 '마을 사람 캐릭터 인터뷰' §4): 대본이 있는 주민(content/characters/villagers/*.json)은 이장님과 같은 2단 —
      마우스를 올리면(터치는 첫 탭) 머리 위 작은 말풍선에 hook 한 줄이 HOOK_MS 동안 뜨고, 누르면(터치는 두 번째 탭) 지도 아래 큰 상자에 인터뷰가 장마다 넘어간다.
      말을 거는 동안 그 주민은 그 자리에 서 있다(walker.hold). 말풍선·상자 모양은 이장님 것과 같다(chief-speech · chief-talk). 큰 상자가 닫히면 다시 걷는다 */
@@ -270,15 +274,18 @@ export function bootLegacy(DATA){
   });
   const takeVillager = (w, script) => { clearTimeout(vHookT); if(villager && villager.w !== w){ villager.w.release(); vTalk.hide(); } villager = { w, script }; w.hold(); };
   /* 이장님이 말하는 동안(전시 연출·말풍선·큰 상자)엔 주민에게 말을 걸 수 없다(10-23) */
-  const chiefBusy = () => (KIOSK && kioskStage === 'play') || speech.visible || talk.visible;
-  function villagerHook(w, script){ if(chiefBusy() || (vTalk.visible && villager?.w === w)) return; takeVillager(w, script); vSpeech.say([script.hook]);
-    vHookT = setTimeout(() => { if(villager?.w === w && !vTalk.visible) villagerDone(); }, script.hook.length * 34 + HOOK_MS); }   /* 다 찍힌 뒤 HOOK_MS 동안 남는다(한 글자 34ms 타자) */
+  /* 이장님이 전시 연출 중이거나 큰 상자로 말하는 동안엔 주민에게 말을 걸 수 없다. 이장님 작은 말풍선은 막지 않는다 — 새로 뜬 주민 말풍선이 그것을 닫는다(10-26) */
+  const chiefBusy = () => (KIOSK && kioskStage === 'play') || talk.visible;
+  function villagerHook(w, script){ if(villager?.w === w && (vSpeech.visible || vTalk.visible)) return true;   /* 이미 이 주민이 말하는 중 */
+    if(chiefBusy() || vTalk.visible) return false;
+    speech.hide(); takeVillager(w, script); vSpeech.say([script.hook]);
+    vHookT = setTimeout(() => { if(villager?.w === w && !vTalk.visible) villagerDone(); }, script.hook.length * 34 + HOOK_MS); return true; }   /* 다 찍힌 뒤 HOOK_MS 동안 남는다(한 글자 34ms 타자) */
   /* 주민과 대화(10-23): 자동 순환을 멈추고 그 주민을 비춘다 — 큰 상자를 열고, 그 주민의 가게(대본 store = 가게 이름) 카드를 사이드바에 펴고,
      사이드바가 다 펴진 뒤 카메라가 주민 쪽으로 줌인(전시 보드에선 자동 순환과 같은 배율). 주민은 대화 동안 그 자리에 서 있다(hold) */
   /* 모바일(10-23): 대화 중엔 가게 카드(바텀시트)를 띄우지 않는다 — 대화 상자와 겹쳤다. 이름표 옆 '가게 카드 ›' 로 대화를 닫고 바로 열거나, 대화가 끝나면 열린다(vEndCard) */
   let vEndCard = null;
   const openStoreCard = (st) => { if(KIOSK && board){ board.select(st.id); board.focus(null); } select(st, false); };
-  function villagerOpen(w, script){ if(chiefBusy()) return; takeVillager(w, script); vSpeech.hide(); stopCycle();
+  function villagerOpen(w, script){ if(chiefBusy()) return; speech.hide(); takeVillager(w, script); vSpeech.hide(); stopCycle();
     const st = script.store ? STORES.find(s => s.name === script.store) : null, wide = desktop();
     vEndCard = !wide && st ? st : null;
     vTalk.start({ name: script.store && !script.name.startsWith(script.store) ? `${script.store} · ${script.name}` : script.name,   /* 이름이 가게 이름으로 시작하면('신당야학 박소민 강학') 겹치지 않게 이름만 */
@@ -293,14 +300,14 @@ export function bootLegacy(DATA){
   function bindVillager(w, script){
     w.makeClickable();
     if(script.kind === 'form') w.showMark(DATA.characters.chief.mark);   /* 시민이 인터뷰를 남겨 생긴 주민만 빨간 세모. 가게 인터뷰 주민(shop)은 표시 없음 */
-    w.g.addEventListener('pointerenter', e => { if(e.pointerType === 'mouse') villagerHook(w, script); });
+    w.hover.onHover = P => topAt(w.g, P) && villagerHook(w, script);   /* 마우스: 몸 판정 칸 위에 있으면(walker tick → HoverProbe) — pointerenter 대신(10-26) */
     /* 터치 판정(10-23): click 의 pointerType 은 iOS 사파리 등에서 비어 와 첫 탭에 바로 대화가 열렸다 → 닿는 순간(pointerdown)의 종류를 기억해 쓴다. 그것도 없으면 hover 없는 기기를 터치로 */
     let downType = '';
     w.g.addEventListener('pointerdown', e => { downType = e.pointerType; });
     w.g.addEventListener('click', e => { e.stopPropagation(); if(V.moved) return;
       const type = downType || e.pointerType || (matchMedia('(hover: none)').matches ? 'touch' : 'mouse'); downType = '';
       const firstTouch = type !== 'mouse' && !(villager?.w === w && (vSpeech.visible || vTalk.visible));
-      if(firstTouch) villagerHook(w, script); else if(!(villager?.w === w && vTalk.visible)) villagerOpen(w, script); });
+      if(firstTouch && !vTalk.visible) villagerHook(w, script); else if(!(villager?.w === w && vTalk.visible)) villagerOpen(w, script); });   /* 다른 주민과 큰 상자로 대화 중이면 첫 탭에 바로 그 주민으로 넘어간다(hover 말풍선은 큰 상자 위에 안 뜨므로) */
   }
   /* 보드 전체(시안 캔버스 1774×887)를 담는 카메라 */
   const kioskTarget = () => { const v = board.view(); return { x: v.x, y: v.y, s: desktop() ? Math.min(V.pw / v.w, V.ph / v.h) : V.pw / (v.iw * 1.08) }; };   /* 데스크톱: 캔버스 전체(하늘까지) · 폰: 섬 폭에 맞춤 */
@@ -572,7 +579,7 @@ export function bootLegacy(DATA){
       refresh(); watchFormVillagers(refresh); }
     const chief = new Chief(scene.layer, DATA.characters.body, DATA.characters.chief); scene.add(chief); chiefActor = chief;
     chief.makeHoverable();
-    chief.g.addEventListener('pointerenter', e => { if(e.pointerType === 'mouse') chiefHook(); });
+    chief.hover.onHover = P => topAt(chief.g, P) && chiefHook();   /* 주민과 같은 몸 판정 칸·다시 판정하기(10-26) */
     chief.g.addEventListener('click', e => { e.stopPropagation(); if(V.moved) return; chiefHook(); });
     catActor = new Cat(scene.layer, DATA.characters.cat, chief); scene.add(catActor);
     document.body.classList.add('chief-hidden');   /* 전시 모드 연출 뒤에만 보인다 (showChief) */

@@ -5,13 +5,31 @@ import { SW, FEET } from '../sprites/compose';
 import type { Viewport } from '../viewport';
 import type { LandmarksLayer } from '../layers/landmarks';
 
-export interface Pointer { x: number; y: number; t: number }
+export interface Pointer { x: number; y: number; t: number; type: string; cx: number; cy: number }   // x·y: 지도 칸 기준 px, cx·cy: 화면(client) px, type: mouse|touch|pen
+
+/* 몸 판정 칸(10-26): 그려진 몸(가로 ±half 칸, 머리 위 15칸 ~ 발밑 1칸). 투명 사각형(wk-hit)·손 흔들기·hover 말풍선이 모두 이 칸 하나를 쓴다
+   — 예전엔 손 흔들기만 반경 47~90px 원이라, 손은 흔드는데 말풍선은 안 뜨는 거리가 있었다 */
+export const HIT_TOP = FEET - 1, HIT_H = 16;
+export function overBody(P: Pointer | null, sx: number, sy: number, q: number, half: number): boolean {
+  return !!P && Math.abs(P.x - sx) <= half * q && P.y >= sy - HIT_TOP * q && P.y <= sy + (HIT_H - HIT_TOP) * q;
+}
+/* hover 말풍선(10-26): pointerenter(들어오는 순간 한 번)는 그때 막히면 다시 묻지 않고, 걸어서 커서 밑으로 들어온 주민은 놓쳤다.
+   → 매 프레임 '마우스가 몸 칸 위에 있나'를 보고, 말풍선이 뜰 때까지(onHover 가 true) 0.2초마다 다시 묻는다. 한 번 떴으면 칸을 벗어날 때까지 다시 띄우지 않는다 */
+export class HoverProbe {
+  onHover?: (P: Pointer) => boolean;
+  private heard = false; private t = 0;
+  step(over: boolean, P: Pointer | null, now: number) {
+    if (!over || !P || P.type !== 'mouse') { this.heard = false; this.t = 0; return; }
+    if (this.heard || !this.onHover || now - this.t < 200) return;
+    this.t = now; this.heard = this.onHover(P);
+  }
+}
 export interface Actor { g: SVGGElement; body: SVGGElement; x: number; y: number; ox: number; oy: number; front: boolean; lastT: string; lastB: string; tick(f: Frame, others: Actor[]): void }
 export interface Frame {
   now: number; dt: number; V: Viewport; s: number;
   q: number;        // 스프라이트 1칸 = 화면 q px
   k: number;        // 1칸 = 지도 단위 k
-  R: number;        // 손 흔드는 거리(px)
+  R: number;        // (옛) 손 흔드는 거리(px). 10-26부터 손 흔들기는 몸 판정 칸(overBody)을 쓴다
   P: Pointer | null; live: boolean; still: boolean; kiosk: boolean;
   mul: number;      // 스프라이트 배율 보정(전시 보드 위에서는 크게). 엔진이 actorMul 로 준다
   nearPx: number;   // 화면 가장자리에서 이만큼(px) 넘게 벗어나면 '멀어진' 것
@@ -39,7 +57,7 @@ export function createScene(o: SceneOptions): Scene {
   o.landmarks.items.forEach((l) => el('g', { class: 'lm', transform: l.g.getAttribute('transform')! }, lmLabels).appendChild(l.t));
 
   let P: Pointer | null = null;
-  const track = (e: PointerEvent) => { const r = map.getBoundingClientRect(); P = { x: e.clientX - r.left, y: e.clientY - r.top, t: performance.now() }; };
+  const track = (e: PointerEvent) => { const r = map.getBoundingClientRect(); P = { x: e.clientX - r.left, y: e.clientY - r.top, t: performance.now(), type: e.pointerType || 'mouse', cx: e.clientX, cy: e.clientY }; };
   const leave = (e: PointerEvent) => { if (e.pointerType === 'mouse') P = null; };
   map.addEventListener('pointermove', track, { passive: true }); map.addEventListener('pointerdown', track, { passive: true }); map.addEventListener('pointerleave', leave);
 
