@@ -49,6 +49,7 @@ const ISLAND = (() => { const cx = 887, cy = 452, rx = 560, ry = 300, n = 56, pt
   for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2, w = 1 + 0.06 * Math.sin(a * 5.3 + 1) + 0.045 * Math.sin(a * 9.1 + 2.2) + 0.03 * Math.sin(a * 13.7); pts.push([cx + Math.cos(a) * rx * w * (1 + 0.08 * Math.cos(a * 2)), cy + Math.sin(a) * ry * w]); }
   return pts; })();
 const NEAR = 12, BTN_R = 24, BTN_K = 0.7, TICK_STEP = 13;   /* BTN_K: 단추 배율(10-23 0.55 → 0.4 → 0.55 → 0.7) */
+const CL_K = 0.9;   /* 숫자 단추(묶음)는 가게 단추보다 조금 작게(10-26 사용자 요청) */
 const SLOW = Math.max(1, Number(new URLSearchParams(location.search).get('patch_slow')) || 1);
 const T0 = 400 + 300;    /* 어둠(0.4s) + 잠깐(0.3s) 뒤에 보드가 펴지기 시작한다. 빨간 재단선 그리기는 10-23 사용자 요청으로 뺐다(전엔 +1.0s) */
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -182,7 +183,7 @@ export function mountBoard(o: BoardOptions): Board {
       const x = grp.reduce((t, m) => t + m.x, 0) / grp.length, y = grp.reduce((t, m) => t + m.y, 0) / grp.length, ids = grp.map((m) => m.id);
       const pos = el('g', { transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})` }, btnG);
       const bo = el('g', { class: 'kb-btn kb-cluster' + (on && btnsOn ? ' in' : ''), 'aria-label': `가게 ${grp.length}곳` }, pos);
-      const b = el('g', { transform: `scale(${BTN_K})` }, bo);
+      const b = el('g', { transform: `scale(${BTN_K * CL_K})` }, bo);
       el('circle', { r: BTN_R + 1, class: 'kb-btn-shadow', transform: 'translate(2.5 4)' }, b);
       el('circle', { class: 'kb-rim kb-cl-face', r: BTN_R }, b); el('circle', { class: 'kb-ring', r: 18 }, b);
       const t = el('text', { class: 'kb-cl-n', x: 0, y: 8 }, b); t.textContent = String(grp.length);
