@@ -265,10 +265,12 @@ export function bootLegacy(DATA){
   function chiefHook(){ if(!KIOSK || introOpen || kioskStage !== 'rest' || talk.visible || vTalk.visible) return false; if(speech.visible) return true; villagerDone(); speech.say(CHIEF_AGAIN); return true; }
   /* hover 판정 보조: 그 자리 맨 위에 실제로 이 캐릭터가 있나(가게 점·말풍선·패널 등에 가려져 있으면 아니다). 커서 밑으로 걸어 들어온 경우도 이것으로 본다 */
   const topAt = (g, P) => { const t = document.elementFromPoint(P.cx, P.cy); return !!t && g.contains(t); };
-  /* 전시 보드에선 충분히 다가갔을 때만 hover 말풍선(10-26 사용자 요청): 보드 전체 화면(kioskTarget)에서 + 버튼(×1.6) HOVER_ZOOMS 번만큼 확대한 배율부터.
+  /* 전시 보드에선 충분히 다가갔을 때만 hover 말풍선(10-26 사용자 요청): 보드 전체 화면(kioskTarget)에서 + 버튼(×1.6) hoverZooms() 번만큼 확대한 배율부터.
      멀리서는 사람이 작아 안 보이는데 말풍선만 떠서 오류처럼 보였다. 휠·핀치도 배율로 본다. 누르기(클릭·탭)는 배율과 상관없다. 평소 지도는 그대로 */
-  const HOVER_ZOOMS = 3;
-  const hoverNear = () => !(KIOSK && board?.on) || V.scale() >= kioskTarget().s * 1.6 ** HOVER_ZOOMS * 0.98;
+  /* 10-26 완화: 3번 → 데스크톱 1번(사람 키 약 21 → 42px), 폰 폭 2번. 폰은 픽셀을 정수로 맞추느라 2번까지 사람 크기가 보드 전체와 같다(21px).
+     폰 터치는 이 문턱과 상관없이 탭하면 뜬다 — 이 값은 마우스(좁은 창 포함)용 */
+  const hoverZooms = () => desktop() ? 1 : 2;
+  const hoverNear = () => !(KIOSK && board?.on) || V.scale() >= kioskTarget().s * 1.6 ** hoverZooms() * 0.98;
   /* 마을 사람 인터뷰(10-23, 설계 메모 '마을 사람 캐릭터 인터뷰' §4): 대본이 있는 주민(content/characters/villagers/*.json)은 이장님과 같은 2단 —
      마우스를 올리면(터치는 첫 탭) 머리 위 작은 말풍선에 hook 한 줄이 HOOK_MS 동안 뜨고, 누르면(터치는 두 번째 탭) 지도 아래 큰 상자에 인터뷰가 장마다 넘어간다.
      말을 거는 동안 그 주민은 그 자리에 서 있다(walker.hold). 말풍선·상자 모양은 이장님 것과 같다(chief-speech · chief-talk). 큰 상자가 닫히면 다시 걷는다 */
@@ -293,9 +295,10 @@ export function bootLegacy(DATA){
     if(touch) focusVillager(w);
     return true; }   /* 다 찍힌 뒤 HOOK_MS(터치는 TOUCH_HOOK_MS) 동안 남는다(한 글자 34ms 타자) */
   /* 터치 첫 탭에 그 주민을 비춘다(10-26): 자동 순환을 멈추고, 폰에서 가게 카드(바텀시트)가 떠 있으면 닫고(아래를 덮는다), 사람이 잘 보이는 배율로 —
-     전시 보드는 hover 말풍선이 뜨기 시작하는 배율(HOVER_ZOOMS), 평소 지도는 4.6. 더 당겨 보고 있었으면 그대로 */
+     전시 보드는 + 버튼 3번(TAP_ZOOMS — 폰에서 사람 키가 21 → 42px 로 커지는 첫 배율), 평소 지도는 4.6. 더 당겨 보고 있었으면 그대로 */
+  const TAP_ZOOMS = 3;
   function focusVillager(w){ stopCycle(); if(current && !desktop()) closeCard();
-    const s0 = Math.max(scale(), KIOSK && board ? kioskTarget().s * 1.6 ** HOVER_ZOOMS : 4.6);
+    const s0 = Math.max(scale(), KIOSK && board ? kioskTarget().s * 1.6 ** TAP_ZOOMS : 4.6);
     centerOn(w.x + w.ox, w.y + w.oy, s0, 0); }   /* 다 찍힌 뒤 HOOK_MS 동안 남는다(한 글자 34ms 타자) */
   /* 주민과 대화(10-23): 자동 순환을 멈추고 그 주민을 비춘다 — 큰 상자를 열고, 그 주민의 가게(대본 store = 가게 이름) 카드를 사이드바에 펴고,
      사이드바가 다 펴진 뒤 카메라가 주민 쪽으로 줌인(전시 보드에선 자동 순환과 같은 배율). 주민은 대화 동안 그 자리에 서 있다(hold) */
