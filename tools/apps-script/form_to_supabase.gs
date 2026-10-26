@@ -16,6 +16,11 @@
  */
 
 /* 보낼 열(열 이름이 이 중 하나로 시작하거나 맞으면). 같은 문항이 폼 수정으로 두 벌이어도 둘 다 보낸다 — 앱이 값이 있는 뒤쪽을 쓴다 */
+/* 응답 시트. 스크립트를 시트에 붙이지 않고 따로 만들었어도(getActiveSpreadsheet 가 null) ID 로 연다 */
+var SHEET_ID = '1omo6DyrYBh-SU2JOo10lE8oNpGjcrosJy9C2Yal8SVU';
+function book_() { return SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetApp.openById(SHEET_ID); }
+function sheet_() { var b = book_(); return b.getSheets().filter(function (s) { return s.getFormUrl(); })[0] || b.getSheetByName('Form Responses 1') || b.getSheets()[0]; }
+
 var KEEP = [/^Timestamp$/, /^타임스탬프$/, /^SQ1\./, /^SQ2\./, /^문1\./, /^문8\./, /^문8-1\./, /^문9\./, /^문9-1\./, /^문11-1\./, /^문30\./, /동의하시는지/];
 /* 파트 A 에서도 빼는 문장(개인 입장이 공개 지도에 드러남) */
 var DROP = /상인회|재개발|건물 소유|주인이 여럿/;
@@ -54,10 +59,12 @@ function pairsOf_(sheet, row) {
 }
 
 function send_(sheet, row) {
-  var cfg = props_(), sentKey = 'sent:' + sheet.getSheetId() + ':' + row;
-  if (cfg.store.getProperty(sentKey)) return 'skip';
-  var pairs = pairsOf_(sheet, row);
+  var cfg = props_(), pairs = pairsOf_(sheet, row);
   if (pairs.length < 2) return 'empty';
+  /* 이미 보낸 줄인지: 줄 번호 + 타임스탬프로 기억한다(시험 줄을 지운 자리에 새 응답이 들어와도 건너뛰지 않게) */
+  var ts = (pairs.filter(function (p) { return /^(Timestamp|타임스탬프)$/.test(p[0]); })[0] || [, ''])[1];
+  var sentKey = 'sent:' + sheet.getSheetId() + ':' + row + ':' + ts;
+  if (cfg.store.getProperty(sentKey)) return 'skip';
   var interview = post_(cfg, 'interviews', { source: 'form', answers: { v: 1, row: row, pairs: pairs } });
   var sq2 = (pairs.filter(function (p) { return /^SQ2\./.test(p[0]); }).pop() || [, ''])[1];
   post_(cfg, 'characters', { nickname: (sq2 || '설문') + ' 사장님', interview_id: interview.id, status: cfg.auto ? 'approved' : 'pending' });
@@ -74,7 +81,7 @@ function onFormSubmit(e) {
 
 /* 손으로 실행: 응답 시트에서 아직 안 보낸 줄을 모두 보낸다(트리거를 늦게 달았거나 실패했을 때) */
 function sendMissing() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets().filter(function (s) { return s.getFormUrl(); })[0] || SpreadsheetApp.getActiveSheet();
+  var sheet = sheet_();
   for (var r = 2; r <= sheet.getLastRow(); r++) { try { Logger.log('row ' + r + ': ' + send_(sheet, r)); } catch (err) { Logger.log('row ' + r + ' 실패: ' + err); } }
 }
 
@@ -83,4 +90,32 @@ function checkConnection() {
   var cfg = props_();
   var res = UrlFetchApp.fetch(cfg.url + '/rest/v1/characters?select=id&limit=1', { headers: headers_(cfg.key), muteHttpExceptions: true });
   Logger.log(res.getResponseCode() + ' ' + res.getContentText());
+}
+
+/* 손으로 실행: 시험 응답 한 줄을 시트 맨 아래에 넣고 바로 보낸다(폼 제출 없이 지도까지 확인). 시험이 끝나면 그 줄을 지우고 Supabase 에서 hidden 으로 */
+function addTestRow() {
+  var sheet = sheet_();
+  var head = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var want = [
+    [/^Timestamp$|^타임스탬프$/, new Date()],
+    [/^SQ1\./, '12'], [/^SQ2\./, '한식·분식·일반 음식점'], [/^SQ3\./, '(시험) 오길분식'],
+    [/\[낮 시간대에는 즐길 거리가 부족하다\]$/, '매우 그렇다'],
+    [/\[우리 골목까지는 방문객의 발길이 잘 닿지 않는다\]$/, '매우 그렇다'],
+    [/\[신당은 지금 변화의 과도기에 있다\]$/, '그렇다'],
+    [/^문1\./, 'SNS·유튜브, 지인 소개'], [/^문8\./, '있다'], [/^문8-1\./, '옛날식 떡볶이를 연탄불에 데워요'],
+    [/^문9\./, '있다'], [/^문9-1\./, '어머니가 하시던 가게를 제가 물려받았어요'],
+    [/^문11-1\./, '40~50대'], [/^문30\./, '그렇다']
+  ];
+  var row = head.map(function () { return ''; });
+  want.forEach(function (w) { for (var i = 0; i < head.length; i++) if (w[0].test(String(head[i]).trim())) { row[i] = w[1]; break; } });
+  sheet.appendRow(row);
+  var r = sheet.getLastRow();
+  Logger.log('row ' + r + ': ' + send_(sheet, r));
+}
+
+/* 손으로 한 번 실행: '양식 제출 시' 트리거를 코드로 건다(트리거 화면에서 이벤트 소스에 '스프레드시트에서'가 없을 때). 이미 있으면 지우고 다시 */
+function installTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'onFormSubmit') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('onFormSubmit').forSpreadsheet(SHEET_ID).onFormSubmit().create();
+  Logger.log('트리거: ' + ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction() + ' / ' + t.getEventType(); }).join(', '));
 }

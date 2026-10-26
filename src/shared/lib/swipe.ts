@@ -2,7 +2,7 @@
    · 가로로 minDx px 이상, 세로 흔들림은 가로의 60% 미만, maxMs 안에 끝나야 handler 를 한 번 부른다.
    · 누르기는 대상 요소에서 받지만, 움직임과 놓기는 window 에서 받는다 — 창 끝에 붙은 패널을 끌면 커서가 창 밖으로 나가기 때문.
    · 끄는 동안 패널이 손을 따라 오른쪽으로 밀리고(transform), 놓으면 제자리로 돌아오거나 handler 가 닫는다.
-   · 글 입력 칸(input·textarea·select)에서 시작한 드래그는 글자 선택이므로 무시한다.
+   · 글 입력 칸(input·textarea·select)에서 시작한 드래그는 글자 선택이므로 무시한다. [data-no-swipe] 안(카드 사진 넘기기 등)도 무시한다.
    · 대상 요소에는 CSS `touch-action: pan-y` 가 있어야 터치에서 가로 움직임이 브라우저 스크롤에 먹히지 않는다. */
 export interface SwipeOptions {
   minDx?: number; maxMs?: number;
@@ -14,7 +14,7 @@ export interface SwipeOptions {
 export function onSwipeRight(el: HTMLElement, handler: () => void, o: SwipeOptions = {}): () => void {
   const minDx = o.minDx ?? 70, maxMs = o.maxMs ?? 600, follow = o.follow ?? !o.onDrag;
   let id = -1, x0 = 0, y0 = 0, t0 = 0, dragging = false;
-  const isField = (t: EventTarget | null) => t instanceof Element && !!t.closest('input,textarea,select,[contenteditable]');
+  const isField = (t: EventTarget | null) => t instanceof Element && !!t.closest('input,textarea,select,[contenteditable],[data-no-swipe]');
   const reset = () => {
     id = -1;
     if (dragging) { dragging = false; document.body.classList.remove('swiping'); if (follow) { el.style.transition = ''; el.style.transform = ''; } o.onEnd?.(); }

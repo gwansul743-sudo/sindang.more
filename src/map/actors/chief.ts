@@ -3,7 +3,7 @@
 import { el } from '../svg';
 import { SW, FEET, SHADOW, mountFrames, type FrameSet, type Palette } from '../sprites/compose';
 import { chiefFrames, type BodyParts, type ChiefArt } from '../sprites/frames';
-import type { Actor, Frame } from './scene';
+import { HIT_TOP, HIT_H, overBody, HoverProbe, type Actor, type Frame } from './scene';
 
 export interface ChiefData {
   name?: string;   // 발밑 이름표 (없으면 안 그림)
@@ -21,6 +21,8 @@ export class Chief implements Actor {
   waveStart = 0;                                   /* 고양이가 꼬리 박자를 맞추는 데 읽는다 */
   get waving() { return this.mode === 'wave'; }
   onClick?: () => void;
+  hitHalf = 6.5;                  /* 몸 판정 칸 가로 반폭(칸). 모자까지 가로 13칸 */
+  hover = new HoverProbe();       /* 엔진이 hover.onHover 를 단다 */
 
   constructor(parent: SVGGElement, body: BodyParts, c: ChiefData) {
     this.x = c.x; this.y = c.y;
@@ -36,16 +38,17 @@ export class Chief implements Actor {
   makeHoverable() {
     if (this.g.classList.contains('wk-talk')) return;
     this.g.classList.add('wk-talk');
-    const r = el('rect', { class: 'wk-hit', x: -6.5, y: -FEET + 1, width: 13, height: 16, fill: 'transparent' });   /* 그려진 몸(모자까지 가로 13·세로 16칸)만(10-23) */
+    const r = el('rect', { class: 'wk-hit', x: -this.hitHalf, y: -HIT_TOP, width: this.hitHalf * 2, height: HIT_H, fill: 'transparent' });   /* 그려진 몸(모자까지 가로 13·세로 16칸)만(10-23) */
     r.style.pointerEvents = 'visible';   /* 'all' 은 숨긴(visibility:hidden) 주민도 마우스를 받아, 이장님 대화 중 안 보이는 주민의 말풍선이 떴다(10-23) */ this.g.style.cursor = 'pointer'; this.g.insertBefore(r, this.g.firstChild);
   }
 
   tick(f: Frame) {
-    const { now, dt, V, s, R, P, live, still, kiosk } = f;
+    const { now, dt, V, s, P, live, still, kiosk } = f;
     const mul = f.mul, q = f.q * mul;   /* 배율은 엔진이 준다(주민과 같이). 이름표는 px/q 환산이라 글자 크기는 그대로 */
     const sx = (this.x - V.x) * s, sy = (this.y - V.y) * s;
-    const pd = live && P ? Math.hypot(P.x - sx, P.y - (sy - 8 * q)) : Infinity, near = pd < R;
-    if (pd > R * 1.4) this.armed = true;
+    const over = this.lastT !== 'off' && overBody(P, sx, sy, q, this.hitHalf), near = live && over;   /* 손 흔들기와 hover 말풍선이 같은 몸 판정 칸(10-26) */
+    if (!near) this.armed = true;
+    this.hover.step(over, P, now);
     if (near && this.mode !== 'wave' && (this.armed || (now - P!.t < 140 && now - this.waveEnd > 900))) { this.mode = 'wave'; this.waveStart = now; this.waveMin = now + 1200; this.armed = false; }
     if (this.mode === 'wave' && now > this.waveMin && !(near && now - P!.t < 2400)) { this.mode = 'bow'; this.until = now + 650; this.waveEnd = now; }   /* 손을 내리며 꾸벅 */
     if (this.mode === 'bow' && now > this.until) { this.mode = 'stand'; this.waveEnd = now; }

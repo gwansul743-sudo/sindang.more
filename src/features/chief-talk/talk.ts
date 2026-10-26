@@ -2,7 +2,7 @@ import './talk.css';
 
 /* 이장님 대화 패널 — 작은 말풍선의 인사가 끝나면, 지도 아래쪽 큰 말풍선에 인터뷰가 한 줄씩 쌓인다(타자). 모양은 시안 MORE_exhibition_dynamic_v2 의 .talk 그대로(10-23).
    · start(script): 첫 장부터. 한 장(pages[i])의 줄들을 차례로 찍고, 다 찍히면 holdMs 뒤 다음 장. 마지막 장은 lastHoldMs 뒤 닫힌다(onEnd).
-   · 패널을 누르면: 찍는 중이면 그 장을 바로 다 보여주고, 다 보였으면 다음 장(마지막이면 닫기).
+   · 패널을 누르면: 찍는 중이면 그 장을 바로 다 보여주고, 다 보였으면 다음 장(마지막이면 닫기). 오른쪽 위 'Skip »' 는 대화를 바로 끝낸다(onEnd).
    · **굵게** 는 <b> 로(강조색). 순수 UI: 지도 엔진·데이터를 모른다. 대본은 content/characters/chief-talk.json. */
 export interface TalkScript { name: string; pages: string[][]; action?: { label: string; onClick: () => void } }   // action: 이름표 오른쪽 작은 버튼(모바일 주민 대화의 '가게 카드 ›', 10-23)
 export interface TalkOptions { charMs?: number; lineGapMs?: number; holdMs?: number; lastHoldMs?: number; onEnd?: () => void }
@@ -24,10 +24,12 @@ export function mountTalk(stage: HTMLElement, o: TalkOptions = {}): Talk {
   const charMs = o.charMs ?? 38, lineGapMs = o.lineGapMs ?? 260, holdMs = o.holdMs ?? 3200, lastHoldMs = o.lastHoldMs ?? 5000;
   const el = document.createElement('div'); el.className = 'talk'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-live', 'polite');
   /* 시안 v2 의 대화 상자(10-23): 리넨 천 + 홈질 테두리, 왼쪽 위 이름 꼬리표, 글, 오른쪽 아래 쪽수. 얼굴 그림은 없다(10-23 사용자 결정) */
-  el.innerHTML = '<span class="tk-name"></span><button type="button" class="tk-act"></button><div class="tk-lines"></div><span class="tk-page"></span>';
+  el.innerHTML = '<span class="tk-name"></span><button type="button" class="tk-act"></button><div class="tk-lines"></div><span class="tk-page"></span><button type="button" class="tk-skip" aria-label="대화 건너뛰기">Skip »</button>';
   stage.appendChild(el);
   const actEl = el.querySelector('.tk-act') as HTMLButtonElement;
   actEl.addEventListener('click', (e) => { e.stopPropagation(); script?.action?.onClick(); });
+  /* 건너뛰기(10-26): 상자 안 오른쪽 위 작은 'Skip »' — 남은 장을 건너뛰고 대화가 끝난 것과 똑같이(onEnd) */
+  el.querySelector('.tk-skip')!.addEventListener('click', (e) => { e.stopPropagation(); if (visible && script) end(); });
   const nameEl = el.querySelector('.tk-name') as HTMLElement, linesEl = el.querySelector('.tk-lines') as HTMLElement, pageEl = el.querySelector('.tk-page') as HTMLElement;
   let script: TalkScript | null = null, page = 0, run = 0, timer = 0, typing = false, visible = false;
   const clear = () => { clearTimeout(timer); timer = 0; };

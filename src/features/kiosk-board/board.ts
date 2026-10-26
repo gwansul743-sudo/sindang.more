@@ -15,6 +15,7 @@ export interface BoardOptions {
   cut: XY[];                                      // 재단선(지도 좌표) — 실이 도는 선이자, 보드에 넣을 실제 길·가게의 범위
   roads: Record<string, string>; landBounds: Box; content: BoardContent;
   onStore: (id: string) => void;
+  onCluster?: (ids: string[], x: number, y: number) => void;   // 겹친 단추 묶음(숫자 단추)을 눌렀을 때 — 멤버 가게 id, 묶음 자리(지도 좌표)
 }
 export interface BoardLand { polygon: XY[]; bounds: Box; contains(x: number, y: number): boolean }   // 주민 길 그래프용(actors/roadGraph 의 LandGeometry 와 같은 모양)
 export interface Board {
@@ -114,7 +115,8 @@ export function mountBoard(o: BoardOptions): Board {
     segs.forEach(({ p, q, L }) => { const nx = -(q[1] - p[1]) / L, ny = (q[0] - p[0]) / L; for (let t = 4; t < L; t += TICK_STEP) { const x = p[0] + ((q[0] - p[0]) * t) / L, y = p[1] + ((q[1] - p[1]) * t) / L; ticks.push({ at: (acc + t) / tot, el: el('line', { class: 'kb-tick', x1: (x + nx * 5 + ((q[0] - p[0]) / L) * 2).toFixed(1), y1: (y + ny * 5 + ((q[1] - p[1]) / L) * 2).toFixed(1), x2: (x - nx * 8).toFixed(1), y2: (y - ny * 8).toFixed(1) }, edge) }); } acc += L; }); }
   /* 장식(아플리케, 시안 자리 그대로): [종류, x 가운데, y 발끝, 높이] */
   const propsG = el('g', { class: 'kb-props' }, board);
-  const propEls = (c.props || []).map(([kind, x, y, h]) => { const w = +h * 0.84; return el('image', { class: 'kb-prop', href: `/board/${kind}.webp`, x: (+x - w / 2).toFixed(1), y: (+y - +h).toFixed(1), width: w.toFixed(1), height: h, preserveAspectRatio: 'xMidYMax meet' }, propsG); });
+  const PROP_W: Record<string, number> = { school: 1.56, bench: 1.17 };   /* 그림 가로:세로(기본 0.84 = 집·나무). 학교('학교 캠퍼스 펠트' 1행 2열)·벤치+가로등('펠트 패치워크' 3행 4~5열, 10-26)은 가로로 넓다 */
+  const propEls = (c.props || []).map(([kind, x, y, h]) => { const w = +h * (PROP_W[kind] ?? 0.84); return el('image', { class: 'kb-prop', href: `/board/${kind}.webp`, x: (+x - w / 2).toFixed(1), y: (+y - +h).toFixed(1), width: w.toFixed(1), height: h, preserveAspectRatio: 'xMidYMax meet' }, propsG); });
   /* 제목(천 글자) */
   const titleG = el('g', { class: 'kb-title' }, board); const [tx, ty] = c.titleAt || [470, 215];
   const t1 = el('text', { class: 'kb-t1', x: tx, y: ty, fill: 'url(#kb-p-title)' }, titleG); t1.textContent = c.title || '신당 5길';
@@ -123,7 +125,9 @@ export function mountBoard(o: BoardOptions): Board {
 
   /* 단추(가게 — 실제 자리) */
   const btnG = el('g', { class: 'kb-buttons' }, board);
-  let btns: { id: string; cat: string; g: SVGGElement; x: number; y: number }[] = [], filter: string | null = null, selected: string | null = null;
+  let btns: { id: string; cat: string; g: SVGGElement; x: number; y: number; r: number; cl?: Cluster }[] = [], filter: string | null = null, selected: string | null = null;
+  type Cluster = { ids: string[]; g: SVGGElement; pos: SVGGElement; x: number; y: number };
+  let clusters: Cluster[] = [];
   const inward = (x: number, y: number): XY => {   /* 섬 밖이면 가장 가까운 가장자리에서 안쪽으로 */
     if (inPoly(ISLAND, x, y)) return [x, y];
     let best = Infinity, px = x, py = y;
@@ -150,11 +154,42 @@ export function mountBoard(o: BoardOptions): Board {
       }
       const lab = el('text', { class: 'kb-lab', x: 0, y: BTN_IMG[cat] ? -38 : -34 }, b); lab.textContent = s.name;
       bo.addEventListener('click', (e) => { e.stopPropagation(); o.onStore(s.id); });
-      btns.push({ id: s.id, cat, g: bo, x, y });
+      btns.push({ id: s.id, cat, g: bo, x, y, r: (BTN_IMG[cat] ? BTN_R * 1.25 : BTN_R + 1) * BTN_K });   /* r: 단추 동그라미 반지름(캔버스 단위) — 그림 단추는 그림이 원보다 조금 크다 */
     });
-    applyBtnState(); renderLegend();
+    regroup(); renderLegend();
   }
-  const applyBtnState = () => btns.forEach((b) => { b.g.classList.toggle('dim', !!filter && b.cat !== filter); b.g.classList.toggle('sel', b.id === selected); });
+  /* 겹친 단추 묶기(10-26, 평소 지도의 숫자 점과 같은 흐름): 단추 동그라미끼리 겹치는 가게끼리(이름표만 겹치는 건 묶지 않는다 — 10-26 사용자 결정, 이름표까지 보면 가운데 7곳이 한 덩어리였다) 숫자 단추 하나로 묶고, 누르면 onCluster(엔진이 작은 말풍선에서 고르게).
+     보드는 단추·이름표가 지도와 같이 커지므로 확대해도 겹침이 풀리지 않는다 → 화면 px 가 아니라 캔버스 단위로 한 번 묶는다(가게·필터가 바뀔 때만).
+     필터로 흐려진 단추는 묶지 않고 그대로 둔다 */
+  const hits = (a: (typeof btns)[number], c: (typeof btns)[number]) => Math.hypot(a.x - c.x, a.y - c.y) < a.r + c.r;
+  function regroup() {
+    clusters.forEach((c) => c.pos.remove()); clusters = [];
+    const live = btns.filter((b) => !filter || b.cat === filter), group = new Map<(typeof btns)[number], (typeof btns)[number][]>();
+    btns.forEach((b) => { b.cl = undefined; });
+    for (const a of live) {   /* 겹치는 것끼리 이어 붙인다(가게 수가 적어 n² 로 충분) */
+      if (group.has(a)) continue; const grp = [a]; group.set(a, grp);
+      for (let i = 0; i < grp.length; i++) for (const c of live) if (!group.has(c) && hits(grp[i], c)) { grp.push(c); group.set(c, grp); }
+    }
+    for (const grp of new Set(group.values())) {
+      if (grp.length < 2) continue;
+      const x = grp.reduce((t, m) => t + m.x, 0) / grp.length, y = grp.reduce((t, m) => t + m.y, 0) / grp.length, ids = grp.map((m) => m.id);
+      const pos = el('g', { transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})` }, btnG);
+      const bo = el('g', { class: 'kb-btn kb-cluster' + (on && btnsOn ? ' in' : ''), 'aria-label': `가게 ${grp.length}곳` }, pos);
+      const b = el('g', { transform: `scale(${BTN_K})` }, bo);
+      el('circle', { r: BTN_R + 1, class: 'kb-btn-shadow', transform: 'translate(2.5 4)' }, b);
+      el('circle', { class: 'kb-rim kb-cl-face', r: BTN_R }, b); el('circle', { class: 'kb-ring', r: 18 }, b);
+      const t = el('text', { class: 'kb-cl-n', x: 0, y: 8 }, b); t.textContent = String(grp.length);
+      const c: Cluster = { ids, g: bo, pos, x, y };
+      bo.addEventListener('click', (e) => { e.stopPropagation(); const [mx, my] = toMap([x, y]); o.onCluster?.(ids, mx, my); });
+      grp.forEach((m) => { m.cl = c; }); clusters.push(c);
+    }
+    applyBtnState();
+  }
+  const applyBtnState = () => {
+    btns.forEach((b) => { b.g.classList.toggle('dim', !!filter && b.cat !== filter); b.g.classList.toggle('sel', b.id === selected); b.g.classList.toggle('clustered', !!b.cl); });
+    clusters.forEach((c) => c.g.classList.toggle('sel', !!selected && c.ids.includes(selected)));
+  };
+  const shownBtns = () => [...btns.filter((b) => !b.cl).map((b) => ({ g: b.g, x: b.x })), ...clusters.map((c) => ({ g: c.g, x: c.x }))].sort((a, b) => a.x - b.x);   /* 등장(rest) 순서: 왼쪽부터 */
 
   /* 범례(HTML) */
   const legend = document.createElement('aside'); legend.className = 'kb-legend'; legend.setAttribute('aria-label', '신당 5길의 가게들');
@@ -171,7 +206,7 @@ export function mountBoard(o: BoardOptions): Board {
       const li = document.createElement('li'); li.dataset.cat = k; li.className = filter === k ? 'active' : '';
       li.innerHTML = `<span class="sw${BTN_IMG[k] ? ' img' : ''}" style="${BTN_IMG[k] ? `background-image:url(${BTN_IMG[k]})` : `background:${cc.sw}`}"></span>${cc.n}<small>${n}</small>`; li.onclick = () => setFilter(filter === k ? null : k); ul.appendChild(li); });
   }
-  function setFilter(cat: string | null) { filter = cat; applyBtnState(); ul.querySelectorAll('li').forEach((li) => li.classList.toggle('active', (li as HTMLElement).dataset.cat === filter)); }
+  function setFilter(cat: string | null) { const was = filter; filter = cat; if (was !== cat) regroup(); else applyBtnState(); ul.querySelectorAll('li').forEach((li) => li.classList.toggle('active', (li as HTMLElement).dataset.cat === filter)); }
 
   /* 리넨: 타일 사진을 캔버스에 깔아 큰 그림 하나로(<pattern> 은 줌아웃에서 줄무늬) */
   let linenReady = false;
@@ -192,8 +227,8 @@ export function mountBoard(o: BoardOptions): Board {
   const at = (fn: () => void, t: number) => timers.push(window.setTimeout(fn, t * SLOW));
   const clear = () => { timers.forEach(clearTimeout); timers = []; cancelAnimationFrame(raf); };
   const showAll = (yes: boolean) => { ticks.forEach((t) => t.el.classList.toggle('show', yes)); propEls.forEach((p) => p.classList.toggle('in', yes)); titleG.classList.toggle('in', yes); skyEls.forEach((s) => s.classList.toggle('in', yes)); waveEls.forEach((w) => w.classList.toggle('in', yes)); composed = yes; };
-  const reset = () => { clear(); btnsOn = false; btns.forEach((b) => b.g.classList.remove('in')); g.classList.remove('on', 'cutting', 'arrived', 'roads-on', 'lift'); dark.classList.remove('on'); showAll(false); html.classList.remove('kb-on', 'kb-dark', 'kb-rest'); legend.classList.remove('show'); setFilter(null); selected = null; applyBtnState(); };
-  const skip = () => { ++run; clear(); on = true; loadLinen(); g.classList.add('mounted', 'on', 'arrived', 'roads-on'); g.classList.remove('cutting', 'lift'); dark.classList.remove('on'); html.classList.add('kb-on'); html.classList.remove('kb-dark'); open(); showAll(true); };
+  const reset = () => { clear(); btnsOn = false; btns.forEach((b) => b.g.classList.remove('in')); clusters.forEach((c) => c.g.classList.remove('in')); g.classList.remove('on', 'cutting', 'arrived', 'roads-on', 'lift'); dark.classList.remove('on'); showAll(false); html.classList.remove('kb-on', 'kb-dark', 'kb-rest', 'kb-gone'); legend.classList.remove('show'); setFilter(null); selected = null; applyBtnState(); };
+  const skip = () => { ++run; clear(); on = true; loadLinen(); g.classList.add('mounted', 'on', 'arrived', 'roads-on'); g.classList.remove('cutting', 'lift'); dark.classList.remove('on'); html.classList.add('kb-on'); html.classList.remove('kb-dark'); open(); showAll(true); const my = run; at(() => { if (my === run) html.classList.add('kb-gone'); }, 1200); };   /* 옛 층이 사라진(1.1s) 뒤 아예 뺀다(kb-gone) */
 
   return {
     get on() { return on; }, land: { polygon: ISLAND.map(toMap), bounds: { x0: ib.x0 + C.x, y0: ib.y0 + C.y, x1: ib.x1 + C.x, y1: ib.y1 + C.y }, contains: (x, y) => inPoly(ISLAND, x - C.x, y - C.y) },
@@ -205,7 +240,7 @@ export function mountBoard(o: BoardOptions): Board {
       if (reduced()) { skip(); at(onChief, 300); return; }
       /* ⓪ 화면이 밤색으로 어두워진다(0.35s). 어둠이 다 덮이면 옛 섬·바다는 그 아래서 바뀐다(html.kb-dark: 전환 없이 바로) */
       dark.classList.add('on');
-      at(() => { if (my !== run) return; html.classList.add('kb-on', 'kb-dark'); g.classList.add('on'); }, 400);   /* ① 어둠이 다 덮이면 그 아래서 옛 섬·바다를 바꾼다(빨간 재단선은 그리지 않는다) */
+      at(() => { if (my !== run) return; html.classList.add('kb-on', 'kb-dark', 'kb-gone'); g.classList.add('on'); }, 400);   /* ① 어둠이 다 덮이면 그 아래서 옛 섬·바다를 바꾼다(빨간 재단선은 그리지 않는다) */
       at(() => { if (my !== run) return; g.classList.add('lift'); open(); dark.classList.remove('on'); html.classList.remove('kb-dark'); }, T0);   /* ② 어둠이 걷히는(1.4s) 동안 보드가 윤곽 자리에서 떠올라 펴진다(1.5s) */
       at(() => { if (my !== run) return; g.classList.add('arrived');                                     /* ③ 가장자리 꿰매기 · 하늘 · 물결 */
         const t1 = performance.now(); const step = () => { if (my !== run) return; const p = Math.min(1, (performance.now() - t1) / (1300 * SLOW)); ticks.forEach((t) => { if (t.at <= p) t.el.classList.add('show'); }); if (p < 1) raf = requestAnimationFrame(step); }; raf = requestAnimationFrame(step);
@@ -217,10 +252,10 @@ export function mountBoard(o: BoardOptions): Board {
       at(() => { if (my === run) onChief(); }, tTitle + 500);                                             /* ⑧ 이장님(엔진) */
     },
     skip,
-    rest() { html.classList.add('kb-rest'); legend.classList.add('show'); if (btnsOn) return; btnsOn = true; const my = run; btns.forEach((b, i) => at(() => { if (my === run) b.g.classList.add('in'); }, 250 + i * 120)); },   /* ⑨ 범례·주민·단추(차례로 탕탕) */
+    rest() { html.classList.add('kb-rest'); legend.classList.add('show'); if (btnsOn) return; btnsOn = true; const my = run; shownBtns().forEach((b, i) => at(() => { if (my === run) b.g.classList.add('in'); }, 250 + i * 120)); btns.forEach((b) => { if (b.cl) b.g.classList.add('in'); }); },   /* 묶인 단추는 숨은 채 'in'(묶음이 풀리면 바로 보이게) */   /* ⑨ 범례·주민·단추(차례로 탕탕) */
     hide() { ++run; on = false; reset(); g.classList.remove('mounted'); },
     setStores, setFilter, select(id) { selected = id; applyBtnState(); },
     focusList: () => btns.filter((b) => !filter || b.cat === filter).sort((a, b) => a.x - b.x).map((b) => { const [x, y] = toMap([b.x, b.y]); return { id: b.id, x, y }; }),
-    focus(id) { btns.forEach((b) => b.g.classList.toggle('focus', b.id === id)); },
+    focus(id) { btns.forEach((b) => b.g.classList.toggle('focus', b.id === id)); clusters.forEach((c) => c.g.classList.toggle('focus', !!id && c.ids.includes(id))); },   /* 묶인 가게를 비추면 숫자 단추가 콩콩 */
   };
 }

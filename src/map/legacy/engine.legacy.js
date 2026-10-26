@@ -64,20 +64,23 @@ export function bootLegacy(DATA){
   /* 겹친 가게 말풍선: 숫자 점을 누르면 지도 위에 사진·이름 목록이 뜨고, 하나를 고르면 카드가 열린다. 점이 떨어지면(확대) 자동으로 닫힌다 */
   const clusterPop = document.createElement('div'); clusterPop.id = 'cluster-pop'; document.getElementById('map').appendChild(clusterPop);   /* map 변수는 뒤에서 선언된다 */
   let clusterAt = null;   /* { key, x, y } 열려 있는 말풍선의 지도 좌표 */
-  function openCluster(members, x, y){
-    const key = members.map(m => m.store.id).sort().join('|');
-    const stores = members.map(m => STORES.find(s => s._dot === m)).filter(Boolean);
+  function openCluster(members, x, y){ openClusterOf(members.map(m => STORES.find(s => s._dot === m)).filter(Boolean), x, y, false); }
+  /* 전시 보드의 숫자 단추(10-26): 같은 말풍선, 고르면 단추를 눌렀을 때와 같은 카드(board.select + select). 보드 묶음은 가게·필터가 바뀔 때까지 그대로라 확대로 닫히지 않는다 */
+  function openBoardCluster(ids, x, y){ openClusterOf(ids.map(id => STORES.find(s => s.id === id)).filter(Boolean), x, y, true); }
+  function openClusterOf(stores, x, y, onBoard){
+    const key = stores.map(s => s.id).sort().join('|');
     clusterPop.innerHTML = `<div class="cl-title">이 자리의 가게 ${stores.length}곳</div>` + stores.map(st =>
       `<button type="button" class="cl-row${st.status==='up'?' up':''}" data-id="${esc(st.id)}"><span class="cl-thumb"${st.photoUrl?` style="background-image:url('${esc(st.photoUrl)}')"`:''}></span><span class="cl-text"><b>${esc(st.name)}</b><small>${esc(st.issue||'')}${st.status==='up'?' · 다음 호':''}</small></span><span class="cl-go">›</span></button>`).join('');
-    clusterPop.querySelectorAll('.cl-row').forEach(b => b.onclick = () => { const st = STORES.find(s => s.id === b.dataset.id); closeCluster(); if(st) select(st, true); });
-    clusterAt = { key, x, y }; clusterPop.classList.add('show'); placeCluster();
+    clusterPop.querySelectorAll('.cl-row').forEach(b => b.onclick = e => { e.stopPropagation(); const st = STORES.find(s => s.id === b.dataset.id); closeCluster(); if(!st) return;
+      if(onBoard && board){ board.select(st.id); select(st, false); } else select(st, true); });
+    clusterAt = { key, x, y, onBoard }; clusterPop.classList.add('show'); placeCluster();
   }
   function closeCluster(){ clusterAt = null; clusterPop.classList.remove('show'); }
   function placeCluster(){ if(!clusterAt) return;
-    if(!dots.clusters().has(clusterAt.key)){ closeCluster(); return; }   /* 확대해서 점이 떨어지면 닫는다 */
+    if(!clusterAt.onBoard && !dots.clusters().has(clusterAt.key)){ closeCluster(); return; }   /* 확대해서 점이 떨어지면 닫는다 */
     const s = scale(), z = parseFloat(getComputedStyle(clusterPop).zoom) || 1, px = (clusterAt.x - V.x) * s, py = (clusterAt.y - V.y) * s, w = clusterPop.getBoundingClientRect().width || 220 * z;
     const left = Math.max(8, Math.min(V.pw - w - 8, px - w / 2));
-    const h = clusterPop.getBoundingClientRect().height || 160 * z, gap = 18 * z;
+    const h = clusterPop.getBoundingClientRect().height || 160 * z, gap = clusterAt.onBoard ? Math.max(18 * z, 20 * s + 8) : 18 * z;   /* 보드 단추는 지도와 같이 커진다(반지름 약 17 캔버스 단위) */
     const below = py - h - gap < 0;   /* 위에 자리가 없으면 점 아래로(꼬리는 위로). 기본은 점 위(꼬리 아래) */
     clusterPop.classList.toggle('below', below);
     clusterPop.style.left = left / z + 'px'; clusterPop.style.top = (below ? py + gap : py - h - gap) / z + 'px';   /* zoom 만큼 나눈다 */
@@ -100,7 +103,8 @@ export function bootLegacy(DATA){
   const centerOn = (x,y,s,oy,then) => V.centerOn(x,y,s,oy,then);
   const kioskCutXY = DATA.kioskCut ? DATA.kioskCut.polygon.map(([lat, lng]) => proj(lat, lng)) : null;   /* 전시 보드 재단선(실이 도는 선, 보드에 넣을 실제 길·가게의 범위) */
   if(kioskCutXY && DATA.kioskBoard) board = mountBoard({ svg, before: gDist, host: map, cut: kioskCutXY, roads: ROADS.p, landBounds: LAND.bounds, content: DATA.kioskBoard,
-    onStore: id => { const st = STORES.find(s => s.id === id); if(st){ board.select(id); select(st, false); } } });
+    onStore: id => { closeCluster(); const st = STORES.find(s => s.id === id); if(st){ board.select(id); select(st, false); } },
+    onCluster: (ids, x, y) => { if(clusterAt?.onBoard && clusterAt.key === [...ids].sort().join('|')) closeCluster(); else openBoardCluster(ids, x, y); } });   /* 같은 숫자 단추를 다시 누르면 닫기 */
   function render(s){
     document.body.classList.toggle('far', s < 3.5);
     lmLayer.update(s); districts.update(s); dots.update(s);
@@ -142,11 +146,11 @@ export function bootLegacy(DATA){
     speech.hide(); talk.hide(); if(!cycling && !keepVillager) villagerDone();
     current = s; dots.select(s._dot);
     const up = s.status==='up', href = s.ig || IG;
-    const list = STORES, idx = list.indexOf(s)+1, vid = renderVideo(s.video);   /* 영상이 있으면 포스터 칸에 사진 대신 플레이어 (10-21) */
+    const list = STORES, idx = list.indexOf(s)+1, vid = renderVideo(s.video), photos = s.photos || (s.photoUrl ? [s.photoUrl] : []);   /* 영상이 있으면 포스터 칸에 사진 대신 플레이어 (10-21) */
     card.innerHTML = `
       <button class="x" aria-label="닫기" onclick="closeCard()">✕</button>
       <div class="ig-meta"><span class="account">@sindang.more</span><span class="num">${idx} / ${list.length}</span></div>
-      ${vid.embed ? `<div class="poster video">${vid.embed}</div>` : `<div class="poster ${up?'up':''} ${s.photoUrl?'photo':''}" ${s.photoUrl?`style="background-image:url('${s.photoUrl}')"`:''}><div class="grid"></div><div class="poster-brand">MORE · SINDANG</div><div class="poster-tag">${esc(s.issue||'')}</div><div class="poster-title">${up?'Coming<br>soon':esc(s.name)}</div></div>`}
+      ${vid.embed ? `<div class="poster video">${vid.embed}</div>` : photos.length > 1 ? renderGallery(photos) : `<div class="poster ${up?'up':''} ${s.photoUrl?'photo':''}" ${s.photoUrl?`style="background-image:url('${esc(s.photoUrl)}')"`:''}><div class="grid"></div><div class="poster-brand">MORE · SINDANG</div><div class="poster-tag">${esc(s.issue||'')}</div><div class="poster-title">${up?'Coming<br>soon':esc(s.name)}</div></div>`}
       <div class="detail">
         <h3>${esc(s.name)}</h3>
         ${up?'<p class="copy">인터뷰가 끝나면 이 자리에 카드뉴스가 올라옵니다.</p>':''}
@@ -162,6 +166,7 @@ export function bootLegacy(DATA){
     if(ph && s.photoUrl){ const img = new Image(); img.src = s.photoUrl;
       if(!img.complete){ ph.classList.add('skel'); img.onload = () => ph.classList.remove('skel');
         img.onerror = () => { ph.classList.remove('skel', 'photo'); ph.style.backgroundImage = ''; }; } }
+    const gal = card.querySelector('.poster.gallery'); if(gal) bindGallery(gal);
     const vf = card.querySelector('.poster.video iframe, .poster.video video');
     if(vf){ vf.parentElement.classList.add('skel'); const done = () => vf.parentElement.classList.remove('skel'); vf.addEventListener(vf.tagName === 'VIDEO' ? 'loadeddata' : 'load', done, { once: true }); vf.addEventListener('error', done, { once: true }); setTimeout(done, 12000); }
     sheet.classList.add('open'); side.classList.add('has'); side.classList.remove('closed');
@@ -169,6 +174,25 @@ export function bootLegacy(DATA){
     sheet.scrollTop = 0; const ih = card.querySelector('.interview .ih');
     sheet.style.maxHeight = (!desktop() && ih) ? Math.min(ih.getBoundingClientRect().bottom - sheet.getBoundingClientRect().top + 16, V.ph * 0.73) + 'px' : '';
     if(focus){ const s0 = Math.max(scale(), 4.6); centerOn(s.x, s.y, s0, desktop()?0:V.ph*0.24); } else apply();
+  }
+  /* 사진 여러 장(10-26): 포스터 칸 안에서 옆으로 넘긴다(scroll-snap — 손가락·트랙패드는 그대로, 마우스는 ‹ › 단추). 아래 점이 몇 번째인지.
+     첫 장을 받기 전엔 스켈레톤, 못 받은 장은 포스터 바탕색으로 둔다. 사이드바 '오른쪽으로 넘겨 닫기'는 data-no-swipe 로 이 칸에서 시작한 끌기를 무시한다 */
+  function renderGallery(photos){
+    return `<div class="poster photo gallery"><div class="pg-track" data-no-swipe>${photos.map((u, i) => `<div class="pg-slide" role="img" aria-label="사진 ${i+1} / ${photos.length}" style="background-image:url('${esc(u)}')"></div>`).join('')}</div>`
+      + `<button type="button" class="pg-nav prev" aria-label="이전 사진">‹</button><button type="button" class="pg-nav next" aria-label="다음 사진">›</button>`
+      + `<div class="pg-dots" aria-hidden="true">${photos.map(() => '<i></i>').join('')}</div></div>`;
+  }
+  function bindGallery(gal){
+    const track = gal.querySelector('.pg-track'), slides = [...track.children], dots = [...gal.querySelectorAll('.pg-dots i')], prev = gal.querySelector('.prev'), next = gal.querySelector('.next');
+    let raf = 0;
+    const sync = () => { raf = 0; const i = Math.round(track.scrollLeft / (track.clientWidth || 1)); dots.forEach((d, k) => d.classList.toggle('on', k === i)); prev.hidden = i <= 0; next.hidden = i >= slides.length - 1; };
+    track.addEventListener('scroll', () => { if(!raf) raf = requestAnimationFrame(sync); }, { passive: true });
+    const go = d => track.scrollBy({ left: d * track.clientWidth, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    prev.addEventListener('click', e => { e.stopPropagation(); go(-1); }); next.addEventListener('click', e => { e.stopPropagation(); go(1); });
+    sync();
+    slides.forEach((sl, k) => { const url = sl.style.backgroundImage.slice(5, -2), img = new Image(); img.src = url;
+      if(k === 0 && !img.complete){ gal.classList.add('skel'); img.onload = () => gal.classList.remove('skel'); }
+      img.onerror = () => { sl.style.backgroundImage = ''; if(k === 0) gal.classList.remove('skel'); }; });
   }
   function step(d){ const i=(STORES.indexOf(current)+d+STORES.length)%STORES.length; select(STORES[i], true); }
   function closeCard(then){ closeCluster(); if(current){ dots.select(null); current=null; } sheet.classList.remove('open'); document.getElementById('side').classList.remove('has'); apply();
@@ -236,7 +260,15 @@ export function bootLegacy(DATA){
   const CHIEF_LINES = ['오호! 처음 보는 얼굴이구먼!\n**신당 5길**에 어서와!!', '잠깐 이야기 좀 듣고 갈 텐가?'];
   /* 대화가 끝난 뒤(rest) 이장님에게 마우스를 올리면(터치는 탭) 머리 위 말풍선으로 한 줄(10-23). 다 찍히고 2.8초 뒤 스스로 닫힌다 — rest 라 큰 상자로 넘어가지 않는다 */
   const CHIEF_AGAIN = ['허허, 또 왔구먼!\n아직 못 가 본 가게가 있나?'];
-  function chiefHook(){ if(!KIOSK || introOpen || kioskStage !== 'rest' || talk.visible || speech.visible || vTalk.visible) return; vSpeech.hide(); speech.say(CHIEF_AGAIN); }
+  /* 말풍선 규칙(10-26, 이장님·주민 똑같이): 작은 말풍선끼리는 새로 나온 쪽이 이긴다(떠 있던 다른 말풍선은 닫힌다). 큰 대화 상자가 열려 있으면 hover 말풍선은 안 뜬다.
+     hook 함수는 말풍선이 떴거나 이미 떠 있으면 true — false 면 HoverProbe 가 0.2초 뒤 다시 묻는다(다시 판정하기) */
+  function chiefHook(){ if(!KIOSK || introOpen || kioskStage !== 'rest' || talk.visible || vTalk.visible) return false; if(speech.visible) return true; villagerDone(); speech.say(CHIEF_AGAIN); return true; }
+  /* hover 판정 보조: 그 자리 맨 위에 실제로 이 캐릭터가 있나(가게 점·말풍선·패널 등에 가려져 있으면 아니다). 커서 밑으로 걸어 들어온 경우도 이것으로 본다 */
+  const topAt = (g, P) => { const t = document.elementFromPoint(P.cx, P.cy); return !!t && g.contains(t); };
+  /* 전시 보드에선 충분히 다가갔을 때만 hover 말풍선(10-26 사용자 요청): 보드 전체 화면(kioskTarget)에서 + 버튼(×1.6) HOVER_ZOOMS 번만큼 확대한 배율부터.
+     멀리서는 사람이 작아 안 보이는데 말풍선만 떠서 오류처럼 보였다. 휠·핀치도 배율로 본다. 누르기(클릭·탭)는 배율과 상관없다. 평소 지도는 그대로 */
+  const HOVER_ZOOMS = 3;
+  const hoverNear = () => !(KIOSK && board?.on) || V.scale() >= kioskTarget().s * 1.6 ** HOVER_ZOOMS * 0.98;
   /* 마을 사람 인터뷰(10-23, 설계 메모 '마을 사람 캐릭터 인터뷰' §4): 대본이 있는 주민(content/characters/villagers/*.json)은 이장님과 같은 2단 —
      마우스를 올리면(터치는 첫 탭) 머리 위 작은 말풍선에 hook 한 줄이 HOOK_MS 동안 뜨고, 누르면(터치는 두 번째 탭) 지도 아래 큰 상자에 인터뷰가 장마다 넘어간다.
      말을 거는 동안 그 주민은 그 자리에 서 있다(walker.hold). 말풍선·상자 모양은 이장님 것과 같다(chief-speech · chief-talk). 큰 상자가 닫히면 다시 걷는다 */
@@ -249,15 +281,18 @@ export function bootLegacy(DATA){
   });
   const takeVillager = (w, script) => { clearTimeout(vHookT); if(villager && villager.w !== w){ villager.w.release(); vTalk.hide(); } villager = { w, script }; w.hold(); };
   /* 이장님이 말하는 동안(전시 연출·말풍선·큰 상자)엔 주민에게 말을 걸 수 없다(10-23) */
-  const chiefBusy = () => (KIOSK && kioskStage === 'play') || speech.visible || talk.visible;
-  function villagerHook(w, script){ if(chiefBusy() || (vTalk.visible && villager?.w === w)) return; takeVillager(w, script); vSpeech.say([script.hook]);
-    vHookT = setTimeout(() => { if(villager?.w === w && !vTalk.visible) villagerDone(); }, script.hook.length * 34 + HOOK_MS); }   /* 다 찍힌 뒤 HOOK_MS 동안 남는다(한 글자 34ms 타자) */
+  /* 이장님이 전시 연출 중이거나 큰 상자로 말하는 동안엔 주민에게 말을 걸 수 없다. 이장님 작은 말풍선은 막지 않는다 — 새로 뜬 주민 말풍선이 그것을 닫는다(10-26) */
+  const chiefBusy = () => (KIOSK && kioskStage === 'play') || talk.visible;
+  function villagerHook(w, script){ if(villager?.w === w && (vSpeech.visible || vTalk.visible)) return true;   /* 이미 이 주민이 말하는 중 */
+    if(chiefBusy() || vTalk.visible) return false;
+    speech.hide(); takeVillager(w, script); vSpeech.say([script.hook]);
+    vHookT = setTimeout(() => { if(villager?.w === w && !vTalk.visible) villagerDone(); }, script.hook.length * 34 + HOOK_MS); return true; }   /* 다 찍힌 뒤 HOOK_MS 동안 남는다(한 글자 34ms 타자) */
   /* 주민과 대화(10-23): 자동 순환을 멈추고 그 주민을 비춘다 — 큰 상자를 열고, 그 주민의 가게(대본 store = 가게 이름) 카드를 사이드바에 펴고,
      사이드바가 다 펴진 뒤 카메라가 주민 쪽으로 줌인(전시 보드에선 자동 순환과 같은 배율). 주민은 대화 동안 그 자리에 서 있다(hold) */
   /* 모바일(10-23): 대화 중엔 가게 카드(바텀시트)를 띄우지 않는다 — 대화 상자와 겹쳤다. 이름표 옆 '가게 카드 ›' 로 대화를 닫고 바로 열거나, 대화가 끝나면 열린다(vEndCard) */
   let vEndCard = null;
   const openStoreCard = (st) => { if(KIOSK && board){ board.select(st.id); board.focus(null); } select(st, false); };
-  function villagerOpen(w, script){ if(chiefBusy()) return; takeVillager(w, script); vSpeech.hide(); stopCycle();
+  function villagerOpen(w, script){ if(chiefBusy()) return; speech.hide(); takeVillager(w, script); vSpeech.hide(); stopCycle();
     const st = script.store ? STORES.find(s => s.name === script.store) : null, wide = desktop();
     vEndCard = !wide && st ? st : null;
     vTalk.start({ name: script.store && !script.name.startsWith(script.store) ? `${script.store} · ${script.name}` : script.name,   /* 이름이 가게 이름으로 시작하면('신당야학 박소민 강학') 겹치지 않게 이름만 */
@@ -272,19 +307,24 @@ export function bootLegacy(DATA){
   function bindVillager(w, script){
     w.makeClickable();
     if(script.kind === 'form') w.showMark(DATA.characters.chief.mark);   /* 시민이 인터뷰를 남겨 생긴 주민만 빨간 세모. 가게 인터뷰 주민(shop)은 표시 없음 */
-    w.g.addEventListener('pointerenter', e => { if(e.pointerType === 'mouse') villagerHook(w, script); });
+    w.hover.onHover = P => hoverNear() && topAt(w.g, P) && villagerHook(w, script);   /* 마우스: 몸 판정 칸 위에 있으면(walker tick → HoverProbe) — pointerenter 대신(10-26) */
     /* 터치 판정(10-23): click 의 pointerType 은 iOS 사파리 등에서 비어 와 첫 탭에 바로 대화가 열렸다 → 닿는 순간(pointerdown)의 종류를 기억해 쓴다. 그것도 없으면 hover 없는 기기를 터치로 */
     let downType = '';
     w.g.addEventListener('pointerdown', e => { downType = e.pointerType; });
     w.g.addEventListener('click', e => { e.stopPropagation(); if(V.moved) return;
       const type = downType || e.pointerType || (matchMedia('(hover: none)').matches ? 'touch' : 'mouse'); downType = '';
       const firstTouch = type !== 'mouse' && !(villager?.w === w && (vSpeech.visible || vTalk.visible));
-      if(firstTouch) villagerHook(w, script); else if(!(villager?.w === w && vTalk.visible)) villagerOpen(w, script); });
+      if(firstTouch && !vTalk.visible) villagerHook(w, script); else if(!(villager?.w === w && vTalk.visible)) villagerOpen(w, script); });   /* 다른 주민과 큰 상자로 대화 중이면 첫 탭에 바로 그 주민으로 넘어간다(hover 말풍선은 큰 상자 위에 안 뜨므로) */
   }
   /* 보드 전체(시안 캔버스 1774×887)를 담는 카메라 */
   const kioskTarget = () => { const v = board.view(); return { x: v.x, y: v.y, s: desktop() ? Math.min(V.pw / v.w, V.ph / v.h) : V.pw / (v.iw * 1.08) }; };   /* 데스크톱: 캔버스 전체(하늘까지) · 폰: 섬 폭에 맞춤 */
-  let walkers = [], walkerGraphs = null;   /* WALKERS 에서 채움 */
-  const walkersTo = (which) => { if(walkerGraphs) walkers.forEach(w => w.setGraph(walkerGraphs[which])); };   /* 주민을 보드 위 길 ⇄ 평소 큰 길로 — 보이지 않을 때만 */
+  let walkers = [], walkerGraphs = null, walkerScene = null, extras = [];   /* WALKERS 에서 채움. extras: 대본이 없는(인터뷰와 상관없는) 지나가는 주민 */
+  /* 전시 모드에서는 인터뷰가 있는 사람만(10-26): 이장님 · 가게 인터뷰 주민 · 시민 인터뷰 주민. 지나가는 주민은 장면에서 잠시 빼 두었다가(걷지도 그리지도 않음) 평소 지도로 돌아오면 다시 넣는다 */
+  function parkExtras(off){ if(!walkerScene) return;
+    for(const w of extras){ const i = walkerScene.actors.indexOf(w);
+      if(off){ if(i >= 0) walkerScene.actors.splice(i, 1); w.g.setAttribute('display', 'none'); w.lastT = 'off'; }
+      else if(i < 0) walkerScene.add(w); } }
+  const walkersTo = (which) => { if(!walkerGraphs) return; walkers.forEach(w => w.setGraph(walkerGraphs[which])); parkExtras(which === 'kiosk'); };   /* 주민을 보드 위 길 ⇄ 평소 큰 길로 — 보이지 않을 때만 */
   /* 이장님을 보드 자리 ⇄ 평소 자리로 (고양이는 이장님을 따라간다) */
   const chiefTo = (onBoard) => { if(!chiefActor) return; if(!chiefHome) chiefHome = { x: chiefActor.x, y: chiefActor.y }; const p = onBoard ? board.chiefAt() : [chiefHome.x, chiefHome.y]; chiefActor.x = p[0]; chiefActor.y = p[1]; if(catActor){ catActor.x = p[0]; catActor.y = p[1]; } };
   let kioskStage = 'off';   /* off | play | rest */
@@ -292,16 +332,17 @@ export function bootLegacy(DATA){
      — 인트로를 다시 열거나 버튼을 빠르게 눌렀을 때 뒤에서 옛 연출이 계속 돌던 것을 막는다 */
   let kioskSeq = 0, kioskStartT = null;
   function kioskView(){ if(!board || introOpen) return; const my = ++kioskSeq; clearTimeout(kioskStartT); kioskStage = 'play'; syncSkip?.();
+    villagerDone(); speech.hide(); closeCluster();   /* 켜기 전에 hover 로 떠 있던 주민·이장님 말풍선은 닫는다(10-26) — 주민 hook 은 3초 남짓 남아 연출 위에 떠 있었다 */
     withSide(true, () => { if(my !== kioskSeq || !KIOSK) return; const t2 = kioskTarget(); centerOn(t2.x, t2.y, t2.s, 0); walkersTo('kiosk'); chiefTo(true);
       /* ⑧ 이장님: 먼저 이장님 쪽으로 두 단계(×1.6²) 줌인하고, 도착하면 등장·말풍선 → 큰 상자(10-23). 대화가 끝나면 kioskRest 가 보드 전체로 물러난다 */
       board.play({ onChief: () => { if(my !== kioskSeq || !KIOSK) return; const [cx, cy] = board.chiefAt(), t = kioskTarget();
-        centerOn(cx, cy - 12, t.s * 1.6 ** 2, 0, () => { if(my !== kioskSeq || !KIOSK) return; showChief(true); speech.say(CHIEF_LINES); }); } }); }); }
+        V.centerOn(cx, cy - 12, t.s * 1.6 ** 2, 0, () => { if(my !== kioskSeq || !KIOSK) return; showChief(true); speech.say(CHIEF_LINES); }, true); } }); }); }   /* always: 줌인 도중 지도를 눌러 비행이 끊겨도 이장님은 그 자리에서 나온다(10-26) */
   /* 전시 연출을 그 자리에서 다 멈추고 평소 상태로(카메라·사이드바는 부르는 쪽이 정한다) */
-  function stopKiosk(){ kioskSeq++; clearTimeout(kioskStartT); stopCycle(); kioskStage = 'off'; syncSkip?.(); speech.hide(); talk.hide(); villagerDone(); showChief(false); board?.hide(); walkersTo('home'); chiefTo(false); sideDone?.(false); }
+  function stopKiosk(){ closeCluster(); kioskSeq++; clearTimeout(kioskStartT); stopCycle(); kioskStage = 'off'; syncSkip?.(); speech.hide(); talk.hide(); villagerDone(); showChief(false); board?.hide(); walkersTo('home'); chiefTo(false); sideDone?.(false); }
   function kioskRest(){ if(!KIOSK || !board || kioskStage !== 'play') return; kioskStage = 'rest'; syncSkip?.(); idle(); board.rest(); const t = kioskTarget(); centerOn(t.x, t.y, t.s, 0); }   /* 이장님 줌인에서 보드 전체로 물러나며 범례·단추 */
   function kioskSkip(){ if(!KIOSK || !board || introOpen || kioskStage !== 'play') return; speech.hide(); talk.hide(); board.skip(); showChief(true); kioskRest(); }
   /* 건너뛰기(10-23): 연출(play) 동안만 보인다. 전엔 지도를 누르거나 휠만 굴려도 건너뛰어졌다 */
-  const skipBtn = document.createElement('button'); skipBtn.type = 'button'; skipBtn.className = 'kb-skip'; skipBtn.textContent = '인트로 건너뛰기 ›'; map.appendChild(skipBtn);
+  const skipBtn = document.createElement('button'); skipBtn.type = 'button'; skipBtn.className = 'kb-skip'; skipBtn.textContent = 'Skip ›'; skipBtn.setAttribute('aria-label', '전시 연출 건너뛰기'); map.appendChild(skipBtn);
   skipBtn.addEventListener('pointerdown', e => e.stopPropagation());
   skipBtn.addEventListener('click', e => { e.stopPropagation(); kioskSkip(); });
   const syncSkip = () => skipBtn.classList.toggle('show', KIOSK && !introOpen && kioskStage === 'play');
@@ -320,7 +361,7 @@ export function bootLegacy(DATA){
      한 바퀴 끝의 보드 전체 뷰에선 카드를 닫고 사이드바를 접는다. 사람이 끼어들어 멈추면 열린 카드는 그대로 둔다 */
   const IDLE_MS = 3000, DWELL_MS = 6000;
   let idleT = null, cycleT = null, cycleI = 0, cycling = false;
-  const canCycle = () => KIOSK && board && !introOpen && kioskStage === 'rest' && !talk.visible && !speech.visible && !vTalk.visible && !vSpeech.visible;
+  const canCycle = () => KIOSK && board && !introOpen && kioskStage === 'rest' && !talk.visible && !speech.visible && !vTalk.visible && !vSpeech.visible && !clusterAt;   /* 묶음 말풍선을 보고 있는 동안에도 쉬지 않는다 */
   const focusZoom = () => kioskTarget().s * (desktop() ? 2.6 : 2.2);   /* 보드 전체 배율에서 ×2.6(폰 ×2.2) */
   function stopCycle(){ clearTimeout(cycleT); if(cycling){ cycling = false; board?.focus(null); } }
   function cycleStep(){
@@ -374,7 +415,7 @@ export function bootLegacy(DATA){
   document.getElementById('replay').onclick = playIntro;
 
   /* ── 데이터 (db) · 관리자 ──────────────────────────────── */
-  let gate = null, canWrite = false, authEmail = null, adminOpen = false, picking = false, editing = null, photoPending = null, photoRemove = false;
+  let gate = null, canWrite = false, authEmail = null, adminOpen = false, picking = false, editing = null, photoItems = [];   /* photoItems: 폼에서 고친 사진 차례({ path, url } 기존 · { file, url } 새 파일). 첫 장이 표지 */
   const admin = document.getElementById('admin'), form = document.getElementById('form'), listWrap = document.getElementById('alist-wrap'), delConfirm = document.getElementById('del-confirm');
   /* 데이터는 entities/store/api 가 준다 (DB가 있으면 Supabase, 없으면 씨앗). 처음 목록은 App.tsx 가 이미 읽어 DATA.stores 로 넘겼다. */
   async function reload(){ setStores(await storeApi.listStores()); document.documentElement.dataset.store = storeApi.storeSource(); }
@@ -448,16 +489,23 @@ export function bootLegacy(DATA){
   function editStore(s){
     editing = s; form.reset();
     if(s){ form.name.value=s.name; form.issue.value=s.issue||''; form.status.value=s.status; form.ig.value=s.ig||''; form.video.value=s.video||''; form.category.value=s.category||'etc'; form.interview.value=s.interview||''; form.addr.value=s.addr||''; form.latlng.value=`${s.lat}, ${s.lng}`; select(s,true); }
-    photoPending=null; photoRemove=false; form.photo.value='';
-    setPhotoPrev(s?.photoUrl || null);
+    const urls = s?.photos || (s?.photoUrl ? [s.photoUrl] : []), paths = s?.photoPaths || urls;
+    photoItems = urls.map((url, i) => ({ path: paths[i], url })); form.photo.value=''; renderPhotos();
     form.photo.disabled = !storeApi.canUpload(); document.getElementById('photo-note').textContent = storeApi.canUpload() ? '없으면 기본 이미지로 표시됩니다.' : '이 화면에서는 사진 업로드가 지원되지 않아요.';
     document.getElementById('delbtn').style.display = s?'':'none';
     cancelDelete();
     form.classList.add('open'); renderLogin(); admin.scrollTop = 0;
   }
-  function setPhotoPrev(url){ const p=document.getElementById('photo-prev'); p.classList.toggle('empty',!url); p.style.backgroundImage = url?`url('${url}')`:''; document.getElementById('photo-rm').style.display = url?'':'none'; }
-  form.photo.addEventListener('change', () => { const f=form.photo.files[0]; if(!f) return; if(f.size>20*1024*1024){ toast('20MB 이하로 올려주세요'); form.photo.value=''; return; } photoPending=f; photoRemove=false; setPhotoPrev(URL.createObjectURL(f)); });
-  function removePhoto(){ photoPending=null; photoRemove=true; form.photo.value=''; setPhotoPrev(null); }
+  /* 사진 여러 장(10-26): 썸네일마다 ✕(빼기)·‹(앞으로). 맨 앞이 표지. 저장할 때 새 파일을 올리고 빠진 사진은 보관함에서 지운다(store/api) */
+  const PHOTO_MAX = 10;
+  function renderPhotos(){ const box = document.getElementById('photo-prev'), up = storeApi.canUpload();
+    box.innerHTML = photoItems.map((p, i) => `<div class="photo-prev pl-item" style="background-image:url('${esc(p.url)}')">${i === 0 ? '<span class="pl-cover">표지</span>' : `<button type="button" class="pl-btn pl-left" data-i="${i}" aria-label="앞으로">‹</button>`}${up ? `<button type="button" class="pl-btn pl-rm" data-i="${i}" aria-label="사진 빼기">✕</button>` : ''}</div>`).join('') || '<div class="photo-prev empty"></div>'; }
+  document.getElementById('photo-prev').addEventListener('click', e => { const b = e.target.closest('.pl-btn'); if(!b) return; const i = +b.dataset.i;
+    if(b.classList.contains('pl-rm')) photoItems.splice(i, 1); else if(i > 0) [photoItems[i - 1], photoItems[i]] = [photoItems[i], photoItems[i - 1]];
+    renderPhotos(); });
+  form.photo.addEventListener('change', () => { const files = [...form.photo.files]; form.photo.value='';
+    for(const f of files){ if(photoItems.length >= PHOTO_MAX){ toast(`사진은 ${PHOTO_MAX}장까지예요`); break; } if(f.size>20*1024*1024){ toast(`${f.name}: 20MB 이하로 올려주세요`); continue; } photoItems.push({ file: f, url: URL.createObjectURL(f) }); }
+    renderPhotos(); });
   function cancelEdit(){ endPick(); cancelDelete(); form.classList.remove('open'); editing=null; renderLogin(); }
   /* 주소 → 좌표: 카카오 지도 JS geocoder (shared/lib/geocode.ts). 버튼, 주소 칸의 Enter, 포커스 이탈 때 돈다 */
   let geoSeq = 0;
@@ -490,8 +538,8 @@ export function bootLegacy(DATA){
     if(lat<BBOX.lat0||lat>BBOX.lat1||lng<BBOX.lon0||lng>BBOX.lon1){ toast('지도 범위 밖 좌표예요'); return; }
     const input = {name:form.name.value.trim(), issue:form.issue.value.trim(), status:form.status.value, ig:form.ig.value.trim(), video:form.video.value.trim(), category:form.category.value, interview:form.interview.value.trim(), addr:form.addr.value.trim(), lat, lng};
     try{
-      if(photoPending) toast('사진 올리는 중…');
-      const r = await storeApi.saveStore(editing, input, photoPending, photoRemove);
+      const nNew = photoItems.filter(p => p.file).length; if(nNew) toast(`사진 ${nNew}장 올리는 중…`);
+      const r = await storeApi.saveStore(editing, input, photoItems);
       await reload(); toast(r?.warning || '저장했어요'); cancelEdit(); }   /* 저장이 된 뒤엔 반드시 폼을 닫는다 — 열어 두면 다시 눌렀을 때 새 가게로 또 들어간다 */
     catch(err){ toast('저장 실패: '+(err.message||err.code||err)); }
   }
@@ -514,8 +562,9 @@ export function bootLegacy(DATA){
   const graph = buildRoadGraph(majorRoadPath(ROADS), LAND);
   if(graph.edges.length){
     const scene = createScene({ svg, map, V, landmarks: lmLayer, before: gDist, frontBefore: gDots, isKiosk: () => KIOSK, actorMul: () => (board?.on ? 1.3 : 1) });   /* 보드 위에서는 조금 크게(10-23: 2.6 → 1.3, 사용자 '많이 줄여') */
-    walkers = spawnWalkers(scene, { graph, parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, count: 5, speed: 6.5, home: LANDMARKS[0] || {x:W/2, y:H/2}, fixed: (DATA.villagers || []).map(v => v.look) });   /* 대본에 look 이 있으면 그 주민은 그 모습(10-23) */
-    (DATA.villagers || []).forEach((script, i) => { if(walkers[i]) bindVillager(walkers[i], script); });   /* 대본이 있는 주민: 앞에서부터 하나씩 (지금 신당야학 박소민 강학 1명) */
+    walkers = spawnWalkers(scene, { graph, parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, count: Math.max(5, (DATA.villagers || []).length), speed: 6.5, home: LANDMARKS[0] || {x:W/2, y:H/2}, fixed: (DATA.villagers || []).map(v => v.look) });   /* 대본에 look 이 있으면 그 주민은 그 모습(10-23) */
+    (DATA.villagers || []).forEach((script, i) => { if(walkers[i]) bindVillager(walkers[i], script); });   /* 대본이 있는 주민: 앞에서부터 하나씩 */
+    walkerScene = scene; extras = walkers.slice((DATA.villagers || []).length);   /* 나머지는 대본 없는 지나가는 사람 — 전시 모드에서 빠진다(parkExtras) */
     walkerGraphs = { home: graph, kiosk: board ? buildRoadGraph(board.roadPath(), board.land, { minLen: 40 }) : graph };   /* 전시 모드: 보드 위의 실제 길(골목까지) */
     /* 시민 인터뷰 주민(10-23): 구글폼 응답 → Apps Script(tools/apps-script/form_to_supabase.gs) → Supabase characters(approved) + interviews(answers).
        앱이 답으로 대본을 만들고(features/villagers/formScript — 3장이 안 되면 띄우지 않음) 빨간 세모 주민으로 띄운다. 동시에 FORM_SLOTS 명까지,
@@ -537,7 +586,7 @@ export function bootLegacy(DATA){
       refresh(); watchFormVillagers(refresh); }
     const chief = new Chief(scene.layer, DATA.characters.body, DATA.characters.chief); scene.add(chief); chiefActor = chief;
     chief.makeHoverable();
-    chief.g.addEventListener('pointerenter', e => { if(e.pointerType === 'mouse') chiefHook(); });
+    chief.hover.onHover = P => hoverNear() && topAt(chief.g, P) && chiefHook();   /* 주민과 같은 몸 판정 칸·다시 판정하기(10-26) */
     chief.g.addEventListener('click', e => { e.stopPropagation(); if(V.moved) return; chiefHook(); });
     catActor = new Cat(scene.layer, DATA.characters.cat, chief); scene.add(catActor);
     document.body.classList.add('chief-hidden');   /* 전시 모드 연출 뒤에만 보인다 (showChief) */
@@ -551,6 +600,6 @@ export function bootLegacy(DATA){
   setTheme(currentTheme(), false);
 
   /* 마크업·카드 템플릿의 on* 속성이 부르는 함수들 (컴포넌트로 옮기면 필요 없어짐) */
-  Object.assign(window, {cancelDelete, cancelEdit, closeAdmin, closeCard, confirmDelete, deleteStore, editStore, geocode, removePhoto, saveStore, startPick, step, toggleAccount});
+  Object.assign(window, {cancelDelete, cancelEdit, closeAdmin, closeCard, confirmDelete, deleteStore, editStore, geocode, saveStore, startPick, step, toggleAccount});
   return { centerOn, select, setTheme, getStores: () => STORES, proj, unproj };
 }

@@ -68,15 +68,10 @@
         <option value="coffee">카페</option><option value="restaurant">밥집</option><option value="wine">술집</option>
       </select></div>
     </div>
-    <div><label>표지 사진 (카드뉴스 첫 장 / JPG, PNG, WebP 지원)</label>
-      <div class="pick" style="align-items:flex-start">
-        <div id="photo-prev" class="photo-prev"></div>
-        <div style="flex:1;display:flex;flex-direction:column;gap:6px">
-          <input type="file" name="photo" accept="image/png,image/jpeg,image/webp" style="font-size:12px;padding:6px">
-          <button type="button" class="btn" id="photo-rm" onclick="removePhoto()" style="display:none">사진 지우기</button>
-          <div id="photo-note" style="font-size:10px;color:#9a9188;line-height:1.5">인스타 카드뉴스 첫 페이지. 없으면 기본 이미지로 표시됩니다.</div>
-        </div>
-      </div>
+    <div><label>사진 (여러 장 · 첫 장이 표지 / JPG, PNG, WebP 지원)</label>
+      <div id="photo-prev" class="photo-list"></div>
+      <input type="file" name="photo" accept="image/png,image/jpeg,image/webp" multiple style="font-size:12px;padding:6px;margin-top:6px">
+      <div id="photo-note" style="font-size:10px;color:#9a9188;line-height:1.5">인스타 카드뉴스 첫 페이지. 없으면 기본 이미지로 표시됩니다.</div>
     </div>
     <div><label>인터뷰 전문</label><textarea name="interview" rows="10" placeholder="슬라이드 2 — 소개&#10;Q. 사장님과 가게 소개 부탁드려요.&#10;답변 줄들…&#10;&#10;슬라이드 3 — 이름의 뜻&#10;Q. …" style="min-height:160px;font-size:13px;line-height:1.5"></textarea>
       <div style="font-size:10px;color:#9a9188;line-height:1.5;margin-top:4px;white-space:pre-line">

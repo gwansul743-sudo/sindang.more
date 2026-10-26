@@ -3,7 +3,7 @@ import { el } from '../svg';
 import { SW, FEET, SHADOW, mountFrames, type FrameSet, type Palette } from '../sprites/compose';
 import { walkerFrames, type CharacterParts, type HairStyle } from '../sprites/frames';
 import type { RoadGraph, GraphEdge } from './roadGraph';
-import type { Actor, Frame, Scene } from './scene';
+import { HIT_TOP, HIT_H, overBody, HoverProbe, type Actor, type Frame, type Scene } from './scene';
 
 export interface Look { style: HairStyle; bun?: boolean | number; bag?: boolean | number }
 export interface WalkerPalette { skin: string[]; hair: string[]; top: string[]; pant: string[]; shoe: string[]; hat: string[]; bag: string[] }
@@ -38,13 +38,15 @@ export class Walker implements Actor {
 
   /* 말을 거는 동안 멈춰 세우기(마을 사람 인터뷰, 10-23) — 붙잡혀 있는 동안은 걷지도, 화면 밖으로 옮겨지지도 않는다 */
   held = false;
+  hitHalf = 5.5;                  /* 몸 판정 칸 가로 반폭(칸). 그려진 몸 가로 11칸 */
+  hover = new HoverProbe();       /* 엔진이 hover.onHover 를 단다(대본 있는 주민만) */
   hold() { this.held = true; if (this.mode === 'walk') { this.mode = 'pause'; this.until = Infinity; } }
   release() { if (!this.held) return; this.held = false; if (this.mode === 'pause') this.until = 0; }
   /* 누를 수 있는 주민: 스프라이트 칸 전체를 덮는 투명 사각형(픽셀 사이 빈칸도 잡히게) + 손가락 커서. 이벤트는 엔진이 g 에 단다 */
   makeClickable() {
     if (this.g.classList.contains('wk-talk')) return;
     this.g.classList.add('wk-talk');
-    const r = el('rect', { class: 'wk-hit', x: -5.5, y: -FEET + 1, width: 11, height: 16, fill: 'transparent' });   /* 그려진 몸(가로 11·세로 16칸)만 — 칸 전체(17×19)로 잡으면 옆 빈 곳에서도 대화가 떴다(10-23) */
+    const r = el('rect', { class: 'wk-hit', x: -this.hitHalf, y: -HIT_TOP, width: this.hitHalf * 2, height: HIT_H, fill: 'transparent' });   /* 그려진 몸(가로 11·세로 16칸)만 — 칸 전체(17×19)로 잡으면 옆 빈 곳에서도 대화가 떴다(10-23) */
     r.style.pointerEvents = 'visible';   /* 'all' 은 숨긴(visibility:hidden) 주민도 마우스를 받아, 이장님 대화 중 안 보이는 주민의 말풍선이 떴다(10-23) */ this.g.style.cursor = 'pointer'; this.g.insertBefore(r, this.g.firstChild);
   }
 
@@ -84,17 +86,18 @@ export class Walker implements Actor {
   }
 
   tick(f: Frame, others: Actor[]) {
-    const { now, dt, V, s, R, P, live, still, kiosk, nearPx, lms, LK } = f, G = this.G;
+    const { now, dt, V, s, P, live, still, kiosk, nearPx, lms, LK } = f, G = this.G;
     const mul = f.mul, q = f.q * mul, k = f.k * mul;   /* 배율은 엔진이 준다(전시 보드 위에서는 크게, 10-23). 이장님·고양이도 같이 */
     if (!still && !this.held) {
       const fx = (this.x - V.x) * s, fy = (this.y - V.y) * s;
       this.offT = fx < -nearPx || fx > V.pw + nearPx || fy < -nearPx || fy > V.ph + nearPx ? this.offT + dt : 0;
       if (this.offT > this.offLimit) { this.relocate(f, others); this.offT = 0; this.offLimit = rnd(1, 3.5); }
     }
-    /* 포인터와의 거리(화면 px, 몸통 중심 기준) */
+    /* 포인터가 몸 판정 칸 위에 있나(화면 px) — 손 흔들기와 hover 말풍선이 같은 칸(10-26) */
     const sx = (this.x + this.ox - V.x) * s, sy = (this.y + this.oy - V.y) * s;
-    const pd = live && P ? Math.hypot(P.x - sx, P.y - (sy - 8 * q)) : Infinity, near = pd < R;
-    if (pd > R * 1.4) this.armed = true;
+    const over = this.lastT !== 'off' && overBody(P, sx, sy, q, this.hitHalf), near = live && over;
+    if (!near) this.armed = true;
+    this.hover.step(over, P, now);
     if (near && this.mode !== 'wave' && (this.armed || (now - P!.t < 140 && now - this.waveEnd > 700))) { this.mode = 'wave'; this.waveStart = now; this.waveMin = now + 1200; this.armed = false; }
     /* 최소 1.2초는 흔들고, 포인터가 곁에서 움직이는 동안은 계속. 포인터가 2.4초 멈춰 있으면 다시 걷기 */
     if (this.mode === 'wave' && now > this.waveMin && !(near && now - P!.t < 2400)) { this.mode = 'walk'; this.waveEnd = now; }

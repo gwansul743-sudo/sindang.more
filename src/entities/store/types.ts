@@ -8,8 +8,10 @@ export interface Store {
   ig: string;            // 인스타 게시물 URL  → stores.ig_url
   video?: string;        // 영상 주소(유튜브·구글 드라이브·mp4) → stores.video_url. 카드에서 재생 (10-21). 시드에는 없음
   category?: string;     // 업종 키(sewing·supermarket·coffee·restaurant·wine·etc) → stores.category. 전시 보드 단추·범례 (10-23)
-  photoUrl?: string;     // 표지 사진 보여줄 URL (Storage 공개 URL 또는 /seed-photos/… 정적 파일)
-  photoPath?: string;    // stores.photo_path 원본 값 (Storage 경로). 삭제·교체 때 씀
+  photoUrl?: string;     // 표지 사진(= photos[0]) 보여줄 URL (Storage 공개 URL 또는 /seed-photos/… 정적 파일)
+  photoPath?: string;    // 표지 사진의 원본 경로(= photoPaths[0])
+  photos?: string[];     // 사진 전부(10-26, 첫 장이 표지) 보여줄 URL. 카드에서 옆으로 넘긴다
+  photoPaths?: string[]; // stores.photo_paths 원본 값 (Storage 경로). 삭제·교체 때 씀. 칸이 없는 DB 는 photo_path 한 장
   interview: string;     // 인터뷰 전문        → stores.interview_md
   issue: string;         // '6호' 같은 표시    → stores.issue
   order: number;
