@@ -8,7 +8,7 @@ import { type XY, type Box, bboxOf, distToPoly, inPoly, pathOf, roadsInside, pol
    · 켜진 동안 html.kb-on: 섬 위 원래 층은 사라지고(1.1s) 바다는 시안 색. 엔진은 카메라(view)·이장님·주민 그래프(roadPath·land)만 맡는다. */
 
 export interface BoardStore { id: string; name: string; x: number; y: number; category?: string; status?: string }
-export interface BoardContent { hideRoads?: HideShape[]; hideMain?: HideShape[]; title?: string; sub?: string; titleAt?: number[]; chiefAt?: number[]; props?: (string | number)[][]; sky?: (string | number)[][]; waves?: number[][] }
+export interface BoardContent { hideRoads?: HideShape[]; hideMain?: HideShape[]; title?: string; sub?: string; titleAt?: number[]; titleImg?: (string | number)[]; chiefAt?: number[]; props?: (string | number)[][]; sky?: (string | number)[][]; waves?: number[][] }
 export interface BoardOptions {
   svg: SVGSVGElement; before: Element;            // 이 요소 앞에 끼운다(주민 층 앞)
   host: HTMLElement;                              // 범례(HTML)를 붙일 지도 칸
@@ -116,12 +116,16 @@ export function mountBoard(o: BoardOptions): Board {
     segs.forEach(({ p, q, L }) => { const nx = -(q[1] - p[1]) / L, ny = (q[0] - p[0]) / L; for (let t = 4; t < L; t += TICK_STEP) { const x = p[0] + ((q[0] - p[0]) * t) / L, y = p[1] + ((q[1] - p[1]) * t) / L; ticks.push({ at: (acc + t) / tot, el: el('line', { class: 'kb-tick', x1: (x + nx * 5 + ((q[0] - p[0]) / L) * 2).toFixed(1), y1: (y + ny * 5 + ((q[1] - p[1]) / L) * 2).toFixed(1), x2: (x - nx * 8).toFixed(1), y2: (y - ny * 8).toFixed(1) }, edge) }); } acc += L; }); }
   /* 장식(아플리케, 시안 자리 그대로): [종류, x 가운데, y 발끝, 높이] */
   const propsG = el('g', { class: 'kb-props' }, board);
-  const PROP_W: Record<string, number> = { bench: 1.17, 'bench-s': 1.63, sewing: 1.55, sign: 0.74, hedge: 1.65, 'house-check': 0.9, pond: 1.04 };   /* 그림 가로:세로(기본 0.84 = 집·나무). 벤치+가로등('펠트 패치워크' 3행 4~5열, 10-26)은 가로로 넓다. 팻말·덤불은 '학교 캠퍼스 펠트' 4행 8·9열(10-26). bench-s 는 가로등 없는 벤치만, sewing 은 학교 자리의 천 재봉틀(10-26 사용자 제공). house-check·pond 는 '펠트 패치워크' 1행 1열 집·3행 마지막 열 연못(10-26) */
+  const PROP_W: Record<string, number> = { bench: 1.17, 'bench-s': 1.63, sewing: 1.55, sign: 0.74, hedge: 1.65, 'house-check': 0.9 };   /* 그림 가로:세로(기본 0.84 = 집·나무). 벤치+가로등('펠트 패치워크' 3행 4~5열, 10-26)은 가로로 넓다. 팻말·덤불은 '학교 캠퍼스 펠트' 4행 8·9열(10-26). bench-s 는 가로등 없는 벤치만, sewing 은 학교 자리의 천 재봉틀(10-26 사용자 제공). house-check 는 '펠트 패치워크' 1행 1열 집(10-26) */
   const propEls = (c.props || []).map(([kind, x, y, h]) => { const w = +h * (PROP_W[kind] ?? 0.84); return el('image', { class: 'kb-prop', href: `/board/${kind}.webp`, x: (+x - w / 2).toFixed(1), y: (+y - +h).toFixed(1), width: w.toFixed(1), height: h, preserveAspectRatio: 'xMidYMax meet' }, propsG); });
   /* 제목(천 글자) */
   const titleG = el('g', { class: 'kb-title' }, board); const [tx, ty] = c.titleAt || [470, 215];
-  const t1 = el('text', { class: 'kb-t1', x: tx, y: ty, fill: 'url(#kb-p-title)' }, titleG); t1.textContent = c.title || '신당 5길';
-  const t2 = el('text', { class: 'kb-t2', x: tx, y: ty }, titleG); t2.textContent = t1.textContent;
+  if (c.titleImg) {   /* 제목 그림(10-26 사용자 제공 자수 글자): [주소, 왼쪽, 위, 폭, 높이] 캔버스 단위. 없으면 아래 천 글자 */
+    const [href, ix, iy, iw, ih] = c.titleImg; const im = el('image', { class: 'kb-timg', href, x: ix, y: iy, width: iw, height: ih }, titleG); im.setAttribute('aria-label', c.title || '신당 5길');
+  } else {
+    const t1 = el('text', { class: 'kb-t1', x: tx, y: ty, fill: 'url(#kb-p-title)' }, titleG); t1.textContent = c.title || '신당 5길';
+    const t2 = el('text', { class: 'kb-t2', x: tx, y: ty }, titleG); t2.textContent = t1.textContent;
+  }
   if (c.sub) { const t3 = el('text', { class: 'kb-t3', x: tx + 4, y: ty + 33 }, titleG); t3.textContent = c.sub; }   /* 부제는 kiosk-board.json 에 sub 가 있을 때만 (10-23 사용자 요청으로 뺌) */
 
   /* 단추(가게 — 실제 자리) */
