@@ -6,7 +6,10 @@
 <title>MORE — A Map of Sindang</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=IBM+Plex+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@500&family=Gaegu:wght@400;700&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
+<!-- 글꼴(10-26): 표지에 쓰는 것(Inter · IBM Plex Sans KR · Pixelify Sans)만 렌더를 막고 받는다. 손글씨체(Gaegu · Nanum Pen Script)는 전시 보드·대화 상자에서만 써서 막지 않고 나중에.
+     Pixelify 는 예전에 테마 CSS 안 @import 였다(테마 시트를 받은 뒤에야 요청이 나가 표지가 한 번 더 기다렸다) -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=IBM+Plex+Sans+KR:wght@400;500;700&family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Nanum+Pen+Script&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="/src/shared/styles/tokens.css">
 <style>#root{display:contents}</style>
 </head>

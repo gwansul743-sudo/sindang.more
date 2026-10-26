@@ -18,7 +18,7 @@ const fullReload = (): Plugin => ({
 
 /* 첫 화면(표지)을 JS 없이 바로 그린다(10-26). JS 를 다 받고 실행해야 표지가 보이던 것(느린 폰 4초대)을 줄이려고.
    · <!--legacy-markup--> 자리에 src/app/legacy-markup.html 을 그대로 끼운다(임시 엔진이 보는 id 는 같다. App 은 더 이상 innerHTML 하지 않는다).
-   · </head> 바로 앞(번들 CSS 뒤 — 예전처럼 테마 시트가 나중에 와서 같은 우선순위면 이긴다)에 낮·밤 테마 시트를 고르는 인라인 스크립트. document.write 라 파서가 넣은 <link> 와 같이 렌더를 막는다(표지가 스타일 없이 번쩍이지 않게).
+   · 낮·밤 테마 시트는 인라인 스크립트(themeHead·themeLinks)가 document.write 로 넣는다 — 파서가 넣은 <link> 와 같이 렌더를 막는다(표지가 스타일 없이 번쩍이지 않게).
      주소는 빌드면 해시 붙은 파일, 개발 서버면 소스 경로. mountThemes 는 이 <link id="css-day|css-night"> 를 그대로 쓴다. 처음 테마 고르는 규칙은 mountThemes.initialTheme 과 같게
    · <!--pixel-defs--> 자리에 랜드마크·장식 그림(content/landmarks·map/decor 의 *.pixel.txt = <symbol id="px-…">) — 표지 섬 그림과 지도가 같이 쓴다(지도 엔진은 더 이상 넣지 않는다).
      파일 이름 순(예전 import.meta.glob 순서와 같게) */
@@ -30,8 +30,12 @@ const pixelDefs = () => {
     if (!have.has(l.art + '.pixel.txt')) throw new Error(`랜드마크 그림이 없습니다: content/landmarks/${l.art}.pixel.txt`);
   return ['./content/landmarks/', './content/map/decor/'].flatMap((d) => readdirSync(here(d)).filter((f) => f.endsWith('.pixel.txt')).sort().map((f) => readFileSync(here(d + f), 'utf8'))).join('');
 };
-const themeScript = (day: string, night: string) => `<script>(function(){var t='night';try{var q=/[?&]theme=(day|night)/.exec(location.search);t=q?q[1]:localStorage.getItem('more-theme')||'night'}catch(e){}if(t!=='day')t='night';document.documentElement.setAttribute('data-theme',t);
-document.write('<link id="css-day" rel="stylesheet" href="${day}" media="'+(t==='day'?'all':'not all')+'"><link id="css-night" rel="stylesheet" href="${night}" media="'+(t==='day'?'not all':'all')+'">')})()</script>`;
+/* 테마 스크립트 두 개: ① head 맨 앞 — 처음 테마를 정해 html[data-theme] 에 적고 그 시트를 preload(글꼴 CSS 를 기다리지 않고 바로 받기 시작)
+   ② </head> 앞 — 그 테마로 두 시트를 <link> 로(인라인 스크립트는 앞의 스타일시트가 다 올 때까지 기다리므로 적용 순서는 예전처럼 번들 CSS 뒤) */
+const themeHead = (day: string, night: string) => `<script>(function(){var t='night';try{var q=/[?&]theme=(day|night)/.exec(location.search);t=q?q[1]:localStorage.getItem('more-theme')||'night'}catch(e){}if(t!=='day')t='night';document.documentElement.setAttribute('data-theme',t);
+document.write('<link rel="preload" as="style" href="'+(t==='day'?'${day}':'${night}')+'">')})()</script>`;
+const themeLinks = (day: string, night: string) => `<script>(function(){var d=document.documentElement.getAttribute('data-theme')==='day';
+document.write('<link id="css-day" rel="stylesheet" href="${day}" media="'+(d?'all':'not all')+'"><link id="css-night" rel="stylesheet" href="${night}" media="'+(d?'not all':'all')+'">')})()</script>`;
 const staticShell = (): Plugin => ({
   name: 'static-shell',
   transformIndexHtml: {
@@ -41,7 +45,7 @@ const staticShell = (): Plugin => ({
       const day = ctx.bundle ? asset(/theme\.day-[\w-]+\.css$/) : '/src/shared/styles/theme.day.css';
       const night = ctx.bundle ? asset(/theme\.night-[\w-]+\.css$/) : '/src/shared/styles/theme.night.css';
       if (!day || !night) throw new Error('static-shell: 테마 시트를 번들에서 못 찾음');
-      return html.replace('</head>', () => themeScript(day, night) + '\n</head>').replace('<!--legacy-markup-->', () => readFileSync(MARKUP, 'utf8'))
+      return html.replace('<meta charset="utf-8">', (m) => m + '\n' + themeHead(day, night)).replace('</head>', () => themeLinks(day, night) + '\n</head>').replace('<!--legacy-markup-->', () => readFileSync(MARKUP, 'utf8'))
         .replace('<!--pixel-defs-->', () => `<svg id="px-defs" width="0" height="0" style="position:absolute" aria-hidden="true"><defs>${pixelDefs()}</defs></svg>`);
     },
   },
