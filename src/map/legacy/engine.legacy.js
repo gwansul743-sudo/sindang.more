@@ -280,8 +280,13 @@ export function bootLegacy(DATA){
   }
   /* 보드 전체(시안 캔버스 1774×887)를 담는 카메라 */
   const kioskTarget = () => { const v = board.view(); return { x: v.x, y: v.y, s: desktop() ? Math.min(V.pw / v.w, V.ph / v.h) : V.pw / (v.iw * 1.08) }; };   /* 데스크톱: 캔버스 전체(하늘까지) · 폰: 섬 폭에 맞춤 */
-  let walkers = [], walkerGraphs = null;   /* WALKERS 에서 채움 */
-  const walkersTo = (which) => { if(walkerGraphs) walkers.forEach(w => w.setGraph(walkerGraphs[which])); };   /* 주민을 보드 위 길 ⇄ 평소 큰 길로 — 보이지 않을 때만 */
+  let walkers = [], walkerGraphs = null, walkerScene = null, extras = [];   /* WALKERS 에서 채움. extras: 대본이 없는(인터뷰와 상관없는) 지나가는 주민 */
+  /* 전시 모드에서는 인터뷰가 있는 사람만(10-26): 이장님 · 가게 인터뷰 주민 · 시민 인터뷰 주민. 지나가는 주민은 장면에서 잠시 빼 두었다가(걷지도 그리지도 않음) 평소 지도로 돌아오면 다시 넣는다 */
+  function parkExtras(off){ if(!walkerScene) return;
+    for(const w of extras){ const i = walkerScene.actors.indexOf(w);
+      if(off){ if(i >= 0) walkerScene.actors.splice(i, 1); w.g.setAttribute('display', 'none'); w.lastT = 'off'; }
+      else if(i < 0) walkerScene.add(w); } }
+  const walkersTo = (which) => { if(!walkerGraphs) return; walkers.forEach(w => w.setGraph(walkerGraphs[which])); parkExtras(which === 'kiosk'); };   /* 주민을 보드 위 길 ⇄ 평소 큰 길로 — 보이지 않을 때만 */
   /* 이장님을 보드 자리 ⇄ 평소 자리로 (고양이는 이장님을 따라간다) */
   const chiefTo = (onBoard) => { if(!chiefActor) return; if(!chiefHome) chiefHome = { x: chiefActor.x, y: chiefActor.y }; const p = onBoard ? board.chiefAt() : [chiefHome.x, chiefHome.y]; chiefActor.x = p[0]; chiefActor.y = p[1]; if(catActor){ catActor.x = p[0]; catActor.y = p[1]; } };
   let kioskStage = 'off';   /* off | play | rest */
@@ -511,8 +516,9 @@ export function bootLegacy(DATA){
   const graph = buildRoadGraph(majorRoadPath(ROADS), LAND);
   if(graph.edges.length){
     const scene = createScene({ svg, map, V, landmarks: lmLayer, before: gDist, frontBefore: gDots, isKiosk: () => KIOSK, actorMul: () => (board?.on ? 1.3 : 1) });   /* 보드 위에서는 조금 크게(10-23: 2.6 → 1.3, 사용자 '많이 줄여') */
-    walkers = spawnWalkers(scene, { graph, parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, count: 5, speed: 6.5, home: LANDMARKS[0] || {x:W/2, y:H/2}, fixed: (DATA.villagers || []).map(v => v.look) });   /* 대본에 look 이 있으면 그 주민은 그 모습(10-23) */
-    (DATA.villagers || []).forEach((script, i) => { if(walkers[i]) bindVillager(walkers[i], script); });   /* 대본이 있는 주민: 앞에서부터 하나씩 (지금 신당야학 박소민 강학 1명) */
+    walkers = spawnWalkers(scene, { graph, parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, count: Math.max(5, (DATA.villagers || []).length), speed: 6.5, home: LANDMARKS[0] || {x:W/2, y:H/2}, fixed: (DATA.villagers || []).map(v => v.look) });   /* 대본에 look 이 있으면 그 주민은 그 모습(10-23) */
+    (DATA.villagers || []).forEach((script, i) => { if(walkers[i]) bindVillager(walkers[i], script); });   /* 대본이 있는 주민: 앞에서부터 하나씩 */
+    walkerScene = scene; extras = walkers.slice((DATA.villagers || []).length);   /* 나머지는 대본 없는 지나가는 사람 — 전시 모드에서 빠진다(parkExtras) */
     walkerGraphs = { home: graph, kiosk: board ? buildRoadGraph(board.roadPath(), board.land, { minLen: 40 }) : graph };   /* 전시 모드: 보드 위의 실제 길(골목까지) */
     /* 시민 인터뷰 주민(10-23): 구글폼 응답 → Apps Script(tools/apps-script/form_to_supabase.gs) → Supabase characters(approved) + interviews(answers).
        앱이 답으로 대본을 만들고(features/villagers/formScript — 3장이 안 되면 띄우지 않음) 빨간 세모 주민으로 띄운다. 동시에 FORM_SLOTS 명까지,
