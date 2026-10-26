@@ -139,11 +139,11 @@ export function bootLegacy(DATA){
     speech.hide(); talk.hide(); if(!cycling && !keepVillager) villagerDone();
     current = s; dots.select(s._dot);
     const up = s.status==='up', href = s.ig || IG;
-    const list = STORES, idx = list.indexOf(s)+1, vid = renderVideo(s.video);   /* 영상이 있으면 포스터 칸에 사진 대신 플레이어 (10-21) */
+    const list = STORES, idx = list.indexOf(s)+1, vid = renderVideo(s.video), photos = s.photos || (s.photoUrl ? [s.photoUrl] : []);   /* 영상이 있으면 포스터 칸에 사진 대신 플레이어 (10-21) */
     card.innerHTML = `
       <button class="x" aria-label="닫기" onclick="closeCard()">✕</button>
       <div class="ig-meta"><span class="account">@sindang.more</span><span class="num">${idx} / ${list.length}</span></div>
-      ${vid.embed ? `<div class="poster video">${vid.embed}</div>` : `<div class="poster ${up?'up':''} ${s.photoUrl?'photo':''}" ${s.photoUrl?`style="background-image:url('${s.photoUrl}')"`:''}><div class="grid"></div><div class="poster-brand">MORE · SINDANG</div><div class="poster-tag">${esc(s.issue||'')}</div><div class="poster-title">${up?'Coming<br>soon':esc(s.name)}</div></div>`}
+      ${vid.embed ? `<div class="poster video">${vid.embed}</div>` : photos.length > 1 ? renderGallery(photos) : `<div class="poster ${up?'up':''} ${s.photoUrl?'photo':''}" ${s.photoUrl?`style="background-image:url('${esc(s.photoUrl)}')"`:''}><div class="grid"></div><div class="poster-brand">MORE · SINDANG</div><div class="poster-tag">${esc(s.issue||'')}</div><div class="poster-title">${up?'Coming<br>soon':esc(s.name)}</div></div>`}
       <div class="detail">
         <h3>${esc(s.name)}</h3>
         ${up?'<p class="copy">인터뷰가 끝나면 이 자리에 카드뉴스가 올라옵니다.</p>':''}
@@ -159,6 +159,7 @@ export function bootLegacy(DATA){
     if(ph && s.photoUrl){ const img = new Image(); img.src = s.photoUrl;
       if(!img.complete){ ph.classList.add('skel'); img.onload = () => ph.classList.remove('skel');
         img.onerror = () => { ph.classList.remove('skel', 'photo'); ph.style.backgroundImage = ''; }; } }
+    const gal = card.querySelector('.poster.gallery'); if(gal) bindGallery(gal);
     const vf = card.querySelector('.poster.video iframe, .poster.video video');
     if(vf){ vf.parentElement.classList.add('skel'); const done = () => vf.parentElement.classList.remove('skel'); vf.addEventListener(vf.tagName === 'VIDEO' ? 'loadeddata' : 'load', done, { once: true }); vf.addEventListener('error', done, { once: true }); setTimeout(done, 12000); }
     sheet.classList.add('open'); side.classList.add('has'); side.classList.remove('closed');
@@ -166,6 +167,25 @@ export function bootLegacy(DATA){
     sheet.scrollTop = 0; const ih = card.querySelector('.interview .ih');
     sheet.style.maxHeight = (!desktop() && ih) ? Math.min(ih.getBoundingClientRect().bottom - sheet.getBoundingClientRect().top + 16, V.ph * 0.73) + 'px' : '';
     if(focus){ const s0 = Math.max(scale(), 4.6); centerOn(s.x, s.y, s0, desktop()?0:V.ph*0.24); } else apply();
+  }
+  /* 사진 여러 장(10-26): 포스터 칸 안에서 옆으로 넘긴다(scroll-snap — 손가락·트랙패드는 그대로, 마우스는 ‹ › 단추). 아래 점이 몇 번째인지.
+     첫 장을 받기 전엔 스켈레톤, 못 받은 장은 포스터 바탕색으로 둔다. 사이드바 '오른쪽으로 넘겨 닫기'는 data-no-swipe 로 이 칸에서 시작한 끌기를 무시한다 */
+  function renderGallery(photos){
+    return `<div class="poster photo gallery"><div class="pg-track" data-no-swipe>${photos.map((u, i) => `<div class="pg-slide" role="img" aria-label="사진 ${i+1} / ${photos.length}" style="background-image:url('${esc(u)}')"></div>`).join('')}</div>`
+      + `<button type="button" class="pg-nav prev" aria-label="이전 사진">‹</button><button type="button" class="pg-nav next" aria-label="다음 사진">›</button>`
+      + `<div class="pg-dots" aria-hidden="true">${photos.map(() => '<i></i>').join('')}</div></div>`;
+  }
+  function bindGallery(gal){
+    const track = gal.querySelector('.pg-track'), slides = [...track.children], dots = [...gal.querySelectorAll('.pg-dots i')], prev = gal.querySelector('.prev'), next = gal.querySelector('.next');
+    let raf = 0;
+    const sync = () => { raf = 0; const i = Math.round(track.scrollLeft / (track.clientWidth || 1)); dots.forEach((d, k) => d.classList.toggle('on', k === i)); prev.hidden = i <= 0; next.hidden = i >= slides.length - 1; };
+    track.addEventListener('scroll', () => { if(!raf) raf = requestAnimationFrame(sync); }, { passive: true });
+    const go = d => track.scrollBy({ left: d * track.clientWidth, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    prev.addEventListener('click', e => { e.stopPropagation(); go(-1); }); next.addEventListener('click', e => { e.stopPropagation(); go(1); });
+    sync();
+    slides.forEach((sl, k) => { const url = sl.style.backgroundImage.slice(5, -2), img = new Image(); img.src = url;
+      if(k === 0 && !img.complete){ gal.classList.add('skel'); img.onload = () => gal.classList.remove('skel'); }
+      img.onerror = () => { sl.style.backgroundImage = ''; if(k === 0) gal.classList.remove('skel'); }; });
   }
   function step(d){ const i=(STORES.indexOf(current)+d+STORES.length)%STORES.length; select(STORES[i], true); }
   function closeCard(then){ closeCluster(); if(current){ dots.select(null); current=null; } sheet.classList.remove('open'); document.getElementById('side').classList.remove('has'); apply();
@@ -377,7 +397,7 @@ export function bootLegacy(DATA){
   document.getElementById('replay').onclick = playIntro;
 
   /* ── 데이터 (db) · 관리자 ──────────────────────────────── */
-  let gate = null, canWrite = false, authEmail = null, adminOpen = false, picking = false, editing = null, photoPending = null, photoRemove = false;
+  let gate = null, canWrite = false, authEmail = null, adminOpen = false, picking = false, editing = null, photoItems = [];   /* photoItems: 폼에서 고친 사진 차례({ path, url } 기존 · { file, url } 새 파일). 첫 장이 표지 */
   const admin = document.getElementById('admin'), form = document.getElementById('form'), listWrap = document.getElementById('alist-wrap'), delConfirm = document.getElementById('del-confirm');
   /* 데이터는 entities/store/api 가 준다 (DB가 있으면 Supabase, 없으면 씨앗). 처음 목록은 App.tsx 가 이미 읽어 DATA.stores 로 넘겼다. */
   async function reload(){ setStores(await storeApi.listStores()); document.documentElement.dataset.store = storeApi.storeSource(); }
@@ -451,16 +471,23 @@ export function bootLegacy(DATA){
   function editStore(s){
     editing = s; form.reset();
     if(s){ form.name.value=s.name; form.issue.value=s.issue||''; form.status.value=s.status; form.ig.value=s.ig||''; form.video.value=s.video||''; form.category.value=s.category||'etc'; form.interview.value=s.interview||''; form.addr.value=s.addr||''; form.latlng.value=`${s.lat}, ${s.lng}`; select(s,true); }
-    photoPending=null; photoRemove=false; form.photo.value='';
-    setPhotoPrev(s?.photoUrl || null);
+    const urls = s?.photos || (s?.photoUrl ? [s.photoUrl] : []), paths = s?.photoPaths || urls;
+    photoItems = urls.map((url, i) => ({ path: paths[i], url })); form.photo.value=''; renderPhotos();
     form.photo.disabled = !storeApi.canUpload(); document.getElementById('photo-note').textContent = storeApi.canUpload() ? '없으면 기본 이미지로 표시됩니다.' : '이 화면에서는 사진 업로드가 지원되지 않아요.';
     document.getElementById('delbtn').style.display = s?'':'none';
     cancelDelete();
     form.classList.add('open'); renderLogin(); admin.scrollTop = 0;
   }
-  function setPhotoPrev(url){ const p=document.getElementById('photo-prev'); p.classList.toggle('empty',!url); p.style.backgroundImage = url?`url('${url}')`:''; document.getElementById('photo-rm').style.display = url?'':'none'; }
-  form.photo.addEventListener('change', () => { const f=form.photo.files[0]; if(!f) return; if(f.size>20*1024*1024){ toast('20MB 이하로 올려주세요'); form.photo.value=''; return; } photoPending=f; photoRemove=false; setPhotoPrev(URL.createObjectURL(f)); });
-  function removePhoto(){ photoPending=null; photoRemove=true; form.photo.value=''; setPhotoPrev(null); }
+  /* 사진 여러 장(10-26): 썸네일마다 ✕(빼기)·‹(앞으로). 맨 앞이 표지. 저장할 때 새 파일을 올리고 빠진 사진은 보관함에서 지운다(store/api) */
+  const PHOTO_MAX = 10;
+  function renderPhotos(){ const box = document.getElementById('photo-prev'), up = storeApi.canUpload();
+    box.innerHTML = photoItems.map((p, i) => `<div class="photo-prev pl-item" style="background-image:url('${esc(p.url)}')">${i === 0 ? '<span class="pl-cover">표지</span>' : `<button type="button" class="pl-btn pl-left" data-i="${i}" aria-label="앞으로">‹</button>`}${up ? `<button type="button" class="pl-btn pl-rm" data-i="${i}" aria-label="사진 빼기">✕</button>` : ''}</div>`).join('') || '<div class="photo-prev empty"></div>'; }
+  document.getElementById('photo-prev').addEventListener('click', e => { const b = e.target.closest('.pl-btn'); if(!b) return; const i = +b.dataset.i;
+    if(b.classList.contains('pl-rm')) photoItems.splice(i, 1); else if(i > 0) [photoItems[i - 1], photoItems[i]] = [photoItems[i], photoItems[i - 1]];
+    renderPhotos(); });
+  form.photo.addEventListener('change', () => { const files = [...form.photo.files]; form.photo.value='';
+    for(const f of files){ if(photoItems.length >= PHOTO_MAX){ toast(`사진은 ${PHOTO_MAX}장까지예요`); break; } if(f.size>20*1024*1024){ toast(`${f.name}: 20MB 이하로 올려주세요`); continue; } photoItems.push({ file: f, url: URL.createObjectURL(f) }); }
+    renderPhotos(); });
   function cancelEdit(){ endPick(); cancelDelete(); form.classList.remove('open'); editing=null; renderLogin(); }
   /* 주소 → 좌표: 카카오 지도 JS geocoder (shared/lib/geocode.ts). 버튼, 주소 칸의 Enter, 포커스 이탈 때 돈다 */
   let geoSeq = 0;
@@ -493,8 +520,8 @@ export function bootLegacy(DATA){
     if(lat<BBOX.lat0||lat>BBOX.lat1||lng<BBOX.lon0||lng>BBOX.lon1){ toast('지도 범위 밖 좌표예요'); return; }
     const input = {name:form.name.value.trim(), issue:form.issue.value.trim(), status:form.status.value, ig:form.ig.value.trim(), video:form.video.value.trim(), category:form.category.value, interview:form.interview.value.trim(), addr:form.addr.value.trim(), lat, lng};
     try{
-      if(photoPending) toast('사진 올리는 중…');
-      const r = await storeApi.saveStore(editing, input, photoPending, photoRemove);
+      const nNew = photoItems.filter(p => p.file).length; if(nNew) toast(`사진 ${nNew}장 올리는 중…`);
+      const r = await storeApi.saveStore(editing, input, photoItems);
       await reload(); toast(r?.warning || '저장했어요'); cancelEdit(); }   /* 저장이 된 뒤엔 반드시 폼을 닫는다 — 열어 두면 다시 눌렀을 때 새 가게로 또 들어간다 */
     catch(err){ toast('저장 실패: '+(err.message||err.code||err)); }
   }
@@ -555,6 +582,6 @@ export function bootLegacy(DATA){
   setTheme(currentTheme(), false);
 
   /* 마크업·카드 템플릿의 on* 속성이 부르는 함수들 (컴포넌트로 옮기면 필요 없어짐) */
-  Object.assign(window, {cancelDelete, cancelEdit, closeAdmin, closeCard, confirmDelete, deleteStore, editStore, geocode, removePhoto, saveStore, startPick, step, toggleAccount});
+  Object.assign(window, {cancelDelete, cancelEdit, closeAdmin, closeCard, confirmDelete, deleteStore, editStore, geocode, saveStore, startPick, step, toggleAccount});
   return { centerOn, select, setTheme, getStores: () => STORES, proj, unproj };
 }

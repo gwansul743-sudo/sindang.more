@@ -9,7 +9,8 @@ create table if not exists stores (
   lat           double precision not null,
   lng           double precision not null,
   ig_url        text,
-  photo_path    text,
+  photo_path    text, -- 표지(= photo_paths 의 첫 장). 칸이 없는 옛 화면·목록 썸네일용으로 같이 둔다
+  photo_paths   text[], -- 사진 여러 장(첫 장이 표지). 10-26 추가. 기존 DB: alter table stores add column if not exists photo_paths text[];
   video_url     text, -- 영상 주소(유튜브·구글 드라이브·mp4). 10-21 추가. 기존 DB: alter table stores add column if not exists video_url text;
   category      text, -- 업종 키(sewing·supermarket·coffee·restaurant·wine·etc). 10-23 추가. 기존 DB: alter table stores add column if not exists category text;
   interview_md  text,

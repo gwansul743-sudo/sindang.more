@@ -31,3 +31,21 @@ body.chief-hidden .wk-chief,body.chief-hidden .wk-cat{display:none}
 .poster.video iframe,.poster.video video{transition:opacity .3s ease}
 @keyframes skel-sweep{from{background-position:130% 0}to{background-position:-30% 0}}
 @media(prefers-reduced-motion:reduce){.poster.skel::before{animation:none;background:#ffffff26}}
+
+/* 카드 사진 여러 장(10-26): 포스터 칸 안에서 옆으로 넘김. 낮·밤 공통(색은 테마마다 짝이 맞는 상단바 변수 --bar/--bar-fg — --ink·--white 는 밤에 둘 다 밝다) */
+.poster.gallery{background:var(--poster)}
+.pg-track{position:absolute;inset:0;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-x pan-y}
+.pg-track::-webkit-scrollbar{display:none}
+.pg-slide{flex:0 0 100%;height:100%;scroll-snap-align:start;scroll-snap-stop:always;background:center/cover no-repeat}
+.poster.gallery.skel .pg-track{visibility:hidden}
+.pg-nav{position:absolute;top:50%;z-index:2;width:28px;height:28px;margin-top:-14px;padding:0;border:1px solid var(--bar-fg);background:var(--bar);color:var(--bar-fg);font:700 16px/1 var(--font-ui);opacity:.85;cursor:pointer}
+.pg-nav:hover{opacity:1}.pg-nav.prev{left:8px}.pg-nav.next{right:8px}.pg-nav[hidden]{display:none}
+@media(hover:none){.pg-nav{display:none}}   /* 폰은 손가락으로 넘긴다 */
+.pg-dots{position:absolute;left:0;right:0;bottom:8px;z-index:2;display:flex;justify-content:center;gap:5px;pointer-events:none}
+.pg-dots i{width:6px;height:6px;background:var(--bar-fg);opacity:.45;box-shadow:0 0 0 1px var(--bar)}.pg-dots i.on{opacity:1}
+/* 관리 폼 사진 목록: 썸네일(.photo-prev 모양 그대로)마다 표지 표시 · ‹ 앞으로 · ✕ 빼기 */
+.photo-list{display:flex;flex-wrap:wrap;gap:6px}
+.pl-item{position:relative}
+.pl-cover{position:absolute;left:0;bottom:0;padding:1px 4px;background:var(--bar-fg);color:var(--bar);font:600 9px var(--font-ui)}
+.pl-btn{position:absolute;top:2px;width:20px;height:20px;padding:0;border:1px solid var(--bar-fg);background:var(--bar);color:var(--bar-fg);font:700 11px/1 var(--font-ui);cursor:pointer}
+.pl-rm{right:2px}.pl-left{left:2px}
