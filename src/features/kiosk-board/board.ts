@@ -115,7 +115,7 @@ export function mountBoard(o: BoardOptions): Board {
     segs.forEach(({ p, q, L }) => { const nx = -(q[1] - p[1]) / L, ny = (q[0] - p[0]) / L; for (let t = 4; t < L; t += TICK_STEP) { const x = p[0] + ((q[0] - p[0]) * t) / L, y = p[1] + ((q[1] - p[1]) * t) / L; ticks.push({ at: (acc + t) / tot, el: el('line', { class: 'kb-tick', x1: (x + nx * 5 + ((q[0] - p[0]) / L) * 2).toFixed(1), y1: (y + ny * 5 + ((q[1] - p[1]) / L) * 2).toFixed(1), x2: (x - nx * 8).toFixed(1), y2: (y - ny * 8).toFixed(1) }, edge) }); } acc += L; }); }
   /* 장식(아플리케, 시안 자리 그대로): [종류, x 가운데, y 발끝, 높이] */
   const propsG = el('g', { class: 'kb-props' }, board);
-  const PROP_W: Record<string, number> = { school: 1.3, bench: 1.17 };   /* 그림 가로:세로(기본 0.84 = 집·나무). 학교·벤치+가로등(10-26, '펠트 패치워크' 2행 1열·3행 4~5열)은 가로로 넓다 */
+  const PROP_W: Record<string, number> = { school: 1.56, bench: 1.17 };   /* 그림 가로:세로(기본 0.84 = 집·나무). 학교('학교 캠퍼스 펠트' 1행 2열)·벤치+가로등('펠트 패치워크' 3행 4~5열, 10-26)은 가로로 넓다 */
   const propEls = (c.props || []).map(([kind, x, y, h]) => { const w = +h * (PROP_W[kind] ?? 0.84); return el('image', { class: 'kb-prop', href: `/board/${kind}.webp`, x: (+x - w / 2).toFixed(1), y: (+y - +h).toFixed(1), width: w.toFixed(1), height: h, preserveAspectRatio: 'xMidYMax meet' }, propsG); });
   /* 제목(천 글자) */
   const titleG = el('g', { class: 'kb-title' }, board); const [tx, ty] = c.titleAt || [470, 215];
