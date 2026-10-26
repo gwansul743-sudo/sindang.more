@@ -385,7 +385,16 @@ export function bootLegacy(DATA){
      한 바퀴 끝의 보드 전체 뷰에선 카드를 닫고 사이드바를 접는다. 사람이 끼어들어 멈추면 열린 카드는 그대로 둔다 */
   const IDLE_MS = 3000, DWELL_MS = 6000;
   let idleT = null, cycleT = null, cycleI = 0, cycling = false;
-  const canCycle = () => KIOSK && board && !introOpen && kioskStage === 'rest' && !viewer.visible && !talk.visible && !speech.visible && !vTalk.visible && !vSpeech.visible && !clusterAt;   /* 묶음 말풍선을 보고 있는 동안에도 쉬지 않는다 */
+  const canCycle = () => KIOSK && board && !introOpen && kioskStage === 'rest' && !viewer.visible && !talk.visible && !speech.visible && !vTalk.visible && !vSpeech.visible && !clusterAt && !videoPlaying();   /* 묶음 말풍선을 보고 있는 동안·영상 재생 중에도 쉬지 않는다 */
+  /* 영상 재생 중엔 자동 순환을 하지 않는다(10-26). 카드의 <video> 는 paused 로 바로 안다. 유튜브·구글 드라이브 iframe 은 다른 출처라 재생 여부를 못 읽으니
+     iframe 을 누른 뒤(포커스가 그 안에 있는 동안)를 재생 중으로 본다 — 바깥을 누르면 풀린다. 다 보고 자리를 뜬 경우를 위해 iframe 은 VIDEO_MAX_MS 뒤엔 풀어 준다. 전체화면도 재생 중 */
+  const VIDEO_MAX_MS = 60 * 1000; let frameAt = 0;
+  const inCardFrame = () => { const a = document.activeElement; return !!(a && a.tagName === 'IFRAME' && a.closest('#card .poster.video')); };
+  function videoPlaying(){
+    const v = card.querySelector('.poster.video video'); if(v && !v.paused && !v.ended) return true;
+    if(document.fullscreenElement || document.webkitFullscreenElement) return true;
+    return inCardFrame() && performance.now() - frameAt < VIDEO_MAX_MS;
+  }
   const focusZoom = () => kioskTarget().s * (desktop() ? 2.6 : 2.2);   /* 보드 전체 배율에서 ×2.6(폰 ×2.2) */
   function stopCycle(){ clearTimeout(cycleT); if(cycling){ cycling = false; board?.focus(null); } }
   function cycleStep(){
@@ -406,7 +415,7 @@ export function bootLegacy(DATA){
      순서는 지도 위 동선: 가장 서쪽 가게에서 출발해 가장 가까운 가게로 이어 간다(섬을 가로지르는 왕복 비행을 줄인다).
      방문객이 직접 연 카드가 떠 있거나(읽는 중일 수 있다) 관리 패널·인트로·대화·사진 크게 보기·묶음 팝업·영상 재생 중·탭이 숨겨졌으면 시작하지 않는다.
      입력이 오면 전시 모드와 똑같이 바로 멈추고(출발한 카메라도 그 자리에서), 열린 카드는 그대로 둔다. 다시 쉬면 다음 가게부터 이어 간다 */
-  const HOME_IDLE_MS = 12000, HOME_DWELL_MS = 6000, HOME_FOCUS = 4.6;
+  const HOME_IDLE_MS = 6000, HOME_DWELL_MS = 6000, HOME_FOCUS = 4.6;
   let homeIdleT = null, homeCycleT = null, homeCycling = false, homeOrder = [], homeI = 0, homeCardId = null;
   const homeVideo = () => typeof videoPlaying === 'function' && videoPlaying();
   const canHomeCycle = () => !KIOSK && !introOpen && !adminOpen && !picking && !document.hidden && !viewer.visible && !talk.visible && !speech.visible && !vTalk.visible && !vSpeech.visible && !clusterAt && !homeVideo()
@@ -430,7 +439,7 @@ export function bootLegacy(DATA){
      capture 단계로 들어서 중간에서 막는 요소가 있어도 받는다. 손가락이 닿아 있는 동안엔 30초가 지나도 순환을 시작하지 않는다.
      순환 중에 만지면 이미 출발한 카메라 이동도 그 자리에서 멈춘다(V.stop) — 전엔 카드를 만져도 카메라가 끝까지 가 '터치 중 전환'처럼 보였다 */
   const downs = new Set(); let lastIdle = 0;
-  const startIdle = () => { clearTimeout(idleT); idleT = setTimeout(() => { if(downs.size){ startIdle(); return; } if(canCycle()){ cycling = true; cycleStep(); } }, IDLE_MS); };
+  const startIdle = () => { clearTimeout(idleT); idleT = setTimeout(() => { if(downs.size || videoPlaying()){ startIdle(); return; } if(canCycle()){ cycling = true; cycleStep(); } }, IDLE_MS); };
   const idle = () => { if(cycling){ stopCycle(); V.stop(); } if(homeCycling){ stopHomeCycle(); V.stop(); } lastIdle = performance.now(); startIdle(); startHomeIdle(); };
   const idleSoft = () => { if(cycling || homeCycling || performance.now() - lastIdle > 500) idle(); };   /* 움직임·스크롤은 0.5초에 한 번만 다시 센다 */
   const opt = { passive: true, capture: true };
@@ -438,7 +447,8 @@ export function bootLegacy(DATA){
   ['pointermove', 'touchmove', 'scroll'].forEach(ev => window.addEventListener(ev, idleSoft, opt));
   window.addEventListener('pointerdown', e => downs.add(e.pointerId), opt);
   ['pointerup', 'pointercancel'].forEach(ev => window.addEventListener(ev, e => { downs.delete(e.pointerId); idle(); }, opt));
-  window.addEventListener('blur', () => downs.clear());
+  window.addEventListener('blur', () => { downs.clear(); setTimeout(() => { if(inCardFrame()){ frameAt = performance.now(); idle(); } }); });   /* iframe 안을 누르면 창이 blur — 그때부터 재생 중 */
+  ['play', 'pause', 'ended'].forEach(ev => window.addEventListener(ev, idle, opt));   /* <video> 재생·멈춤(버블 안 하는 이벤트라 capture 로). 멈추면 거기서부터 다시 센다 */
   idle();
   function wake(){}   /* 예전엔 30초 뒤 자동 전환을 다시 걸었다. 호출 자리는 남겨 둔다 */
 
