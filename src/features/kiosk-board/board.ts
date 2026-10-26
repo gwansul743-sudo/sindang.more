@@ -120,8 +120,9 @@ export function mountBoard(o: BoardOptions): Board {
   const propEls = (c.props || []).map(([kind, x, y, h]) => { const w = +h * (PROP_W[kind] ?? 0.84); return el('image', { class: 'kb-prop', href: `/board/${kind}.webp`, x: (+x - w / 2).toFixed(1), y: (+y - +h).toFixed(1), width: w.toFixed(1), height: h, preserveAspectRatio: 'xMidYMax meet' }, propsG); });
   /* 제목(천 글자) */
   const titleG = el('g', { class: 'kb-title' }, board); const [tx, ty] = c.titleAt || [470, 215];
-  if (c.titleImg) {   /* 제목 그림(10-26 사용자 제공 자수 글자): [주소, 왼쪽, 위, 폭, 높이] 캔버스 단위. 없으면 아래 천 글자 */
-    const [href, ix, iy, iw, ih] = c.titleImg; const im = el('image', { class: 'kb-timg', href, x: ix, y: iy, width: iw, height: ih }, titleG); im.setAttribute('aria-label', c.title || '신당 5길');
+  if (c.titleImg) {   /* 제목 그림(10-26 사용자 제공): [주소, 왼쪽, 위, 폭, 높이, 기울기(도, 선택)] 캔버스 단위. 없으면 아래 천 글자 */
+    const [href, ix, iy, iw, ih, deg = 0] = c.titleImg;
+    const im = el('image', { class: 'kb-timg', href, x: ix, y: iy, width: iw, height: ih, transform: `rotate(${deg} ${+ix + +iw / 2} ${+iy + +ih / 2})` }, titleG); im.setAttribute('aria-label', c.title || '신당 5길');
   } else {
     const t1 = el('text', { class: 'kb-t1', x: tx, y: ty, fill: 'url(#kb-p-title)' }, titleG); t1.textContent = c.title || '신당 5길';
     const t2 = el('text', { class: 'kb-t2', x: tx, y: ty }, titleG); t2.textContent = t1.textContent;
