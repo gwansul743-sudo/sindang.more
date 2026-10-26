@@ -174,6 +174,7 @@ export function bootLegacy(DATA){
     if(pst) pst.addEventListener('click', e => { if(!pst.classList.contains('photo') || e.target.closest('.pg-nav')) return;
       const tr = pst.querySelector('.pg-track'), k = tr ? Math.round(tr.scrollLeft / (tr.clientWidth || 1)) : 0; viewer.open(photos, k, s.name); });
     const vf = card.querySelector('.poster.video iframe, .poster.video video');
+    driveFit.disconnect(); if(vf && vf.classList.contains('drive')) driveFit.observe(vf.parentElement);
     if(vf){ vf.parentElement.classList.add('skel'); const done = () => vf.parentElement.classList.remove('skel'); vf.addEventListener(vf.tagName === 'VIDEO' ? 'loadeddata' : 'load', done, { once: true }); vf.addEventListener('error', done, { once: true }); setTimeout(done, 12000); }
     sheet.classList.add('open'); side.classList.add('has'); side.classList.remove('closed');
     /* 폰 바텀시트는 'INTERVIEW' 제목까지만 보이는 높이로 연다(나머지는 시트 안에서 스크롤). 인터뷰가 없으면 기본 높이 */
@@ -205,12 +206,14 @@ export function bootLegacy(DATA){
     withSide(true, () => { if(typeof then === 'function') then(); }); }   /* 카드가 없으면 사이드바도 접는다(다 접힌 뒤 지도 폭을 다시 재고 then) */
   /* 영상: 포스터 칸에 들어갈 플레이어(embed) 또는, 끼워 넣을 수 없는 주소면 인스타 버튼 아래 링크 버튼(link).
      구글 드라이브(공유 링크) → 미리보기 iframe, 유튜브 → embed, mp4/webm 주소 → <video> (10-21) */
+  /* 드라이브 플레이어는 폭 512px 아래에선 영상을 최소 크기로 그리고 가운데만 잘라 보인다(재생 중에도). 그래서 560×315 로 그려 칸 폭에 맞게 줄인다(10-26, tokens.css) */
+  const DRIVE_W = 560, driveFit = new ResizeObserver(es => es.forEach(e => e.target.style.setProperty('--vk', e.contentRect.width / DRIVE_W)));
   function renderVideo(url){
     url = (url||'').trim(); if(!url) return {};
     const drive = url.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([\w-]+)/);
     const yt = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([\w-]+)/);
-    const frame = (src) => ({ embed: `<iframe src="${esc(src)}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy" title="영상"></iframe>` });
-    if(drive) return frame(`https://drive.google.com/file/d/${drive[1]}/preview`);
+    const frame = (src, cls = '') => ({ embed: `<iframe class="${cls}" src="${esc(src)}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy" title="영상"></iframe>` });
+    if(drive) return frame(`https://drive.google.com/file/d/${drive[1]}/preview`, 'drive');
     if(yt) return frame(`https://www.youtube.com/embed/${yt[1]}?rel=0&playsinline=1`);
     if(/\.(mp4|webm|mov|m4v)(\?|$)/i.test(url)) return { embed: `<video src="${esc(url)}" controls playsinline preload="metadata"></video>` };
     return { link: `<a class="ig-link video-link" href="${esc(url)}" target="_blank" rel="noopener"><span>영상 보기</span><span>↗</span></a>` };

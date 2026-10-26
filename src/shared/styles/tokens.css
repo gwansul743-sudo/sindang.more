@@ -56,3 +56,5 @@ body.chief-hidden .wk-chief,body.chief-hidden .wk-cat{display:none}
 
 /* 영상 카드(10-26): 영상 칸은 가로 영상 비율(16:9). 사진 포스터(4:5) 칸에 넣으면 드라이브 플레이어가 영상을 가운데 맞추지 못해 한쪽으로 치우쳐 보였다 */
 .poster.video{aspect-ratio:16/9}
+/* 드라이브는 작은 칸에서 영상을 잘라 보여서 560×315 로 그리고 줄인다(--vk = 칸 폭 / 560, engine.legacy.js driveFit). 전체화면은 브라우저가 transform 을 끈다 */
+.poster.video iframe.drive{inset:0 auto auto 0;width:560px;height:315px;transform:scale(var(--vk,1));transform-origin:0 0}
