@@ -119,7 +119,7 @@ html.kb-on #cluster-pop .cl-text small,html.kb-on #cluster-pop .cl-go{color:var(
    접히면 알약(제목 · 겹친 단추 · +N · ▸), 펴지면 제목 아래 바늘땀 선 + 3열 격자(단추 · 이름 · 가게 수) + 안내. 이름이 kb-folded 인 건 인트로의 .folded(테마 CSS)와 겹치지 않게 */
 .kb-legend.kb-folded{cursor:pointer}.kb-legend.kb-folded:hover{box-shadow:0 5px 9px #2e3b4352}
 .kb-legend::after{border-radius:inherit}
-.kb-legend h2{position:absolute;left:13px;right:12px;top:0;height:var(--hd);margin:0;display:flex;align-items:center;font-family:var(--kb-hand);font-size:18px;font-weight:400;letter-spacing:.5px;transition:height .5s var(--ease)}
+.kb-legend h2{position:absolute;left:13px;right:12px;top:0;height:var(--hd);margin:0;display:flex;align-items:center;font-family:var(--font-ui);font-size:14px;font-weight:700;letter-spacing:-.025em;transition:height .5s var(--ease)}   /* 제목은 가게 이름표·업종 이름과 같은 글꼴(10-26, 전엔 손글씨체) */
 .kb-fold{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:0;border:0;background:none;color:inherit;font:inherit;letter-spacing:inherit;text-align:left;cursor:pointer;white-space:nowrap}
 .kb-chev{font-family:var(--font-ui);font-size:18px;line-height:1;color:var(--kb-stitch);transition:transform .5s var(--ease)}
 .kb-legend.kb-folded .kb-chev{transform:rotate(-90deg)}
