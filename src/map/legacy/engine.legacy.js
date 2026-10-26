@@ -294,6 +294,7 @@ export function bootLegacy(DATA){
      — 인트로를 다시 열거나 버튼을 빠르게 눌렀을 때 뒤에서 옛 연출이 계속 돌던 것을 막는다 */
   let kioskSeq = 0, kioskStartT = null;
   function kioskView(){ if(!board || introOpen) return; const my = ++kioskSeq; clearTimeout(kioskStartT); kioskStage = 'play'; syncSkip?.();
+    villagerDone(); speech.hide();   /* 켜기 전에 hover 로 떠 있던 주민·이장님 말풍선은 닫는다(10-26) — 주민 hook 은 3초 남짓 남아 연출 위에 떠 있었다 */
     withSide(true, () => { if(my !== kioskSeq || !KIOSK) return; const t2 = kioskTarget(); centerOn(t2.x, t2.y, t2.s, 0); walkersTo('kiosk'); chiefTo(true);
       /* ⑧ 이장님: 먼저 이장님 쪽으로 두 단계(×1.6²) 줌인하고, 도착하면 등장·말풍선 → 큰 상자(10-23). 대화가 끝나면 kioskRest 가 보드 전체로 물러난다 */
       board.play({ onChief: () => { if(my !== kioskSeq || !KIOSK) return; const [cx, cy] = board.chiefAt(), t = kioskTarget();
