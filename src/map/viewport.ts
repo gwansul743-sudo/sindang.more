@@ -67,8 +67,8 @@ export function createViewport(o: ViewportOptions): Viewport {
   let cx0 = 0, cy0 = 0, cw0 = 0, live = false;
   function apply() {   // 커밋
     vh = (vw * ph) / pw; sizeBox();
-    const s = scale();
-    svg.setAttribute('viewBox', `${vx - bx / s} ${vy - by / s} ${vw + (2 * bx) / s} ${vh + (2 * by) / s}`);
+    const s = scale(), vb = `${vx - bx / s} ${vy - by / s} ${vw + (2 * bx) / s} ${vh + (2 * by) / s}`;
+    if (svg.getAttribute('viewBox') !== vb) svg.setAttribute('viewBox', vb);   // 같은 값이면 다시 넣지 않는다(다시 그리기 방지)
     if (live) { svg.style.transform = ''; live = false; }
     cx0 = vx; cy0 = vy; cw0 = vw;
     o.onApply(scale());
@@ -128,6 +128,12 @@ export function createViewport(o: ViewportOptions): Viewport {
   function animateTo(tx: number, ty: number, tw: number, dur = 700, onDone?: () => void) {
     cancelAnim(); flying = true; [tx, ty, tw] = clampView(tx, ty, tw);   // 앞 이동이 transform 상태여도 커밋하지 않고 그 자리에서 이어 간다
     const x0 = vx, y0 = vy, w0 = vw, t0 = performance.now(), ease = (t: number) => 1 - Math.pow(1 - t, 3);
+    /* 줌아웃(10-26): 그려 둔 여유(BLEED)는 0.71배까지만 덮어서, 2.56배 물러나는 전시 비행은 도중에 3번 전체를 다시 그렸다(폰 렉).
+       출발할 때 도착 범위로 한 번 커밋해 두고, 그 그림을 크게 키운 데서 줄여 가며 옮긴다 → 도중 커밋 0, 도착 커밋은 같은 viewBox */
+    if (tw > w0 * 1.05) {
+      vx = tx; vy = ty; vw = tw; apply();
+      vx = x0; vy = y0; vw = w0; applyLive();
+    }
     const step = (now: number) => {
       const t = Math.max(0, Math.min(1, (now - t0) / dur)), e = ease(t);
       vx = x0 + (tx - x0) * e; vy = y0 + (ty - y0) * e; vw = w0 + (tw - w0) * e;

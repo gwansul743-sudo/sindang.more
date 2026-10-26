@@ -9,6 +9,10 @@
 html.kb-on .pixel-terrain,html.kb-on .roads,html.kb-on .pixel-props,html.kb-on .dots,html.kb-on .lms,html.kb-on .lm-labels,html.kb-on text.dist,
 html.kb-on .area,html.kb-on .patch,html.kb-on .night-ground,html.kb-on .night-lamps,html.kb-on .night-shadows,html.kb-on .night-houselight,html.kb-on .kf-clone,
 html.kb-on .day-sky,html.kb-on .night-sky{opacity:0!important;pointer-events:none}
+/* kb-gone(10-26): 사라진 뒤엔 display:none — opacity:0 이어도 브라우저는 요소 2,700여 개를 계속 칠한다(전시 보드 연출 Paint 662 → 159ms, 폰 줌 렉).
+   어둠 아래서 바로(play) 또는 1.1s 페이드가 끝난 뒤(skip) 붙고, 끌 때(reset) 같이 뗀다 */
+html.kb-gone .pixel-terrain,html.kb-gone .roads,html.kb-gone .pixel-props,html.kb-gone .dots,html.kb-gone .lms,html.kb-gone .lm-labels,html.kb-gone text.dist,html.kb-gone .area,html.kb-gone .patch,
+html.kb-gone .night-ground,html.kb-gone .night-lamps,html.kb-gone .night-shadows,html.kb-gone .night-houselight,html.kb-gone .kf-clone,html.kb-gone .day-sky,html.kb-gone .night-sky{display:none!important}
 html.kb-on #hint,html.kb-on .map-title,html.kb-on #cluster-pop,html.kb-on .night-vignette{display:none!important}
 #map{transition:background-color 1.1s ease}
 html.kb-on #map{background-color:var(--kb-sea)!important;background-image:url(/board/linen.webp)!important;background-size:250px!important;background-blend-mode:multiply}

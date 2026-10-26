@@ -192,8 +192,8 @@ export function mountBoard(o: BoardOptions): Board {
   const at = (fn: () => void, t: number) => timers.push(window.setTimeout(fn, t * SLOW));
   const clear = () => { timers.forEach(clearTimeout); timers = []; cancelAnimationFrame(raf); };
   const showAll = (yes: boolean) => { ticks.forEach((t) => t.el.classList.toggle('show', yes)); propEls.forEach((p) => p.classList.toggle('in', yes)); titleG.classList.toggle('in', yes); skyEls.forEach((s) => s.classList.toggle('in', yes)); waveEls.forEach((w) => w.classList.toggle('in', yes)); composed = yes; };
-  const reset = () => { clear(); btnsOn = false; btns.forEach((b) => b.g.classList.remove('in')); g.classList.remove('on', 'cutting', 'arrived', 'roads-on', 'lift'); dark.classList.remove('on'); showAll(false); html.classList.remove('kb-on', 'kb-dark', 'kb-rest'); legend.classList.remove('show'); setFilter(null); selected = null; applyBtnState(); };
-  const skip = () => { ++run; clear(); on = true; loadLinen(); g.classList.add('mounted', 'on', 'arrived', 'roads-on'); g.classList.remove('cutting', 'lift'); dark.classList.remove('on'); html.classList.add('kb-on'); html.classList.remove('kb-dark'); open(); showAll(true); };
+  const reset = () => { clear(); btnsOn = false; btns.forEach((b) => b.g.classList.remove('in')); g.classList.remove('on', 'cutting', 'arrived', 'roads-on', 'lift'); dark.classList.remove('on'); showAll(false); html.classList.remove('kb-on', 'kb-dark', 'kb-rest', 'kb-gone'); legend.classList.remove('show'); setFilter(null); selected = null; applyBtnState(); };
+  const skip = () => { ++run; clear(); on = true; loadLinen(); g.classList.add('mounted', 'on', 'arrived', 'roads-on'); g.classList.remove('cutting', 'lift'); dark.classList.remove('on'); html.classList.add('kb-on'); html.classList.remove('kb-dark'); open(); showAll(true); const my = run; at(() => { if (my === run) html.classList.add('kb-gone'); }, 1200); };   /* 옛 층이 사라진(1.1s) 뒤 아예 뺀다(kb-gone) */
 
   return {
     get on() { return on; }, land: { polygon: ISLAND.map(toMap), bounds: { x0: ib.x0 + C.x, y0: ib.y0 + C.y, x1: ib.x1 + C.x, y1: ib.y1 + C.y }, contains: (x, y) => inPoly(ISLAND, x - C.x, y - C.y) },
@@ -205,7 +205,7 @@ export function mountBoard(o: BoardOptions): Board {
       if (reduced()) { skip(); at(onChief, 300); return; }
       /* ⓪ 화면이 밤색으로 어두워진다(0.35s). 어둠이 다 덮이면 옛 섬·바다는 그 아래서 바뀐다(html.kb-dark: 전환 없이 바로) */
       dark.classList.add('on');
-      at(() => { if (my !== run) return; html.classList.add('kb-on', 'kb-dark'); g.classList.add('on'); }, 400);   /* ① 어둠이 다 덮이면 그 아래서 옛 섬·바다를 바꾼다(빨간 재단선은 그리지 않는다) */
+      at(() => { if (my !== run) return; html.classList.add('kb-on', 'kb-dark', 'kb-gone'); g.classList.add('on'); }, 400);   /* ① 어둠이 다 덮이면 그 아래서 옛 섬·바다를 바꾼다(빨간 재단선은 그리지 않는다) */
       at(() => { if (my !== run) return; g.classList.add('lift'); open(); dark.classList.remove('on'); html.classList.remove('kb-dark'); }, T0);   /* ② 어둠이 걷히는(1.4s) 동안 보드가 윤곽 자리에서 떠올라 펴진다(1.5s) */
       at(() => { if (my !== run) return; g.classList.add('arrived');                                     /* ③ 가장자리 꿰매기 · 하늘 · 물결 */
         const t1 = performance.now(); const step = () => { if (my !== run) return; const p = Math.min(1, (performance.now() - t1) / (1300 * SLOW)); ticks.forEach((t) => { if (t.at <= p) t.el.classList.add('show'); }); if (p < 1) raf = requestAnimationFrame(step); }; raf = requestAnimationFrame(step);
