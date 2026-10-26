@@ -41,6 +41,6 @@ export function loadContent(stores: Store[]): EngineData {
     villagers: Object.values(villagerFiles).filter((v) => v.pages && v.pages.length >= 3).map((v) => ({ id: v.id, kind: v.kind, name: v.name, store: v.store, look: v.look, hook: v.hook, pages: v.pages.slice(0, 8) })),   /* 3장 미만은 띄우지 않고, 8장 넘으면 자른다(설계 메모) */
     chiefTalk: { name: chiefTalk.name, pages: chiefTalk.pages },
     kioskCut: { name: kioskCut.name, polygon: kioskCut.polygon.map(([lat, lng]) => [lat, lng] as [number, number]) },
-    kioskBoard: { hideRoads: (kioskBoard as { hideRoads?: (number[] | number[][])[] }).hideRoads, hideMain: (kioskBoard as { hideMain?: (number[] | number[][])[] }).hideMain, title: kioskBoard.title, sub: (kioskBoard as { sub?: string }).sub, titleAt: kioskBoard.titleAt, chiefAt: kioskBoard.chiefAt, props: kioskBoard.props, sky: kioskBoard.sky, waves: kioskBoard.waves, skyMobile: kioskBoard.skyMobile, wavesMobile: kioskBoard.wavesMobile },
+    kioskBoard: { hideRoads: (kioskBoard as { hideRoads?: (number[] | number[][])[] }).hideRoads, hideMain: (kioskBoard as { hideMain?: (number[] | number[][])[] }).hideMain, title: kioskBoard.title, sub: (kioskBoard as { sub?: string }).sub, titleAt: kioskBoard.titleAt, chiefAt: kioskBoard.chiefAt, props: kioskBoard.props, sky: kioskBoard.sky, waves: kioskBoard.waves },
   };
 }

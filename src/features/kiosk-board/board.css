@@ -48,7 +48,6 @@ html.kb-dark .pixel-terrain,html.kb-dark .roads,html.kb-dark .pixel-props,html.k
 @keyframes kb-spin{to{transform:rotate(360deg)}}
 .kb-wave{fill:none;stroke:#f3ead8;stroke-width:3;stroke-linecap:round;opacity:0;transition:opacity .8s ease}
 .kb.on .kb-wave.in{opacity:.9}
-@media(min-width:900px){.kb-mob{display:none}}   /* 폰에서만 보이는 하늘·물결(kiosk-board.json skyMobile·wavesMobile) */
 
 /* ④ 길: 크림 아플리케 띠 + 홈질. 큰 길은 양 가장자리(띠보다 넓은 점선이 아래), 골목은 띠 위 가운데 점선 */
 .kb-band{fill:none;stroke:#fdf7ea;stroke-linecap:round;stroke-linejoin:round;opacity:0;transition:opacity .5s ease}
