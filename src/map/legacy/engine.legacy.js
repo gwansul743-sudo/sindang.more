@@ -399,13 +399,38 @@ export function bootLegacy(DATA){
       centerOn(f.x, f.y, focusZoom(), desktop() ? 0 : V.ph * 0.24); });                    /* 폰은 바텀시트가 아래를 덮으니 조금 위로 */
     cycleT = setTimeout(cycleStep, DWELL_MS);
   }
+  /* 평소 지도 자동 순환(10-26, 사용자 요청 '가게를 주인공으로'): 전시 모드가 꺼져 있어도 HOME_IDLE_MS 동안 아무 입력이 없으면
+     발행된 가게(다음 호 제외)를 하나씩 비춘다 — 그 가게 카드를 열고 줌인, HOME_DWELL_MS 씩. 한 바퀴 뒤엔 카드를 닫고 처음 화면(goHome)에서 한 번 쉬었다가 다시.
+     순서는 지도 위 동선: 가장 서쪽 가게에서 출발해 가장 가까운 가게로 이어 간다(섬을 가로지르는 왕복 비행을 줄인다).
+     방문객이 직접 연 카드가 떠 있거나(읽는 중일 수 있다) 관리 패널·인트로·대화·사진 크게 보기·묶음 팝업·영상 재생 중·탭이 숨겨졌으면 시작하지 않는다.
+     입력이 오면 전시 모드와 똑같이 바로 멈추고(출발한 카메라도 그 자리에서), 열린 카드는 그대로 둔다. 다시 쉬면 다음 가게부터 이어 간다 */
+  const HOME_IDLE_MS = 12000, HOME_DWELL_MS = 6000, HOME_FOCUS = 4.6;
+  let homeIdleT = null, homeCycleT = null, homeCycling = false, homeOrder = [], homeI = 0, homeCardId = null;
+  const homeVideo = () => typeof videoPlaying === 'function' && videoPlaying();
+  const canHomeCycle = () => !KIOSK && !introOpen && !adminOpen && !picking && !document.hidden && !viewer.visible && !talk.visible && !speech.visible && !vTalk.visible && !vSpeech.visible && !clusterAt && !homeVideo()
+    && !(current && current.id !== homeCardId);   /* 방문객이 직접 연(또는 순환이 연 뒤 ‹ › 로 넘긴) 카드면 기다린다 */
+  function homeRoute(){ const pub = STORES.filter(s => s.status !== 'up'); if(!pub.length) return [];
+    let cur = pub.reduce((a, b) => (b.x < a.x ? b : a)); const left = new Set(pub), out = [];
+    while(cur){ left.delete(cur); out.push(cur.id); let best = null, bd = Infinity; for(const s of left){ const d = (s.x - cur.x) ** 2 + (s.y - cur.y) ** 2; if(d < bd){ bd = d; best = s; } } cur = best; }
+    return out; }
+  function stopHomeCycle(){ clearTimeout(homeCycleT); homeCycling = false; }
+  function homeStep(){
+    if(!canHomeCycle()){ stopHomeCycle(); return; }
+    if(homeI >= homeOrder.length){ homeI = 0; homeOrder = homeRoute(); homeCardId = null;   /* 한 바퀴 끝(가게가 늘었으면 새 동선): 카드 닫고 처음 화면 */
+      closeCard(() => { if(homeCycling) goHome(); }); homeCycleT = setTimeout(homeStep, HOME_DWELL_MS); return; }
+    const id = homeOrder[homeI++], st = STORES.find(s => s.id === id); if(!st){ homeStep(); return; }   /* 그새 지워진 가게는 건너뛴다 */
+    withSide(false, () => { if(!homeCycling) return; homeCardId = st.id; select(st, false);                   /* 사이드바가 다 펴진 뒤 카메라(같이 돌리면 흔들린다) */
+      centerOn(st.x, st.y, HOME_FOCUS, desktop() ? 0 : V.ph * 0.24); });                                    /* 폰은 바텀시트가 아래를 덮으니 조금 위로 */
+    homeCycleT = setTimeout(homeStep, HOME_DWELL_MS); }
+  const startHomeIdle = () => { clearTimeout(homeIdleT); homeIdleT = setTimeout(() => { if(downs.size || !canHomeCycle()){ startHomeIdle(); return; }
+    if(!homeOrder.length || homeI >= homeOrder.length){ homeOrder = homeRoute(); homeI = 0; } homeCycling = true; homeStep(); }, HOME_IDLE_MS); };
   /* 활동 판정(10-23): 누르는 순간만이 아니라 손가락·마우스를 대고 있는 동안(끌기·핀치), 움직임, 스크롤(카드 읽기)도 활동.
      capture 단계로 들어서 중간에서 막는 요소가 있어도 받는다. 손가락이 닿아 있는 동안엔 30초가 지나도 순환을 시작하지 않는다.
      순환 중에 만지면 이미 출발한 카메라 이동도 그 자리에서 멈춘다(V.stop) — 전엔 카드를 만져도 카메라가 끝까지 가 '터치 중 전환'처럼 보였다 */
   const downs = new Set(); let lastIdle = 0;
   const startIdle = () => { clearTimeout(idleT); idleT = setTimeout(() => { if(downs.size){ startIdle(); return; } if(canCycle()){ cycling = true; cycleStep(); } }, IDLE_MS); };
-  const idle = () => { if(cycling){ stopCycle(); V.stop(); } lastIdle = performance.now(); startIdle(); };
-  const idleSoft = () => { if(cycling || performance.now() - lastIdle > 500) idle(); };   /* 움직임·스크롤은 0.5초에 한 번만 다시 센다 */
+  const idle = () => { if(cycling){ stopCycle(); V.stop(); } if(homeCycling){ stopHomeCycle(); V.stop(); } lastIdle = performance.now(); startIdle(); startHomeIdle(); };
+  const idleSoft = () => { if(cycling || homeCycling || performance.now() - lastIdle > 500) idle(); };   /* 움직임·스크롤은 0.5초에 한 번만 다시 센다 */
   const opt = { passive: true, capture: true };
   ['pointerdown', 'wheel', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, idle, opt));
   ['pointermove', 'touchmove', 'scroll'].forEach(ev => window.addEventListener(ev, idleSoft, opt));
