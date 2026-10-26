@@ -36,8 +36,8 @@ export interface Viewport {
   clampView(x: number, y: number, w: number): [number, number, number];
   zoomAt(f: number, cx: number, cy: number): void;
   zoomSmooth(f: number, cx: number, cy: number, dur?: number): void;   // zoomAt 과 같되 부드럽게 (+/− 버튼)
-  animateTo(tx: number, ty: number, tw: number, dur?: number, onDone?: () => void): void;   // onDone: 끝까지 간 뒤 한 번(중간에 끊기면 안 부름)
-  centerOn(x: number, y: number, targetScale: number, offsetY?: number, onDone?: () => void): void;
+  animateTo(tx: number, ty: number, tw: number, dur?: number, onDone?: () => void, always?: boolean): void;   // onDone: 끝까지 간 뒤 한 번(중간에 끊기면 안 부름 — always 면 끊긴 자리에서도 한 번)
+  centerOn(x: number, y: number, targetScale: number, offsetY?: number, onDone?: () => void, always?: boolean): void;
   toMap(clientX: number, clientY: number): [number, number];   // 화면 px → 지도 좌표
   relayout(): void;
   stop(): void;   // 진행 중인 카메라 이동을 그 자리에서 멈춤(자동 순환 중 사람이 만졌을 때)
@@ -49,8 +49,12 @@ export function createViewport(o: ViewportOptions): Viewport {
   let vw = W, vh = H, vx = 0, vy = 0, pw = 1, ph = 1;
   let zoomGoal: number | null = null;   // 버튼 줌 연타 중이면 '가려던 폭'에서 다시 곱한다 (한 번에 1.6배씩 정확히)
   let anim = 0, moved = false, flying = false;   // flying: animateTo/zoomSmooth 가 진행 중 (그동안 칸 크기 변경은 재배치하지 않는다)
+  /* always 로 건 비행의 onDone(10-26): 사람이 누르거나 휠을 굴려, 또는 다른 이동이 끼어들어 끊겨도 한 번은 부른다.
+     전시 연출의 이장님 등장이 줌인 비행 끝에 걸려 있어, 도중에 지도를 누르면 이장님이 영영 안 나왔다 */
+  let mustDone: (() => void) | null = null;
+  const flushDone = () => { const f = mustDone; mustDone = null; f?.(); };
   const cancelAnim = () => { cancelAnimationFrame(anim); flying = false; zoomGoal = null; };
-  const stopAnim = () => { cancelAnim(); if (live) apply(); };   // 멈출 땐 transform 으로만 옮겨 둔 그림을 그 자리에서 커밋
+  const stopAnim = () => { cancelAnim(); if (live) apply(); flushDone(); };   // 멈출 땐 transform 으로만 옮겨 둔 그림을 그 자리에서 커밋
 
   function fit() { const r = map.getBoundingClientRect(); pw = r.width; ph = r.height; }   // 소수점 폭 그대로 (전환 중 칸 폭이 소수인데 정수로 재면 배율이 어긋나 1px 떨림)
   function scale() { return pw / vw; }
@@ -112,7 +116,7 @@ export function createViewport(o: ViewportOptions): Viewport {
   }
   /* 버튼 줌: 화면의 (cx, cy) 점을 고정한 채 배율이 시간에 따라 기하급수(로그 공간)로 변해 균일하게 보인다. 누르는 중에 또 누르면 현재 상태에서 이어진다 */
   function zoomSmooth(f: number, cx: number, cy: number, dur = 420) {
-    cancelAnimationFrame(anim); flying = true;
+    cancelAnimationFrame(anim); flying = true; flushDone();
     const s0 = scale(), mx = vx + cx / s0, my = vy + cy / s0;              // 고정할 지도 점
     const w0 = vw, tw = clampView(vx, vy, (zoomGoal ?? vw) / f)[2], t0 = performance.now();
     zoomGoal = tw;
@@ -125,8 +129,9 @@ export function createViewport(o: ViewportOptions): Viewport {
     };
     anim = requestAnimationFrame(step);
   }
-  function animateTo(tx: number, ty: number, tw: number, dur = 700, onDone?: () => void) {
+  function animateTo(tx: number, ty: number, tw: number, dur = 700, onDone?: () => void, always = false) {
     cancelAnim(); flying = true; [tx, ty, tw] = clampView(tx, ty, tw);   // 앞 이동이 transform 상태여도 커밋하지 않고 그 자리에서 이어 간다
+    const prevDone = mustDone; mustDone = always && onDone ? onDone : null;
     const x0 = vx, y0 = vy, w0 = vw, t0 = performance.now(), ease = (t: number) => 1 - Math.pow(1 - t, 3);
     /* 줌아웃(10-26): 그려 둔 여유(BLEED)는 0.71배까지만 덮어서, 2.56배 물러나는 전시 비행은 도중에 3번 전체를 다시 그렸다(폰 렉).
        출발할 때 도착 범위로 한 번 커밋해 두고, 그 그림을 크게 키운 데서 줄여 가며 옮긴다 → 도중 커밋 0, 도착 커밋은 같은 viewBox */
@@ -137,13 +142,14 @@ export function createViewport(o: ViewportOptions): Viewport {
     const step = (now: number) => {
       const t = Math.max(0, Math.min(1, (now - t0) / dur)), e = ease(t);
       vx = x0 + (tx - x0) * e; vy = y0 + (ty - y0) * e; vw = w0 + (tw - w0) * e;
-      if (t < 1) { applyLive(); anim = requestAnimationFrame(step); } else { apply(); flying = false; onDone?.(); }
+      if (t < 1) { applyLive(); anim = requestAnimationFrame(step); } else { apply(); flying = false; if (mustDone === onDone) mustDone = null; onDone?.(); }
     };
     anim = requestAnimationFrame(step);
+    prevDone?.();   // 끼어든 앞 비행의 always onDone (새 비행을 건 뒤에 — 그 안에서 또 이동을 걸어도 꼬이지 않게)
   }
-  function centerOn(x: number, y: number, targetScale: number, offsetY = 0, onDone?: () => void) {
+  function centerOn(x: number, y: number, targetScale: number, offsetY = 0, onDone?: () => void, always = false) {
     const tw = pw / targetScale, th = (tw * ph) / pw;
-    animateTo(x - tw / 2, y - th / 2 + offsetY / targetScale, tw, 700, onDone);
+    animateTo(x - tw / 2, y - th / 2 + offsetY / targetScale, tw, 700, onDone, always);
   }
   function toMap(clientX: number, clientY: number): [number, number] {
     const r = map.getBoundingClientRect(), s = scale();
@@ -168,7 +174,7 @@ export function createViewport(o: ViewportOptions): Viewport {
   /* 휠: transform 으로만 줌하고, 마지막 휠에서 WHEEL_COMMIT_MS 뒤 커밋 (휠마다 커밋하면 매번 전체를 다시 그린다) */
   const WHEEL_COMMIT_MS = 150; let wheelT = 0;
   const onWheel = (e: WheelEvent) => {
-    e.preventDefault(); cancelAnim(); const r = map.getBoundingClientRect(); zoomAt(Math.exp(-e.deltaY * 0.0018), e.clientX - r.left, e.clientY - r.top, true); o.onActivity?.();
+    e.preventDefault(); cancelAnim(); flushDone(); const r = map.getBoundingClientRect(); zoomAt(Math.exp(-e.deltaY * 0.0018), e.clientX - r.left, e.clientY - r.top, true); o.onActivity?.();
     clearTimeout(wheelT); wheelT = window.setTimeout(() => { if (live) apply(); }, WHEEL_COMMIT_MS);
   };
   map.addEventListener('pointerdown', onDown); map.addEventListener('pointermove', onMove);
