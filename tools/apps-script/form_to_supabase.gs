@@ -54,10 +54,12 @@ function pairsOf_(sheet, row) {
 }
 
 function send_(sheet, row) {
-  var cfg = props_(), sentKey = 'sent:' + sheet.getSheetId() + ':' + row;
-  if (cfg.store.getProperty(sentKey)) return 'skip';
-  var pairs = pairsOf_(sheet, row);
+  var cfg = props_(), pairs = pairsOf_(sheet, row);
   if (pairs.length < 2) return 'empty';
+  /* 이미 보낸 줄인지: 줄 번호 + 타임스탬프로 기억한다(시험 줄을 지운 자리에 새 응답이 들어와도 건너뛰지 않게) */
+  var ts = (pairs.filter(function (p) { return /^(Timestamp|타임스탬프)$/.test(p[0]); })[0] || [, ''])[1];
+  var sentKey = 'sent:' + sheet.getSheetId() + ':' + row + ':' + ts;
+  if (cfg.store.getProperty(sentKey)) return 'skip';
   var interview = post_(cfg, 'interviews', { source: 'form', answers: { v: 1, row: row, pairs: pairs } });
   var sq2 = (pairs.filter(function (p) { return /^SQ2\./.test(p[0]); }).pop() || [, ''])[1];
   post_(cfg, 'characters', { nickname: (sq2 || '설문') + ' 사장님', interview_id: interview.id, status: cfg.auto ? 'approved' : 'pending' });
@@ -83,4 +85,25 @@ function checkConnection() {
   var cfg = props_();
   var res = UrlFetchApp.fetch(cfg.url + '/rest/v1/characters?select=id&limit=1', { headers: headers_(cfg.key), muteHttpExceptions: true });
   Logger.log(res.getResponseCode() + ' ' + res.getContentText());
+}
+
+/* 손으로 실행: 시험 응답 한 줄을 시트 맨 아래에 넣고 바로 보낸다(폼 제출 없이 지도까지 확인). 시험이 끝나면 그 줄을 지우고 Supabase 에서 hidden 으로 */
+function addTestRow() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets().filter(function (s) { return s.getFormUrl(); })[0] || SpreadsheetApp.getActiveSheet();
+  var head = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var want = [
+    [/^Timestamp$|^타임스탬프$/, new Date()],
+    [/^SQ1\./, '12'], [/^SQ2\./, '한식·분식·일반 음식점'], [/^SQ3\./, '(시험) 오길분식'],
+    [/\[낮 시간대에는 즐길 거리가 부족하다\]$/, '매우 그렇다'],
+    [/\[우리 골목까지는 방문객의 발길이 잘 닿지 않는다\]$/, '매우 그렇다'],
+    [/\[신당은 지금 변화의 과도기에 있다\]$/, '그렇다'],
+    [/^문1\./, 'SNS·유튜브, 지인 소개'], [/^문8\./, '있다'], [/^문8-1\./, '옛날식 떡볶이를 연탄불에 데워요'],
+    [/^문9\./, '있다'], [/^문9-1\./, '어머니가 하시던 가게를 제가 물려받았어요'],
+    [/^문11-1\./, '40~50대'], [/^문30\./, '그렇다']
+  ];
+  var row = head.map(function () { return ''; });
+  want.forEach(function (w) { for (var i = 0; i < head.length; i++) if (w[0].test(String(head[i]).trim())) { row[i] = w[1]; break; } });
+  sheet.appendRow(row);
+  var r = sheet.getLastRow();
+  Logger.log('row ' + r + ': ' + send_(sheet, r));
 }
