@@ -383,7 +383,7 @@ export function bootLegacy(DATA){
      한 바퀴 뒤엔 보드 전체를 6초 보여 주고 다시. 범례 필터가 켜져 있으면 그 업종만. 클릭·터치·휠·키가 오면 바로 멈추고 다시 30초를 센다.
      비출 때마다 단추를 눌렀을 때처럼 가게 카드(오른쪽 사이드바·폰 바텀시트)를 연다. 사이드바가 다 펴진 뒤(withSide) 카메라를 옮긴다 — 같이 돌리면 흔들린다.
      한 바퀴 끝의 보드 전체 뷰에선 카드를 닫고 사이드바를 접는다. 사람이 끼어들어 멈추면 열린 카드는 그대로 둔다 */
-  const IDLE_MS = 3000, DWELL_MS = 6000;
+  const IDLE_MS = 4000, DWELL_MS = 6000;
   let idleT = null, cycleT = null, cycleI = 0, cycling = false;
   const canCycle = () => KIOSK && board && !introOpen && kioskStage === 'rest' && !viewer.visible && !talk.visible && !speech.visible && !vTalk.visible && !vSpeech.visible && !clusterAt && !videoPlaying();   /* 묶음 말풍선을 보고 있는 동안·영상 재생 중에도 쉬지 않는다 */
   /* 영상 재생 중엔 자동 순환을 하지 않는다(10-26). 카드의 <video> 는 paused 로 바로 안다. 유튜브·구글 드라이브 iframe 은 다른 출처라 재생 여부를 못 읽으니
