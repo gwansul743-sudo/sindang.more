@@ -32,6 +32,7 @@ import { watchAuth, signInWithPassword, setPassword, sendLoginLink, signOut } fr
 import { geocode as kakaoGeocode } from '../../shared/lib/geocode';
 import { mountHoldGate } from '../../features/admin-gate/holdGate';
 import { onSwipeRight } from '../../shared/lib/swipe';
+import { onPullDown } from '../../shared/lib/sheetDrag';
 
 export function bootLegacy(DATA){
 /* ═══════════════ CORE (투영 · 팬줌 · 가게 점 · 카드 · 관리 · 인트로) ═══════════════ */
@@ -134,6 +135,8 @@ export function bootLegacy(DATA){
     onEnd: () => { stage.style.transition = ''; stage.style.gridTemplateColumns = ''; },   /* 인라인 값을 지우면 CSS 전환이 나머지를 부드럽게 */
   });
   document.getElementById('side-grip').onclick = collapseSide;
+  /* 폰 바텀시트 손잡이: 한 번 누르거나 아래로 끌어내리면 카드를 닫는다(10-26). 데스크톱 사이드바에선 손잡이가 숨겨져 있다 */
+  onPullDown(document.getElementById('sheet-grip'), sheet, collapseSide, { enabled: () => !desktop() });
   let current = null;
   function select(s, focus, keepVillager){   /* keepVillager: 주민과 대화하며 그 주민의 가게 카드를 여는 경우 — 대화를 닫지 않는다(10-23) */
     speech.hide(); talk.hide(); if(!cycling && !keepVillager) villagerDone();
