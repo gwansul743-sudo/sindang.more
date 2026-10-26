@@ -32,7 +32,7 @@ sindang.more/
 │  │  └─ legacy/engine.legacy.js   임시 엔진(카드·관리 폼·인트로·전시 모드·자동 순환). 부품화 끝나면 삭제
 │  ├─ features/        theme-toggle · admin-gate · kiosk-board(★ 전시 보드) · chief-speech · chief-talk(큰 대화 상자) · villagers(주민 대본·구글폼 주민) · photo-viewer · click-burst · intro-foil
 │  ├─ entities/        타입 + store/api.ts(Supabase, DB 없으면 seed JSON) · villager/api.ts
-│  ├─ app/             App.tsx(조립), content.ts, legacy-markup.html(옛 마크업)
+│  ├─ app/             App.tsx(조립), content.ts, legacy-markup.html(옛 마크업 — 빌드 때 index.html 에 정적으로 들어간다, §8)
 │  └─ shared/          styles/(tokens·낮·밤 CSS), lib/(supabase·auth·geocode·image)
 ├─ supabase/           schema.sql · storage.sql · seed.sql · seed.stores.json(fallback)
 ├─ public/             seed-photos/ · board/(보드 천 그림 webp)
@@ -79,9 +79,17 @@ node tools/check_screen.mjs   # 헤드리스 Chrome. 마지막 줄 "통과"
 
 **스타일**: 낮·밤 CSS 두 벌은 색만 다르다 → 공통 `base.css` + `tokens.css`의 `[data-theme]` 변수. 옆 패널 섬 그림(data URI 약 100KB×2)은 파일로. (선택) 나무·집·땅의 `fill="밤" data-df="낮"` 두 벌을 `night_palette.reference.json` 계산으로.
 
-**렉 근본 해결**: §8.
+**렉 근본 해결**: §8. **JS 나누기**(관리 패널·전시 보드): §8 첫 화면.
 
-## 8. 성능 — 팬·줌 렉 (10-25 측정·수정, 옛 `성능_지침_팬줌렉.md` 요약)
+## 8. 성능
+### 첫 화면 (10-26)
+- **표지는 JS 없이 바로 그려진다**: `vite.config.ts` staticShell 이 `legacy-markup.html`(마크업)·`content/` 의 `*.pixel.txt`(집·나무·랜드마크 `<symbol>`, `#px-defs` — 표지와 지도가 같이 씀)를 index.html 에 끼우고, 낮·밤 테마 시트는 인라인 스크립트가 head 맨 앞에서 preload → `</head>` 앞에서 `<link id="css-day|css-night">`(번들 CSS 뒤라 우선순위는 예전과 같다). 낮이면 표지 뒤 인라인 스크립트가 섬 그림을 먼저 낮 색으로. JS 전에 누른 '탐험 시작'은 기억했다가 엔진이 켜지면 연다.
+- 글꼴: 표지용(Inter · IBM Plex Sans KR · Pixelify Sans)만 렌더를 막고, 손글씨체(Gaegu · Nanum Pen Script)는 `media=print` → onload. 새 글꼴을 넣을 땐 표지에 쓰는지로 둘 중 하나에.
+- Supabase 라이브러리는 첫 JS 에 없다: 공개 읽기는 `restGet`(REST fetch), 로그인·쓰기·사진·실시간만 `getSupabase()` 가 그때 받는다(`shared/lib/supabase.ts`).
+- 측정(느린 4G + CPU ×4, 헤드리스): 표지 3.4 → 1.2초, 긴 작업 약 680 → 340ms, 가게 점 7.0 → 6.1초. 메인 JS 897 → 576KB(gzip 277 → 192KB).
+- **안 한 것**: 관리 패널·전시 보드를 따로 받기 — 둘 다 임시 엔진 안에 엮여 있어(보드는 부팅 때 mountBoard) ⑦·부품화 때. React(gzip 약 45KB)는 지금 껍데기로만 쓰여 빼면 그만큼 준다 — 스택 결정이라 사용자 판단.
+
+### 팬·줌 렉 (10-25 측정·수정, 옛 `성능_지침_팬줌렉.md` 요약)
 - **원인**: 카메라가 움직일 때 viewBox 가 바뀌면 브라우저가 SVG 전체(요소 약 2,700개)를 CPU로 다시 래스터한다. JS가 아니라 그리기 비용(2초 팬 중 래스터 ≈100%). 가만히 있을 땐 60fps.
 - **한 것**: 제스처·비행·휠·핀치 중엔 viewBox 대신 `svg.style.transform`(+ `will-change`)으로 움직이고 끝날 때 한 번 커밋(`viewport.ts` applyLive/commit, `onLive` 로 말풍선·팝업만 따라감). SVG는 칸보다 사방 20%(BLEED) 크게 그려 viewBox 속성값도 그만큼 넓다. `body.far .rd-c` 는 `display:none`, 밤 번짐 선 이음 miter, 전시 모드에서 숨긴 옛 섬 층은 `display:none`·줌아웃 비행은 출발 때 한 번 커밋. 끌기 데스크톱 낮 46→19ms, 밤 73→32ms(헤드리스).
 - **해 보고 버린 것(측정 근거)**: roads.json 공선 점 합치기(합칠 점 4% 미만), 그룹 opacity→stroke-opacity(잡음 안), 밤 가로등·불빛 줄이기(각 5~10%뿐).
@@ -92,7 +100,7 @@ node tools/check_screen.mjs   # 헤드리스 Chrome. 마지막 줄 "통과"
 ## 9. 하지 말 것
 - 임시 엔진을 한 번에 다시 쓰기. 한 번에 두 기능 작업.
 - 전시 전에 ⑦ 조립·React 부품화 시작하기.
-- `bootLegacy()` 두 번 부르기(`App.tsx` 의 `booted` 가드·StrictMode 미사용은 그래서).
+- `bootLegacy()` 두 번 부르기(`App.tsx` 의 `booted` 가드·StrictMode 미사용은 그래서). 마크업을 다시 JS(innerHTML)로 넣기 — 표지가 JS 를 기다리게 된다.
 - `legacy-markup.html`의 id·class 바꾸기(옮긴 구역만).
 - 옛 HTML에서 `content/` 다시 추출하기.
 - 화면이 달라진 이유를 모르는데 `--baseline` 덮어쓰기.
