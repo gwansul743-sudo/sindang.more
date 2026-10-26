@@ -33,6 +33,7 @@ import { geocode as kakaoGeocode } from '../../shared/lib/geocode';
 import { mountHoldGate } from '../../features/admin-gate/holdGate';
 import { onSwipeRight } from '../../shared/lib/swipe';
 import { onPullDown } from '../../shared/lib/sheetDrag';
+import { mountPhotoViewer } from '../../features/photo-viewer/viewer';
 
 export function bootLegacy(DATA){
 /* ═══════════════ CORE (투영 · 팬줌 · 가게 점 · 카드 · 관리 · 인트로) ═══════════════ */
@@ -62,6 +63,7 @@ export function bootLegacy(DATA){
   const dots = mountDots(svg, P, it => { if(picking) return; closeCluster(); select(STORES.find(s => s._dot===it), true); },
     { showAt: dotShowAt, onCluster: (members, x, y) => { if(!picking) openCluster(members, x, y); } }), gDots = dots.g;
   /* 겹친 가게 말풍선: 숫자 점을 누르면 지도 위에 사진·이름 목록이 뜨고, 하나를 고르면 카드가 열린다. 점이 떨어지면(확대) 자동으로 닫힌다 */
+  const viewer = mountPhotoViewer();   /* 카드 사진 크게 보기(10-26) */
   const clusterPop = document.createElement('div'); clusterPop.id = 'cluster-pop'; document.getElementById('map').appendChild(clusterPop);   /* map 변수는 뒤에서 선언된다 */
   let clusterAt = null;   /* { key, x, y } 열려 있는 말풍선의 지도 좌표 */
   function openCluster(members, x, y){ openClusterOf(members.map(m => STORES.find(s => s._dot === m)).filter(Boolean), x, y, false); }
@@ -167,6 +169,10 @@ export function bootLegacy(DATA){
       if(!img.complete){ ph.classList.add('skel'); img.onload = () => ph.classList.remove('skel');
         img.onerror = () => { ph.classList.remove('skel', 'photo'); ph.style.backgroundImage = ''; }; } }
     const gal = card.querySelector('.poster.gallery'); if(gal) bindGallery(gal);
+    /* 사진 크게 보기(10-26): 포스터 사진을 누르면 화면 가득(features/photo-viewer). 여러 장이면 지금 보던 장부터 */
+    const pst = card.querySelector('.poster.photo');
+    if(pst) pst.addEventListener('click', e => { if(!pst.classList.contains('photo') || e.target.closest('.pg-nav')) return;
+      const tr = pst.querySelector('.pg-track'), k = tr ? Math.round(tr.scrollLeft / (tr.clientWidth || 1)) : 0; viewer.open(photos, k, s.name); });
     const vf = card.querySelector('.poster.video iframe, .poster.video video');
     if(vf){ vf.parentElement.classList.add('skel'); const done = () => vf.parentElement.classList.remove('skel'); vf.addEventListener(vf.tagName === 'VIDEO' ? 'loadeddata' : 'load', done, { once: true }); vf.addEventListener('error', done, { once: true }); setTimeout(done, 12000); }
     sheet.classList.add('open'); side.classList.add('has'); side.classList.remove('closed');
@@ -351,7 +357,7 @@ export function bootLegacy(DATA){
       board.play({ onChief: () => { if(my !== kioskSeq || !KIOSK) return; const [cx, cy] = board.chiefAt(), t = kioskTarget();
         V.centerOn(cx, cy - 12, t.s * 1.6 ** 2, 0, () => { if(my !== kioskSeq || !KIOSK) return; showChief(true); speech.say(CHIEF_LINES); }, true); } }); }); }   /* always: 줌인 도중 지도를 눌러 비행이 끊겨도 이장님은 그 자리에서 나온다(10-26) */
   /* 전시 연출을 그 자리에서 다 멈추고 평소 상태로(카메라·사이드바는 부르는 쪽이 정한다) */
-  function stopKiosk(){ closeCluster(); kioskSeq++; clearTimeout(kioskStartT); stopCycle(); kioskStage = 'off'; syncSkip?.(); speech.hide(); talk.hide(); villagerDone(); showChief(false); board?.hide(); walkersTo('home'); chiefTo(false); sideDone?.(false); }
+  function stopKiosk(){ viewer.close(); closeCluster(); kioskSeq++; clearTimeout(kioskStartT); stopCycle(); kioskStage = 'off'; syncSkip?.(); speech.hide(); talk.hide(); villagerDone(); showChief(false); board?.hide(); walkersTo('home'); chiefTo(false); sideDone?.(false); }
   function kioskRest(){ if(!KIOSK || !board || kioskStage !== 'play') return; kioskStage = 'rest'; syncSkip?.(); idle(); board.rest(); const t = kioskTarget(); centerOn(t.x, t.y, t.s, 0); }   /* 이장님 줌인에서 보드 전체로 물러나며 범례·단추 */
   function kioskSkip(){ if(!KIOSK || !board || introOpen || kioskStage !== 'play') return; speech.hide(); talk.hide(); board.skip(); showChief(true); kioskRest(); }
   /* 건너뛰기(10-23): 연출(play) 동안만 보인다. 전엔 지도를 누르거나 휠만 굴려도 건너뛰어졌다 */
@@ -374,7 +380,7 @@ export function bootLegacy(DATA){
      한 바퀴 끝의 보드 전체 뷰에선 카드를 닫고 사이드바를 접는다. 사람이 끼어들어 멈추면 열린 카드는 그대로 둔다 */
   const IDLE_MS = 3000, DWELL_MS = 6000;
   let idleT = null, cycleT = null, cycleI = 0, cycling = false;
-  const canCycle = () => KIOSK && board && !introOpen && kioskStage === 'rest' && !talk.visible && !speech.visible && !vTalk.visible && !vSpeech.visible && !clusterAt;   /* 묶음 말풍선을 보고 있는 동안에도 쉬지 않는다 */
+  const canCycle = () => KIOSK && board && !introOpen && kioskStage === 'rest' && !viewer.visible && !talk.visible && !speech.visible && !vTalk.visible && !vSpeech.visible && !clusterAt;   /* 묶음 말풍선을 보고 있는 동안에도 쉬지 않는다 */
   const focusZoom = () => kioskTarget().s * (desktop() ? 2.6 : 2.2);   /* 보드 전체 배율에서 ×2.6(폰 ×2.2) */
   function stopCycle(){ clearTimeout(cycleT); if(cycling){ cycling = false; board?.focus(null); } }
   function cycleStep(){
