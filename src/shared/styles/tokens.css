@@ -49,3 +49,6 @@ body.chief-hidden .wk-chief,body.chief-hidden .wk-cat{display:none}
 .pl-cover{position:absolute;left:0;bottom:0;padding:1px 4px;background:var(--bar-fg);color:var(--bar);font:600 9px var(--font-ui)}
 .pl-btn{position:absolute;top:2px;width:20px;height:20px;padding:0;border:1px solid var(--bar-fg);background:var(--bar);color:var(--bar-fg);font:700 11px/1 var(--font-ui);cursor:pointer}
 .pl-rm{right:2px}.pl-left{left:2px}
+
+/* 영상 카드(10-26): 영상 칸은 가로 영상 비율(16:9). 사진 포스터(4:5) 칸에 넣으면 드라이브 플레이어가 영상을 가운데 맞추지 못해 한쪽으로 치우쳐 보였다 */
+.poster.video{aspect-ratio:16/9}
