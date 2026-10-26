@@ -124,7 +124,7 @@ export function mountBoard(o: BoardOptions): Board {
 
   /* 단추(가게 — 실제 자리) */
   const btnG = el('g', { class: 'kb-buttons' }, board);
-  let btns: { id: string; cat: string; g: SVGGElement; x: number; y: number; w: number; labY: number; cl?: Cluster }[] = [], filter: string | null = null, selected: string | null = null;
+  let btns: { id: string; cat: string; g: SVGGElement; x: number; y: number; r: number; cl?: Cluster }[] = [], filter: string | null = null, selected: string | null = null;
   type Cluster = { ids: string[]; g: SVGGElement; pos: SVGGElement; x: number; y: number };
   let clusters: Cluster[] = [];
   const inward = (x: number, y: number): XY => {   /* 섬 밖이면 가장 가까운 가장자리에서 안쪽으로 */
@@ -151,25 +151,23 @@ export function mountBoard(o: BoardOptions): Board {
         [[-6, -6], [6, -6], [-6, 6], [6, 6]].forEach(([hx, hy]) => el('circle', { class: 'kb-hole', cx: hx, cy: hy, r: 2.8 }, b));
         el('path', { class: 'kb-thr', d: 'M-6 -6 L6 6 M6 -6 L-6 6' }, b);
       }
-      const labY = BTN_IMG[cat] ? -38 : -34, lab = el('text', { class: 'kb-lab', x: 0, y: labY }, b); lab.textContent = s.name;
+      const lab = el('text', { class: 'kb-lab', x: 0, y: BTN_IMG[cat] ? -38 : -34 }, b); lab.textContent = s.name;
       bo.addEventListener('click', (e) => { e.stopPropagation(); o.onStore(s.id); });
-      btns.push({ id: s.id, cat, g: bo, x, y, w: s.name.length * 21 * 0.95, labY });   /* w: 이름표 폭 추정(글자 수 × 글자 크기, 배율 전) — 숨은 동안엔 텍스트 길이를 잴 수 없어서 */
+      btns.push({ id: s.id, cat, g: bo, x, y, r: (BTN_IMG[cat] ? BTN_R * 1.25 : BTN_R + 1) * BTN_K });   /* r: 단추 동그라미 반지름(캔버스 단위) — 그림 단추는 그림이 원보다 조금 크다 */
     });
     regroup(); renderLegend();
   }
-  /* 겹친 단추 묶기(10-26, 평소 지도의 숫자 점과 같은 흐름): 단추나 이름표가 서로 겹치는 가게끼리 숫자 단추 하나로 묶고, 누르면 onCluster(엔진이 작은 말풍선에서 고르게).
+  /* 겹친 단추 묶기(10-26, 평소 지도의 숫자 점과 같은 흐름): 단추 동그라미끼리 겹치는 가게끼리(이름표만 겹치는 건 묶지 않는다 — 10-26 사용자 결정, 이름표까지 보면 가운데 7곳이 한 덩어리였다) 숫자 단추 하나로 묶고, 누르면 onCluster(엔진이 작은 말풍선에서 고르게).
      보드는 단추·이름표가 지도와 같이 커지므로 확대해도 겹침이 풀리지 않는다 → 화면 px 가 아니라 캔버스 단위로 한 번 묶는다(가게·필터가 바뀔 때만).
      필터로 흐려진 단추는 묶지 않고 그대로 둔다 */
-  const boxOf = (b: (typeof btns)[number]) => { const r = BTN_R * BTN_K * 1.25, hw = Math.max(r, (b.w * BTN_K) / 2), top = y0Of(b); return { x0: b.x - hw, x1: b.x + hw, y0: top, y1: b.y + r }; };
-  const y0Of = (b: (typeof btns)[number]) => b.y + (b.labY - 17) * BTN_K;   /* 이름표 윗변(글자 크기 21 의 기준선 위) */
-  const hits = (a: ReturnType<typeof boxOf>, c: ReturnType<typeof boxOf>) => a.x0 < c.x1 + 2 && c.x0 < a.x1 + 2 && a.y0 < c.y1 + 2 && c.y0 < a.y1 + 2;
+  const hits = (a: (typeof btns)[number], c: (typeof btns)[number]) => Math.hypot(a.x - c.x, a.y - c.y) < a.r + c.r;
   function regroup() {
     clusters.forEach((c) => c.pos.remove()); clusters = [];
-    const live = btns.filter((b) => !filter || b.cat === filter), boxes = new Map(live.map((b) => [b, boxOf(b)])), group = new Map<(typeof btns)[number], (typeof btns)[number][]>();
+    const live = btns.filter((b) => !filter || b.cat === filter), group = new Map<(typeof btns)[number], (typeof btns)[number][]>();
     btns.forEach((b) => { b.cl = undefined; });
     for (const a of live) {   /* 겹치는 것끼리 이어 붙인다(가게 수가 적어 n² 로 충분) */
       if (group.has(a)) continue; const grp = [a]; group.set(a, grp);
-      for (let i = 0; i < grp.length; i++) for (const c of live) if (!group.has(c) && hits(boxes.get(grp[i])!, boxes.get(c)!)) { grp.push(c); group.set(c, grp); }
+      for (let i = 0; i < grp.length; i++) for (const c of live) if (!group.has(c) && hits(grp[i], c)) { grp.push(c); group.set(c, grp); }
     }
     for (const grp of new Set(group.values())) {
       if (grp.length < 2) continue;
