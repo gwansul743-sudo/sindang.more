@@ -243,7 +243,9 @@ export function bootLegacy(DATA){
   /* 전시 모드 (10-23, 시안 v2 그대로): 켜면 사이드바가 접히고 카메라가 보드 전체를 담는 자리로 간 뒤 보드 연출(features/kiosk-board.play)이 돈다 —
      ① 재단선 실 ② 옛 섬이 사라지며 조각이 떠올라 섬만큼 펴짐 ③ 가장자리 꿰매기·하늘·물결 ④ 길 ⑤ 집·나무 ⑥ 단추 ⑦ 제목 → ⑧ 이장님 등장·말풍선·큰 상자(여기) → 마지막 장이 닫히면 ⑨ 범례·주민(kioskRest).
      연출 중엔 지도를 만져도 끊기지 않는다 — '건너뛰기' 버튼(.kb-skip)으로만 바로 다 보이게(kioskSkip, 10-23). 낮춘 상태에서 30초 무입력이면 카메라만 보드 전체 뷰로. OFF 는 커튼 아래서 되돌린다(kioskOff). */
-  let KIOSK = new URLSearchParams(location.search).has('kiosk');
+  /* 전시 모드로 열기: ?kiosk 또는 /qr 경로(10-26, 전시장 QR). QR 은 경로로 — Cloudflare Web Analytics 가 ?쿼리 는 기록하지 않아 /qr 이어야 QR 방문이 따로 집계된다.
+     Pages 는 404.html 이 없으면 모르는 경로에 첫 화면(index)을 준다(SPA). 인쇄한 QR 주소는 못 바꾸니 /qr 의 동작은 여기서만 바꾼다 */
+  let KIOSK = new URLSearchParams(location.search).has('kiosk') || /^\/qr\/?$/i.test(location.pathname);
   const BOARD_DEBUG = new URLSearchParams(location.search).has('board');   /* ?board=1: 연출 없이 보드가 다 보이는 상태로 시작(개발·확인용) */
   const kioskBtn = document.getElementById('kiosk');
   function renderKiosk(){ kioskBtn.textContent = '전시 모드 ' + (KIOSK?'ON':'OFF'); kioskBtn.setAttribute('aria-pressed', KIOSK); }

@@ -149,4 +149,5 @@ interviews  id, source(form|shop), answers(json), summary_md, store_id?, created
 - 무입력 `IDLE_MS`(지금 3초, 사용자 조정)면 자동 순환: 단추를 하나씩 줌인 + 카드 6초씩, 한 바퀴 뒤 보드 전체. 입력이 오면 바로 멈춤(`V.stop`). 대화·사진 뷰어·영상 재생·손가락 닿음 동안엔 시작 안 함.
 - **평소 지도(전시 모드 OFF)도 자동 순환**(10-26, '가게를 주인공으로'): 무입력 `HOME_IDLE_MS` 12초면 발행된 가게(다음 호 제외)를 지도 동선 순서(가장 서쪽에서 가까운 가게로)로 카드 열고 줌인(`HOME_FOCUS` 4.6) 6초씩, 한 바퀴 뒤 카드 닫고 처음 화면. 방문객이 직접 연 카드가 떠 있으면(읽는 중) 시작 안 함. 멈춤·재개 규칙은 전시 모드와 같다(`homeStep`)
 - 인트로가 떠 있는 동안엔 아무것도 안 돈다. '인트로 다시 보기'는 연출을 멈추고(`stopKiosk`), 인트로가 끝나면 다시. 늦은 콜백은 `kioskSeq` 로 막는다. OFF 는 커튼(`curtain.ts`)으로 덮고 한 번에 되돌린다.
+- **전시장 QR**(10-26): `https://sindang-more.pages.dev/qr` → 전시 모드 ON 으로 열림(`?kiosk` 와 같음). 경로로 한 이유: Cloudflare Web Analytics 는 `?쿼리` 를 기록하지 않아 `/qr` 이어야 QR 방문이 따로 집계된다(Pages 는 404.html 이 없으면 모르는 경로에 첫 화면을 준다 — `public/` 에 404.html 을 만들면 QR 이 깨진다). 인쇄한 주소는 못 바꾸니 QR 방문객 동작은 `engine.legacy.js` 의 `KIOSK` 판정에서만 바꾼다. QR 이미지는 `tools/qr/`(SVG 인쇄용·PNG, 오류 정정 Q).
 - `?board=1` 연출 없이 바로, `?patch_slow=N` 연출 N배 느리게. 알려진 흠: 제목이 근처 단추 이름표와 겹칠 수 있다.
