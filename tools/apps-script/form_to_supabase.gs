@@ -16,6 +16,11 @@
  */
 
 /* 보낼 열(열 이름이 이 중 하나로 시작하거나 맞으면). 같은 문항이 폼 수정으로 두 벌이어도 둘 다 보낸다 — 앱이 값이 있는 뒤쪽을 쓴다 */
+/* 응답 시트. 스크립트를 시트에 붙이지 않고 따로 만들었어도(getActiveSpreadsheet 가 null) ID 로 연다 */
+var SHEET_ID = '1omo6DyrYBh-SU2JOo10lE8oNpGjcrosJy9C2Yal8SVU';
+function book_() { return SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetApp.openById(SHEET_ID); }
+function sheet_() { var b = book_(); return b.getSheets().filter(function (s) { return s.getFormUrl(); })[0] || b.getSheetByName('Form Responses 1') || b.getSheets()[0]; }
+
 var KEEP = [/^Timestamp$/, /^타임스탬프$/, /^SQ1\./, /^SQ2\./, /^문1\./, /^문8\./, /^문8-1\./, /^문9\./, /^문9-1\./, /^문11-1\./, /^문30\./, /동의하시는지/];
 /* 파트 A 에서도 빼는 문장(개인 입장이 공개 지도에 드러남) */
 var DROP = /상인회|재개발|건물 소유|주인이 여럿/;
@@ -76,7 +81,7 @@ function onFormSubmit(e) {
 
 /* 손으로 실행: 응답 시트에서 아직 안 보낸 줄을 모두 보낸다(트리거를 늦게 달았거나 실패했을 때) */
 function sendMissing() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets().filter(function (s) { return s.getFormUrl(); })[0] || SpreadsheetApp.getActiveSheet();
+  var sheet = sheet_();
   for (var r = 2; r <= sheet.getLastRow(); r++) { try { Logger.log('row ' + r + ': ' + send_(sheet, r)); } catch (err) { Logger.log('row ' + r + ' 실패: ' + err); } }
 }
 
@@ -89,7 +94,7 @@ function checkConnection() {
 
 /* 손으로 실행: 시험 응답 한 줄을 시트 맨 아래에 넣고 바로 보낸다(폼 제출 없이 지도까지 확인). 시험이 끝나면 그 줄을 지우고 Supabase 에서 hidden 으로 */
 function addTestRow() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets().filter(function (s) { return s.getFormUrl(); })[0] || SpreadsheetApp.getActiveSheet();
+  var sheet = sheet_();
   var head = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   var want = [
     [/^Timestamp$|^타임스탬프$/, new Date()],
@@ -106,4 +111,11 @@ function addTestRow() {
   sheet.appendRow(row);
   var r = sheet.getLastRow();
   Logger.log('row ' + r + ': ' + send_(sheet, r));
+}
+
+/* 손으로 한 번 실행: '양식 제출 시' 트리거를 코드로 건다(트리거 화면에서 이벤트 소스에 '스프레드시트에서'가 없을 때). 이미 있으면 지우고 다시 */
+function installTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'onFormSubmit') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('onFormSubmit').forSpreadsheet(SHEET_ID).onFormSubmit().create();
+  Logger.log('트리거: ' + ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction() + ' / ' + t.getEventType(); }).join(', '));
 }
