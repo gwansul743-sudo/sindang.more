@@ -91,7 +91,7 @@ html.kb-dark .pixel-terrain,html.kb-dark .roads,html.kb-dark .pixel-props,html.k
 .kb-cl-face{fill:#fbf3e2;stroke:var(--kb-thread);stroke-width:2;stroke-dasharray:4 3;stroke-opacity:1}
 .kb-cl-n{font-family:var(--font-ui);font-weight:800;font-size:24px;fill:var(--kb-wine);text-anchor:middle;pointer-events:none;shape-rendering:auto}
 .kb-cluster:hover .kb-cl-face{fill:#f1e2c5}
-html.kb-on #cluster-pop{zoom:calc(var(--ui) * .9);background:linear-gradient(#f1e2c5e6,#f1e2c5e6),var(--kb-cream) url(/board/linen.webp);background-size:auto,120px;border:1px solid #c4ae8f;border-radius:5px;box-shadow:0 3px 4px #2e3b4338;color:var(--kb-wine)}
+html.kb-on #cluster-pop{background:linear-gradient(#f1e2c5e6,#f1e2c5e6),var(--kb-cream) url(/board/linen.webp);background-size:auto,120px;border:1px solid #c4ae8f;border-radius:5px;box-shadow:0 3px 4px #2e3b4338;color:var(--kb-wine)}
 html.kb-on #cluster-pop::before{content:"";position:absolute;inset:3px;border:1.5px dashed var(--kb-stitch);border-radius:2px;pointer-events:none}
 html.kb-on #cluster-pop::after{background:#f1e2c5;border-color:#c4ae8f}
 html.kb-on #cluster-pop .cl-title{font-family:var(--kb-hand);font-size:17px;letter-spacing:.3px;color:var(--kb-wine);border-bottom-color:#c4ae8f}
