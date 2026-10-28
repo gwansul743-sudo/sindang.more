@@ -41,8 +41,8 @@ export const CATS: Record<string, { n: string; sw: string }> = {
   sewing: { n: '봉제', sw: '#cfd9c8' }, supermarket: { n: '슈퍼', sw: '#bfd0e4' }, coffee: { n: '커피', sw: '#f1e4c8' },
   restaurant: { n: '음식점', sw: '#e8b3b1' }, wine: { n: '주점', sw: '#e7c9a8' }, etc: { n: '기타', sw: '#e4d6e6' },
 };
-/* 단추 그림(10-23, 사용자 제공 천 단추 4종 → public/board/btn-*.webp). 없는 업종(봉제·슈퍼)은 예전 무늬 단추 */
-const BTN_IMG: Record<string, string> = { coffee: '/board/btn-coffee.webp', restaurant: '/board/btn-restaurant.webp', wine: '/board/btn-wine.webp', etc: '/board/btn-etc.webp' };
+/* 단추 그림(10-23, 사용자 제공 천 단추 4종 → public/board/btn-*.webp, 봉제는 10-28 민트 물방울 단추). 모두 240px 칸에 단추 원을 꽉 채운다. 없는 업종(슈퍼)은 예전 무늬 단추 */
+const BTN_IMG: Record<string, string> = { coffee: '/board/btn-coffee.webp', restaurant: '/board/btn-restaurant.webp', wine: '/board/btn-wine.webp', etc: '/board/btn-etc.webp', sewing: '/board/btn-sewing.webp' };
 const catOf = (s: BoardStore) => (s.category && CATS[s.category] ? s.category : 'etc');
 const CW = 1774, CH = 887;                                   /* 시안 캔버스 */
 const ISLAND = (() => { const cx = 887, cy = 452, rx = 560, ry = 300, n = 56, pts: XY[] = [];   /* 시안의 섬 덩어리 */
