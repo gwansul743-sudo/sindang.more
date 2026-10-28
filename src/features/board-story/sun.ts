@@ -9,7 +9,7 @@ import { mountSubway, type SubwaySpec } from './subway';
      0 보드 → 1 위에서 본 신당(plan, hi/top_today13): 천이 걷히고 보드 길에 맞춘 위에서 본 장면이 무대 가운데로. 가리키면 바닥 윤곽 + '용도 · n층 · n년', 누르면 고르기
      1 → 2 건물(zoom): 영상(위 → 기울어진 보기)을 틀며 고른 건물로 다가가 hi/today_HH 에 내려앉고, 건물·이웃·반경 50 m·꼬리표·카드가 차례로.
        시간은 저절로 흐른다(1.2초에 한 시간, 8→21시, 마지막에서 1.5초 쉬고 처음부터). 막대로 직접, 끄는 동안 멈춤.
-       끌기 = 옮기기, 휠 = 확대(1–3배, 커서 기준), 다른 건물 누르기 = 그 건물로(0.3초에 가운데로, 영상 없음).
+       끌기 = 옮기기, 휠 = 확대(1–4배, 커서 기준), 다른 건물 누르기 = 그 건물로(0.3초에 가운데로, 영상 없음).
      level 1(위에서 본 신당)도 같은 조작(TASK_16): 끌기 = 옮기기, 휠 = 확대(맞춤의 1–4배, 커서 기준), 5 px 넘게 끈 것은 누르기가 아니다.
        옮기거나 키운 채로 고르면 지금 카메라에서 바로 기울며 다가간다(튀지 않는다).
      한 단계 위로: ✕ · Esc · 길잡이(보드 › 위에서 본 신당 › 건물) · '‹ 위에서 보기' · 45초 무입력(story.ts).
@@ -30,7 +30,7 @@ interface StoreSun { id: string; name: string; [day: string]: DaySun | string | 
 interface PageL { view?: 'diorama' | 'board'; date?: string; hour?: number; autoplay?: boolean; stores?: string; diagram?: string; mode?: string }
 
 const DATES = ['summer', 'equinox', 'today', 'winter'];   /* 춘분 그림은 있다(TASK_13) — 건물 카드만 춘분 수치가 없어 '오늘' 값으로 */
-const STEP_MS = 900, LIVE_MS = 1200, LOOP_REST_MS = 1500, ZMAX = 3, ZMAX_PLAN = 4, HEAT_MS = 1200, PEEK_MS = 4000;
+const STEP_MS = 900, LIVE_MS = 1200, LOOP_REST_MS = 1500, ZMAX = 4, ZMAX_PLAN = 4, HEAT_MS = 1200, PEEK_MS = 4000;
 const SUN = '#f0a850', SHADE = '#9a7a60';                 /* 해 눈금: 해 = 밤 하늘 노을 노랑(night.ts), 그늘 = 범례 안내 글자 회갈색(board.css .kb-note) */
 const NS = 'http://www.w3.org/2000/svg';
 /* 일조 사선 단면(10-28, 「건축법 시행령」 제86조): 높이 10 m 까지는 북쪽 땅 경계에서 1.5 m, 그 위는 높이의 1/2 이상 떨어진다.
@@ -211,7 +211,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
     c.slot(ctl);
   }
   const anchorOf = (b: Bld) => { const c0 = centre(b); return (k: number) => project(tr!.aff_frames![k] || m.axon!, c0[0], c0[1], b.h / 2); };
-  /* 건물로 다가갈 끝 카메라: 건물 + 반경 50 m 가 무대의 75 % 를 채우게(TASK_16, 기울어진 맞춤의 1–3배), 건물 가운데가 무대 가운데에 */
+  /* 건물로 다가갈 끝 카메라: 건물 + 반경 50 m 가 무대의 75 % 를 채우게(TASK_16, 기울어진 맞춤의 1–4배 — ASK_16 답 B, 실제로는 4배에서 약 59 %), 건물 가운데가 무대 가운데에 */
   function zoomCam(b: Bld): Cam {
     const R0 = b.near?.r ?? 50, c0 = centre(b), a = st.areaBox(), tc = st.contain('axon'), pts = Array.from({ length: 32 }, (_, j) => { const t = (j / 32) * Math.PI * 2; return project(m.axon!, c0[0] + Math.cos(t) * R0, c0[1] + Math.sin(t) * R0, 0); });
     pts.push(project(m.axon!, b.c[0], b.c[1], b.h));
