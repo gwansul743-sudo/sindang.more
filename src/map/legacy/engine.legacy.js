@@ -485,14 +485,18 @@ export function bootLegacy(DATA){
       if(KIOSK){ const my = kioskSeq; clearTimeout(kioskStartT); kioskStartT = setTimeout(() => { if(my === kioskSeq && KIOSK && !introOpen){ showChief(false); closeCard(); kioskView(); } }, 700 + 500); }   /* 카메라 0.7s + 텀 0.5s */
     }, 100); }
   function openMap(){ if(intro.classList.contains('open')) return; intro.classList.add('open'); clearTimeout(introT); introT=setTimeout(endIntro, +intro.dataset.ms || 1900); }
-  /* 인트로 다시 보기: 전시 연출은 그 자리에서 다 멈추고 평소 지도로 되돌린다(인트로 뒤에서 아무것도 돌지 않게, 10-23). 전시 모드 ON/OFF 상태는 그대로 — 인트로가 끝나면 다시 시작 */
-  function playIntro(){ introOpen=true; closeCard(); stopKiosk(); clearTimeout(introT); intro.classList.remove('open'); intro.classList.remove('done');
+  /* 인트로 다시 보기: 상단바 'MORE' 글자를 누르면(10-28 — 전엔 'INTRO 다시 보기' 버튼 #replay). 전시 연출은 그 자리에서 다 멈추고 평소 지도로 되돌린다(인트로 뒤에서 아무것도 돌지 않게, 10-23).
+     전시 모드 ON/OFF 상태는 그대로 — 인트로가 끝나면 다시 시작 */
+  function playIntro(){ if(introOpen) return; introOpen=true; closeCard(); stopKiosk(); clearTimeout(introT); intro.classList.remove('open'); intro.classList.remove('done');
     side.classList.remove('closed'); side.classList.add('welcome'); V.fit(); apply();   /* 인트로 아래서 사이드바(소개)를 미리 편다 */
     document.getElementById('empty').classList.remove('show');
     resetHome(); }
+  const brandBtn = document.querySelector('.brand b');
+  brandBtn.setAttribute('role', 'button'); brandBtn.tabIndex = 0; brandBtn.setAttribute('aria-label', '처음 화면(인트로)으로');
+  brandBtn.addEventListener('click', playIntro);
+  brandBtn.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); playIntro(); } });
   document.getElementById('openMap').onclick = openMap;
   intro.addEventListener('click', e => { if(intro.classList.contains('open') && !e.target.closest('.folded')) endIntro(); });
-  document.getElementById('replay').onclick = playIntro;
 
   /* ── 데이터 (db) · 관리자 ──────────────────────────────── */
   let gate = null, canWrite = false, authEmail = null, adminOpen = false, picking = false, editing = null, photoItems = [];   /* photoItems: 폼에서 고친 사진 차례({ path, url } 기존 · { file, url } 새 파일). 첫 장이 표지 */
