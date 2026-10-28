@@ -1,7 +1,11 @@
 import type { LayerCtx, Renderer } from './layers';
 
 /* 구름·나무 이야기 겹 그림(10-28) — 해 이야기처럼 이야기를 열 때 받는다(첫 화면 무게). 자리는 모두 ctx.toBoard(위경도)로, 섬 밖은 kb-clip.
-   · shade(구름): layer.show null(숨김) · "heatdays"(무더운 날 = 섬 길 위 작은 해 배지, 상자 막대그래프가 해 고르기) · "shade"(그늘길 리본).
+   · shade(구름): layer.show null(숨김) · "heat_summer"(한여름 햇볕 노출 지도, 상자 막대그래프 = 해마다 더운 날) · "shade"(그늘길 리본).
+     햇볕 노출 지도(TASK_17): 블렌더로 센 하지 하루(6–19시, 한 시간마다) 햇볕에 그대로 노출되는 시간 그림(위에서 본 카메라 = 전환 첫 장 trans_t00).
+       보드 위 자리는 해 이야기의 첫 장면과 같다 — manifest 의 aff_t00(지역 m → 그림 px)과 ctx.toBoard(위경도 → 보드)로 그림 px → 보드 1차식을 맞춰(최소제곱) image 하나에 transform.
+       섬 덩어리로 잘라(kb-clip) decode 뒤 0.6초에 나타난다. 왼쪽 아래 범례, 땅 위를 가리키면 '이 자리 한여름 하루 n시간'(값 그림, 시간 × 18 — 지붕은 회색이라 읽지 않는다),
+       값 그림에서 자동으로 찾은 꼬리표 둘(12시간 넘는 가장 큰 땅 덩어리 · 4시간 이하가 가장 촘촘한 골목, 상자·범례를 피해서). 막대는 그해 날수만 짚고 지도는 바뀌지 않는다.
      그늘길: 길 토막을 그늘 정도(0~1)로 네 묶음 → 묶음마다 천 리본(띠 path + 위에 가는 홈질 path). 낮 12시·오후 3시 두 벌을 한 번 만들어 opacity 로 바꿔 끼운다.
    · rest(나무): 아래 rest 머리 주석. */
 const NS = 'http://www.w3.org/2000/svg';
@@ -12,7 +16,7 @@ const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const inPoly = (poly: number[][], x: number, y: number) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [x1, y1] = poly[i], [x2, y2] = poly[j]; if ((y1 > y) !== (y2 > y) && x < ((x2 - x1) * (y - y1)) / (y2 - y1) + x1) c = !c; } return c; };
 /* 햇볕(해 눈금 노랑, night.ts 노을) → 그늘(보드 바다 #7793b1 · 슈퍼 무늬 파랑 #5f7fa8). 묶음 0 = 그늘 0~0.25 … 3 = 0.75~1 */
 const SHADE_COL = ['#f0a850', '#f2c070', '#7793b1', '#5f7fa8'], SHADE_W = 10;
-const BADGE = 34, BADGE_MAX = 50, YEAR_MS = 600;   /* 해 배지 크기(보드 단위, 보드 전체 화면 1080p 에서 약 17px)·최대 개수 · 해마다 넘기는 시간 */
+const YEAR_MS = 600;   /* 막대를 해마다 짚어 넘기는 시간 */
 
 interface Seg { a: number[]; b: number[]; c: string; shade: Record<string, number> }
 interface Climate { years: number[]; feel35: number[] }
@@ -39,18 +43,93 @@ export const shade: Renderer = async (c: LayerCtx) => {
   const key = document.createElement('div'); key.className = 'kb-shade-key';
   key.innerHTML = '<span>그늘 많음</span>' + SHADE_COL.slice().reverse().map((col) => `<i style="background:${col}"></i>`).join('') + '<span>햇볕</span>';
 
-  /* 무더운 날: 섬 길 위 해 배지(위치는 길 토막 가운데에서 씨앗 고정으로 뽑아 해가 바뀌어도 제자리) + 섬 전체 따뜻한 물들임 + 섬 위 큰 숫자 */
-  const heat = el('g', { class: 'kb-heat' }, c.root), isl = c.island;
-  const tint = el('path', { class: 'kb-heat-tint', d: isl.length ? isl.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('') + 'Z' : 'M0 0' }, heat);
-  let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-  const cand = data.segs.map((s) => { const [x1, y1] = P(s.a), [x2, y2] = P(s.b); return [(x1 + x2) / 2, (y1 + y2) / 2]; }).filter(([x, y]) => !isl.length || inPoly(isl, x, y));
-  for (let i = cand.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [cand[i], cand[j]] = [cand[j], cand[i]]; }
-  const spots: number[][] = []; for (const q of cand) { if (spots.length >= BADGE_MAX) break; if (spots.every((s) => Math.hypot(s[0] - q[0], s[1] - q[1]) > 36)) spots.push(q); }
-  const badges = spots.map(([x, y]) => el('image', { class: 'kb-heat-b', href: '/board/sun.webp', x: (x - BADGE / 2).toFixed(1), y: (y - BADGE / 2).toFixed(1), width: BADGE, height: BADGE }, heat));
-  const topY = isl.length ? Math.min(...isl.map((q) => q[1])) : 120, midX = isl.length ? isl.reduce((a, q) => a + q[0], 0) / isl.length : 887;
-  const counter = el('text', { class: 'kb-heat-n', x: midX.toFixed(1), y: (topY - 26).toFixed(1) }, heat);
+  /* 한여름 햇볕 노출 지도(TASK_17) — 처음 그 장을 열 때 받는다 */
+  const heat = el('g', { class: 'kb-heat', 'clip-path': 'url(#kb-clip)' }, c.root);
+  const heatImg = el('image', { class: 'kb-heat-map', width: 1920, height: 1440, preserveAspectRatio: 'none' }, heat);
+  const calls = el('g', { class: 'kb-heat-calls' }, c.top || c.root);
+  const heatKey = document.createElement('div'); heatKey.className = 'kb-map-key kb-heat-key'; c.host.appendChild(heatKey);
+  const heatTag = document.createElement('div'); heatTag.className = 'kb-heat-tag'; heatTag.setAttribute('aria-hidden', 'true'); c.host.appendChild(heatTag);
+  let H: { M: number[]; vals: Uint8Array; ground: Uint8Array } | null = null, heatLoad: Promise<boolean> | null = null, heatOn = false;
+  function loadHeat() {
+    return (heatLoad ||= (async () => {
+      const base = '/board/sun/', m = await (await fetch(base + 'manifest.json')).json() as { local: { lat0: number; lng0: number; kx: number; ky: number }; transition: { aff_t00: { origin: number[]; perX: number[]; perY: number[] } };
+        heat_summer_top: { image: string; values: string; legend: [number, string][] } };
+      const hs = m.heat_summer_top, A = m.transition.aff_t00, L = m.local; if (!hs || !A || !L) return false;
+      /* 그림 px → 보드: 지역 m 격자에서 (그림 px, 보드) 짝을 모아 1차식 최소제곱 */
+      const rows: number[][] = [], bx: number[] = [], by: number[] = [];
+      for (let dx = -400; dx <= 400; dx += 100) for (let dy = -300; dy <= 300; dy += 100) {
+        const u = A.origin[0] + dx * A.perX[0] + dy * A.perY[0], v = A.origin[1] + dx * A.perX[1] + dy * A.perY[1], [x, y] = c.toBoard(L.lat0 + dy / L.ky, L.lng0 + dx / L.kx);
+        rows.push([u, v, 1]); bx.push(x); by.push(y);
+      }
+      const solve = (t: number[]) => { const N = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], r = [0, 0, 0];
+        rows.forEach((q, k) => { for (let i = 0; i < 3; i++) { r[i] += q[i] * t[k]; for (let j = 0; j < 3; j++) N[i][j] += q[i] * q[j]; } });
+        const det = (M: number[][]) => M[0][0] * (M[1][1] * M[2][2] - M[1][2] * M[2][1]) - M[0][1] * (M[1][0] * M[2][2] - M[1][2] * M[2][0]) + M[0][2] * (M[1][0] * M[2][1] - M[1][1] * M[2][0]);
+        const D = det(N); return [0, 1, 2].map((i) => det(N.map((row, a) => row.map((v, b) => (b === i ? r[a] : v)))) / D); };   /* 크라메르 */
+      const [a, c2, e] = solve(bx), [b, d, f] = solve(by), M = [a, b, c2, d, e, f];
+      const im = new Image(); im.src = base + hs.image; const vi = new Image(); vi.src = base + hs.values;
+      await Promise.all([im.decode(), vi.decode()]); if (!c.alive()) return false;
+      const px = (img: HTMLImageElement) => { const cv = document.createElement('canvas'); cv.width = 1920; cv.height = 1440; const cx = cv.getContext('2d', { willReadFrequently: true })!; cx.drawImage(img, 0, 0, 1920, 1440); return cx.getImageData(0, 0, 1920, 1440).data; };
+      const pv = px(vi), pc = px(im), n = 1920 * 1440, vals = new Uint8Array(n), ground = new Uint8Array(n);
+      for (let k = 0; k < n; k++) { const q = k * 4, r = pc[q], g = pc[q + 1], bl = pc[q + 2]; vals[k] = pv[q]; ground[k] = pc[q + 3] > 128 && !(Math.max(r, g, bl) - Math.min(r, g, bl) < 20 && r > 200) ? 1 : 0; }   /* 지붕(옅은 회색)은 땅이 아니다 */
+      H = { M, vals, ground };
+      heatImg.setAttribute('transform', `matrix(${M.map((v) => +v.toFixed(6)).join(',')})`); heatImg.setAttribute('href', im.src);
+      const mx = hs.legend[hs.legend.length - 1][0];
+      heatKey.innerHTML = `<b>한여름 하루, 햇볕에 그대로 노출되는 시간</b><i class="bar" style="background:linear-gradient(90deg,${hs.legend.map(([h, col]) => `${col} ${((h / mx) * 100).toFixed(1)}%`).join(',')})"></i>`
+        + `<span class="ticks">${[0, 3, 6, 9, 12, 14].map((h) => `<em style="left:${((h / mx) * 100).toFixed(1)}%">${h}${h === 14 ? '시간' : ''}</em>`).join('')}</span><small>하지(6월 21일) · 3D 모형 계산</small>`;
+      return true;
+    })());
+  }
+  /* 그림 px ↔ 보드 ↔ 화면 */
+  const toB = (u: number, v: number) => { const M = H!.M; return [M[0] * u + M[2] * v + M[4], M[1] * u + M[3] * v + M[5]]; };
+  const toRef = (x: number, y: number) => { const M = H!.M, det = M[0] * M[3] - M[1] * M[2], X = x - M[4], Y = y - M[5]; return [(M[3] * X - M[2] * Y) / det, (-M[1] * X + M[0] * Y) / det]; };
+  const screenOf = (bx: number, by: number) => { const ctm = c.root.getScreenCTM(); if (!ctm) return null; const q = new DOMPoint(bx, by).matrixTransform(ctm); return [q.x, q.y]; };
+  /* 꼬리표 둘: 값 그림을 4 px 칸으로 — 12시간 넘는 가장 큰 땅 덩어리의 가운데에 가까운 칸, 4시간 이하가 가장 촘촘한(9×9 칸) 골목 칸. 상자·범례·화면 밖은 피한다 */
+  function placeCalls() {
+    calls.replaceChildren(); if (!H) return;
+    const S = 4, gw = 480, gh = 360, cell = new Int16Array(gw * gh).fill(-1);
+    for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) { const k = (y * S + 2) * 1920 + x * S + 2; if (H.ground[k]) cell[y * gw + x] = H.vals[k]; }
+    const hr = c.host.getBoundingClientRect(), panel = (c.host.querySelector('.kb-story.show') as HTMLElement | null)?.getBoundingClientRect(), key = heatKey.getBoundingClientRect();
+    const free = (gx: number, gy: number) => { const [bx, by] = toB(gx * S + 2, gy * S + 2), p = screenOf(bx, by); if (!p) return false; const [x, y] = p;
+      const out = (r: DOMRect | undefined, m: number) => !!r && r.width > 0 && x > r.left - m && x < r.right + m && y > r.top - m && y < r.bottom + m;
+      return x > hr.left + 60 && x < hr.right - 60 && y > hr.top + 110 && y < hr.bottom - 40 && !out(panel, 260) && !out(key, 60); };
+    /* 뜨거운 덩어리 */
+    const seen = new Uint8Array(gw * gh); let best: number[] = [];
+    for (let k0 = 0; k0 < gw * gh; k0++) { if (seen[k0] || cell[k0] < 216) continue; const comp: number[] = [], q = [k0]; seen[k0] = 1;
+      while (q.length) { const k = q.pop()!; comp.push(k); const x = k % gw, y = (k / gw) | 0; for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) { if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue; const nk = ny * gw + nx; if (!seen[nk] && cell[nk] >= 216) { seen[nk] = 1; q.push(nk); } } }
+      if (comp.filter((k) => free(k % gw, (k / gw) | 0)).length > best.length) best = comp.filter((k) => free(k % gw, (k / gw) | 0)); }
+    const pick = (list: number[]) => { if (!list.length) return null; const mx = list.reduce((a, k) => a + (k % gw), 0) / list.length, my = list.reduce((a, k) => a + ((k / gw) | 0), 0) / list.length;
+      return list.reduce((a, k) => ((k % gw - mx) ** 2 + (((k / gw) | 0) - my) ** 2 < (a % gw - mx) ** 2 + (((a / gw) | 0) - my) ** 2 ? k : a)); };
+    const hot = pick(best);
+    /* 그늘 골목: 4시간 이하 칸 밀도(적분 영상) */
+    const I = new Int32Array((gw + 1) * (gh + 1)); for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) { const v = cell[y * gw + x], w = v >= 0 && v <= 72 ? 1 : 0; I[(y + 1) * (gw + 1) + x + 1] = w + I[y * (gw + 1) + x + 1] + I[(y + 1) * (gw + 1) + x] - I[y * (gw + 1) + x]; }
+    const R = 4, box = (x: number, y: number) => { const x0 = Math.max(0, x - R), y0 = Math.max(0, y - R), x1 = Math.min(gw, x + R + 1), y1 = Math.min(gh, y + R + 1); return I[y1 * (gw + 1) + x1] - I[y0 * (gw + 1) + x1] - I[y1 * (gw + 1) + x0] + I[y0 * (gw + 1) + x0]; };
+    let cool = -1, cd = 0;
+    for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) { const v = cell[y * gw + x]; if (v < 0 || v > 72) continue; const d = box(x, y);
+      if (d > cd && (hot == null || Math.hypot(x - (hot % gw), y - ((hot / gw) | 0)) > 60) && free(x, y)) { cd = d; cool = y * gw + x; } }
+    const sc = c.root.getScreenCTM()?.a || 1, FS = 14 / sc, TH = 28 / sc, PAD = 10 / sc, OFF = 46 / sc;   /* 화면 14 px 글씨 */
+    const tag = (k: number | null, text: string, up: boolean) => {
+      if (k == null || k < 0) return; const [bx, by] = toB((k % gw) * S + 2, ((k / gw) | 0) * S + 2), w = text.length * FS * 0.86 + 2 * PAD, tx = bx + OFF * 0.6, ty = up ? by - OFF - TH : by + OFF;
+      const g = el('g', { class: 'kb-heat-call' }, calls);
+      el('path', { class: 'ld', d: `M${bx.toFixed(1)} ${by.toFixed(1)}L${tx.toFixed(1)} ${(up ? ty + TH : ty).toFixed(1)}`, 'stroke-width': (1.4 / sc).toFixed(2) }, g);
+      el('circle', { class: 'dt', cx: bx.toFixed(1), cy: by.toFixed(1), r: (3.5 / sc).toFixed(2), 'stroke-width': (1.4 / sc).toFixed(2) }, g);
+      el('rect', { x: tx.toFixed(1), y: ty.toFixed(1), width: w.toFixed(1), height: TH.toFixed(1), rx: (4 / sc).toFixed(1), 'stroke-width': (1.5 / sc).toFixed(2) }, g);
+      el('rect', { class: 'st', x: (tx + 3 / sc).toFixed(1), y: (ty + 3 / sc).toFixed(1), width: (w - 6 / sc).toFixed(1), height: (TH - 6 / sc).toFixed(1), rx: (3 / sc).toFixed(1), 'stroke-width': (1.2 / sc).toFixed(2), 'stroke-dasharray': `${(5 / sc).toFixed(1)} ${(3 / sc).toFixed(1)}` }, g);
+      const t = el('text', { x: (tx + PAD).toFixed(1), y: (ty + TH / 2).toFixed(1), 'font-size': FS.toFixed(1) }, g); t.textContent = text;
+    };
+    tag(hot, '그늘 없는 길 · 하루 12시간 넘게 해', true); tag(cool, '건물 그늘 골목 · 4시간 이하', false);
+  }
+  /* 가리킨 자리 값(땅 위만) */
+  function heatRead(e: PointerEvent) {
+    if (!heatOn || !H || e.pointerType === 'touch' || (e.target as Element).closest?.('.kb-story,.kb-map-key,.kb-legend,button')) { heatTag.classList.remove('on'); return; }
+    const ctm = c.root.getScreenCTM(); if (!ctm) return; const b = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse()), [u, v] = toRef(b.x, b.y), ui = Math.floor(u), vi = Math.floor(v);
+    if (ui < 0 || vi < 0 || ui >= 1920 || vi >= 1440 || !H.ground[vi * 1920 + ui] || (c.island.length && !inPoly(c.island, b.x, b.y))) { heatTag.classList.remove('on'); return; }
+    const hr = c.host.getBoundingClientRect(), h = Math.round((H.vals[vi * 1920 + ui] / 18) * 10) / 10;
+    heatTag.textContent = `이 자리 한여름 하루 ${h}시간`; heatTag.style.left = (e.clientX - hr.left).toFixed(0) + 'px'; heatTag.style.top = (e.clientY - hr.top).toFixed(0) + 'px'; heatTag.classList.add('on');
+  }
+  const offRead = () => heatTag.classList.remove('on');
+  c.host.addEventListener('pointermove', heatRead, { passive: true }); c.host.addEventListener('pointerleave', offRead);
   const maxN = Math.max(...clim.feel35, 1);
-  /* 막대그래프(상자): 해 고르기 — 누르면 그 해, 장을 열면 2016→2025 를 한 번 넘겨 보이고 장의 해에 멈춘다 */
+  /* 막대그래프(상자): 해마다 더운 날 — 누르면 그 막대와 아래 한 줄만(지도는 그대로) */
   const chart = document.createElement('figure'); chart.className = 'kb-chart';
   const bars = document.createElement('div'); bars.className = 'kb-bars';
   bars.setAttribute('role', 'group'); bars.setAttribute('aria-label', '해를 고르세요: 체감온도 35℃ 넘는 날');
@@ -59,17 +138,17 @@ export const shade: Renderer = async (c: LayerCtx) => {
     col.innerHTML = `<b>${clim.feel35[i]}</b><i style="height:${((clim.feel35[i] / maxN) * 84).toFixed(1)}px;animation-delay:${i * 50}ms"></i><span>${i ? "'" + String(y).slice(2) : y}</span>`;
     col.addEventListener('click', () => { stopPlay(); setYear(y); }); bars.appendChild(col); return col;
   });
-  const cap = document.createElement('figcaption'); cap.textContent = '체감온도 35℃ 넘는 날(일) · 막대를 누르면 그해의 날만큼 섬에 해가 떠요'; chart.append(cap, bars);
+  const cap = document.createElement('figcaption'); cap.textContent = '막대는 해마다 더운 날 수, 지도는 그 더위가 어디에 세게 떨어지는지예요';
+  const yearLine = document.createElement('p'); yearLine.className = 'kb-heat-yr';
+  chart.append(cap, bars, yearLine);
   let playT = 0;
   function setYear(y: number) {
-    const i = clim.years.indexOf(y); if (i < 0) return; const n = Math.min(BADGE_MAX, clim.feel35[i]);
-    badges.forEach((b, k) => b.classList.toggle('on', k < n));
-    tint.style.opacity = String(((0.25 * clim.feel35[i]) / maxN).toFixed(3));
-    counter.textContent = `${y}년 · ${clim.feel35[i]}일`;
+    const i = clim.years.indexOf(y); if (i < 0) return;
+    yearLine.textContent = `${y}년 · ${clim.feel35[i]}일`;
     cols.forEach((col, k) => col.classList.toggle('cur', clim.years[k] === y));
   }
   function stopPlay() { clearTimeout(playT); playT = 0; }
-  function play(end: number) {   /* 2016 → 2025 한 번, 그다음 장의 해 */
+  function play(end: number) {   /* 2016 → 2025 한 번 짚어 보이고, 그다음 장의 해 */
     stopPlay(); if (reduced()) { setYear(end); return; }
     let k = 0; const step = () => { if (!c.alive()) return; if (k < clim.years.length) { setYear(clim.years[k++]); playT = window.setTimeout(step, YEAR_MS); } else { playT = 0; setYear(end); } };
     step();
@@ -83,12 +162,15 @@ export const shade: Renderer = async (c: LayerCtx) => {
       stopPlay();
       root.classList.toggle('on', L.show === 'shade'); mapKey.classList.toggle('show', L.show === 'shade');
       sets.forEach((g, k) => g.classList.toggle('cur', times[k] === (L.time || 'summer_12')));
-      heat.classList.toggle('on', L.show === 'heatdays');
-      if (L.show === 'heatdays') { badges.forEach((b) => b.classList.remove('on')); play(L.year && clim.years.includes(L.year) ? L.year : clim.years[clim.years.length - 1]); }
-      c.slot(L.show === 'heatdays' ? chart : L.show === 'shade' ? key : null);
-      if (L.show === 'heatdays') { chart.classList.remove('grow'); void chart.offsetWidth; chart.classList.add('grow'); }
+      heatOn = L.show === 'heat_summer'; heatTag.classList.remove('on');
+      if (!heatOn) { heat.classList.remove('on'); heatKey.classList.remove('show'); calls.replaceChildren(); }
+      else void loadHeat().then((ok) => { if (!ok || !c.alive() || !heatOn) return; heat.classList.add('on'); heatKey.classList.add('show'); window.setTimeout(() => { if (c.alive() && heatOn) placeCalls(); }, 650); });   /* 꼬리표는 상자가 자리 잡은 뒤 */
+      if (heatOn) play(L.year && clim.years.includes(L.year) ? L.year : clim.years[clim.years.length - 1]);
+      c.slot(heatOn ? chart : L.show === 'shade' ? key : null);
+      if (heatOn) { chart.classList.remove('grow'); void chart.offsetWidth; chart.classList.add('grow'); }
     },
-    destroy() { stopPlay(); drift.forEach((a) => a.cancel()); mapKey.remove(); },
+    destroy() { stopPlay(); drift.forEach((a) => a.cancel()); mapKey.remove(); heatKey.remove(); heatTag.remove(); calls.remove(); heat.remove(); H = null;
+      c.host.removeEventListener('pointermove', heatRead); c.host.removeEventListener('pointerleave', offRead); },
   };
 };
 

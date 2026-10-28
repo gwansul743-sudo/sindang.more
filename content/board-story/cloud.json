@@ -2,6 +2,7 @@
  "id": "cloud",
  "title": "이 골목은 얼마나 시원할까",
  "hook": "구름을 누르면 신당의 여름과 그늘길이 보여요",
+ "_note": "GEN draft 10-28. Climate: Open-Meteo historical (ERA5 reanalysis, grid cell at 37.565N 127.021E), 2016-2025 daily; reanalysis grid underestimates street-level urban heat (stated on page). Shade: _bus/assets/shade_roads.json (ray cast on sun_diorama v8, 2026-08-05).",
  "layer": {
   "type": "shade",
   "data": "cloud-shade.json",
@@ -18,10 +19,10 @@
   },
   {
    "h": "더 오래, 더 뜨거워지는 여름",
-   "body": "체감온도가 35℃를 넘는 날은 밖에 오래 머물기 어려운 날이에요. 2016년 35일이던 이런 날이 2024년에는 48일로 늘었어요. 지도 위 해 하나가 그런 하루예요.",
-   "src": "Open-Meteo 과거 기상(ERA5 재분석) 일 최고 체감온도. 넓은 격자 평균이라 실제 골목은 이보다 더 더울 수 있어요",
+   "body": "체감온도가 35℃를 넘는 날은 밖에 오래 머물기 어려운 날이에요. 2016년 35일이던 이런 날이 2024년에는 48일로 늘었어요. 그 더위는 섬 어디에나 똑같이 떨어지지 않아요. 지도에서 빨간 곳은 한여름 하루 내내 해를 그대로 받는 길이고, 파란 곳은 건물 그늘이 지켜 주는 골목이에요.",
+   "src": "날수: Open-Meteo 과거 기상(ERA5 재분석) 일 최고 체감온도 · 지도: 3D 모형으로 계산한 하지 하루 일조 노출(기온 실측 아님)",
    "layer": {
-    "show": "heatdays",
+    "show": "heat_summer",
     "year": 2024
    }
   },

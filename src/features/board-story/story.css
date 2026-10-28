@@ -313,21 +313,35 @@ html.kb-story-focus .wk *,html.kb-story-focus .kb .kb-buttons *{pointer-events:n
 .kb-out-ring{fill:none;stroke:var(--kb-wine);stroke-width:2;stroke-dasharray:4 3;pointer-events:none}
 @media(prefers-reduced-motion:reduce){.kb-age-strip{transition:none}.kb-age-cap.on{animation:none;opacity:1}}
 
-/* 구름 — 무더운 날(cloudRest.ts heatdays): 섬 길 위 작은 해 배지(그해 날 수만큼 톡), 섬 따뜻한 물들임, 섬 위 큰 숫자 */
-.kb-heat{opacity:0;transition:opacity .5s ease;pointer-events:none}
+/* 구름 · 한여름 햇볕 노출 지도(TASK_17): 섬에 그림 하나(0.6초에 나타남) · 꼬리표 둘 · 범례 · 가리킨 자리 값 */
+.kb-heat{opacity:0;transition:opacity .6s ease;pointer-events:none}
 .kb-heat.on{opacity:1}
-.kb-heat-tint{fill:#f0a850;opacity:0;transition:opacity .5s ease}
-.kb-heat-b{opacity:0;transform-box:fill-box;transform-origin:center;scale:.3;transition:opacity .25s ease,scale .25s ease}
-.kb-heat-b.on{opacity:1;scale:1;animation:kb-heat-pop .35s cubic-bezier(.2,1.4,.3,1) both}
-@keyframes kb-heat-pop{0%{scale:.3}60%{scale:1.2}100%{scale:1}}
-.kb-heat-n{font:800 34px var(--font-ui);fill:var(--kb-wine);text-anchor:middle;paint-order:stroke;stroke:#f1e2c5;stroke-width:7px;stroke-linejoin:round;letter-spacing:-.02em}
+.kb-heat-calls{pointer-events:none}
+.kb-heat-call rect{fill:#fbf3e2;stroke:var(--kb-wine)}
+.kb-heat-call rect.st{fill:none;stroke:var(--kb-stitch)}
+.kb-heat-call text{font-family:var(--font-ui);font-weight:800;fill:var(--kb-wine);dominant-baseline:central;letter-spacing:-.02em}
+.kb-heat-call .ld{fill:none;stroke:var(--kb-wine)}
+.kb-heat-call .dt{fill:var(--kb-wine);stroke:#fbf3e2}
+.kb-heat-calls .kb-heat-call{animation:kb-sel-in .35s ease both}
+.kb-heat-calls .kb-heat-call+.kb-heat-call{animation-delay:.15s}
+.kb-heat-key{width:280px}
+.kb-heat-key b{font-size:12.5px;font-weight:800;color:var(--kb-wine);letter-spacing:-.02em}
+#map .kb-heat-key i.bar{display:block;width:100%;height:10px;margin:2px 0 0;border-radius:2px;background-size:100% 100%;background-position:0 0;box-shadow:inset 0 0 0 1px #2e3b4333}
+.kb-heat-key .ticks{position:relative;display:block;height:14px;margin-top:-2px}
+.kb-heat-key .ticks em{position:absolute;top:0;transform:translateX(-50%);font-style:normal;font-size:10.5px;font-weight:700;color:var(--kb-stitch);white-space:nowrap}
+.kb-heat-key .ticks em:first-child{transform:none}.kb-heat-key .ticks em:last-child{transform:translateX(-85%)}
+.kb-heat-key small{font-size:10px;font-weight:600;color:#9a7a60}
+.kb-heat-tag{position:absolute;z-index:5;transform:translate(14px,-130%);padding:calc(3px * var(--ui)) calc(8px * var(--ui));border:1px dashed var(--kb-stitch);border-radius:4px;background:#fbf3e2;color:var(--kb-wine);font:800 calc(12px * var(--ui)) var(--font-ui);white-space:nowrap;box-shadow:0 2px 3px #2e3b4338;opacity:0;transition:opacity .12s ease;pointer-events:none}
+.kb-heat-tag.on{opacity:1}
+.kb-heat-yr{margin:6px 0 0;font-size:13px;font-weight:800;color:var(--kb-wine)}
+@media(prefers-reduced-motion:reduce){.kb-heat,.kb-heat-calls .kb-heat-call{transition:none;animation:none}}
 /* 지도 모서리 범례(그늘길 장): 파란 실 = 그늘 · 노란 실 = 햇볕 */
 .kb-map-key{position:absolute;z-index:4;left:25px;bottom:28px;display:flex;flex-direction:column;gap:6px;padding:11px 14px;background:linear-gradient(#f1e2c5e0,#f1e2c5e0),var(--kb-cream) url(/board/linen.webp);background-size:auto,120px;border:1px solid #c4ae8f;border-radius:5px;box-shadow:0 3px 4px #2e3b4338;color:var(--kb-wine);font:700 12.5px var(--font-ui);letter-spacing:-.02em;zoom:var(--ui);opacity:0;transform:translateY(10px);pointer-events:none;transition:opacity .4s ease,transform .4s ease}
 .kb-map-key.show{opacity:1;transform:none}
 .kb-map-key::after{content:"";position:absolute;inset:4px;border:1.6px dashed var(--kb-stitch);border-radius:2px;pointer-events:none}
 .kb-map-key i{display:inline-block;width:30px;height:9px;margin-right:8px;vertical-align:middle;border-radius:5px;background-image:linear-gradient(90deg,#fbf3e2 50%,transparent 50%);background-size:7px 1.4px;background-repeat:repeat-x;background-position:0 50%}
 @media(max-width:899px){.kb-map-key{left:10px;bottom:auto;top:10px}}
-@media(prefers-reduced-motion:reduce){.kb-heat-b,.kb-heat-b.on{transition:none;animation:none}.kb-map-key{transition:none}}
+@media(prefers-reduced-motion:reduce){.kb-map-key{transition:none}}
 
 /* 고르기 SVG(select.ts): 이름표(plan 가리키기) · 내려앉은 뒤 차례로(enter, 0.12초씩) */
 .kb-dio-sel .sl-name{opacity:0;transition:opacity .1s ease}
@@ -376,7 +390,7 @@ html.kb-story-focus .kb .kb-props .kb-prop:not(.kb-keep){opacity:.25!important}
 .kb-dio-heatkey em{position:absolute;top:0;transform:translateX(-50%);font-style:normal;font-size:10.5px;white-space:nowrap}
 .kb-dio-heatkey em:first-child{transform:none}.kb-dio-heatkey em:last-child{transform:translateX(-82%)}
 .kb-dio-heatkey small{display:block;font-size:9.5px;font-weight:600;color:#9a7a60}
-.kb-dio-heattag{position:absolute;z-index:2;transform:translate(14px,-130%);padding:3px 8px;border:1px dashed var(--kb-stitch);border-radius:4px;background:#fbf3e2;color:var(--kb-wine);font:800 12px var(--font-ui);white-space:nowrap;box-shadow:0 2px 3px #2e3b4338;opacity:0;transition:opacity .12s ease;pointer-events:none;zoom:var(--ui)}
+.kb-dio-heattag{position:absolute;z-index:2;transform:translate(14px,-130%);padding:calc(3px * var(--ui)) calc(8px * var(--ui));border:1px dashed var(--kb-stitch);border-radius:4px;background:#fbf3e2;color:var(--kb-wine);font:800 calc(12px * var(--ui)) var(--font-ui);white-space:nowrap;box-shadow:0 2px 3px #2e3b4338;opacity:0;transition:opacity .12s ease;pointer-events:none}   /* zoom 은 left·top 까지 키워 커서에서 벗어난다 — 글씨·여백만 키운다 */
 .kb-dio-heattag.on{opacity:1}
 .kb-bld-heat{margin:6px 0 2px;font-size:11.5px;font-weight:600;color:#6b3a30}
 .kb-bld-heat[hidden]{display:none}
