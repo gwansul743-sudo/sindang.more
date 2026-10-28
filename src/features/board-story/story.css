@@ -179,6 +179,7 @@ html.kb-on #map > svg{transition:scale .7s cubic-bezier(.32,.72,0,1),opacity .7s
 .kb-shade{opacity:0;transition:opacity .6s ease;pointer-events:none}
 .kb-shade.on{opacity:1}
 .kb-shade path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.kb-shade path.stitch{stroke:#fbf3e2;stroke-width:1.4;stroke-dasharray:4 3;opacity:.85}   /* 천 리본 위 홈질(보드 골목처럼) */
 .kb-shade-t{opacity:0;transition:opacity .6s ease}
 .kb-shade-t.cur{opacity:.92}
 .kb-shade-key{display:flex;align-items:center;gap:4px;margin-top:12px;padding-top:9px;border-top:1.6px dashed #9b3d4980;font-size:11px;font-weight:600;letter-spacing:-.3px}
@@ -188,11 +189,12 @@ html.kb-on #map > svg{transition:scale .7s cubic-bezier(.32,.72,0,1),opacity .7s
 .kb-chart{margin:12px 0 0;padding-top:9px;border-top:1.6px dashed #9b3d4980}
 .kb-chart figcaption{font-size:11px;font-weight:700;letter-spacing:-.3px;color:var(--kb-stitch);margin-bottom:2px}
 .kb-bars{display:flex;align-items:flex-end;gap:5px;height:118px}
-.kb-bar-c{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center}
+.kb-bar-c{flex:1;min-width:0;height:100%;padding:0;border:0;background:none;font:inherit;cursor:pointer;display:flex;flex-direction:column;justify-content:flex-end;align-items:center}
 .kb-bar-c b{font:700 10px var(--font-ui);color:#6b3a30;margin-bottom:2px}
 .kb-bar-c i{display:block;width:72%;border-radius:2px 2px 0 0;background:#c4ae8f;transform-origin:50% 100%}
 .kb-bar-c span{font:600 9.5px var(--font-ui);color:#9a7a60;margin-top:3px;white-space:nowrap}
-.kb-bar-c.hi b{color:var(--kb-wine)}.kb-bar-c.hi i{background:var(--kb-wine)}
+.kb-bar-c.hi b,.kb-bar-c.cur b{color:var(--kb-wine)}.kb-bar-c.hi i,.kb-bar-c.cur i{background:var(--kb-wine)}
+.kb-bar-c:hover i{filter:brightness(.92)}
 .kb-chart.grow .kb-bar-c i{animation:kb-bar-in .6s cubic-bezier(.32,.72,0,1) both}
 @keyframes kb-bar-in{from{transform:scaleY(0)}to{transform:scaleY(1)}}
 @media(prefers-reduced-motion:reduce){.kb-shade,.kb-shade-t{transition:none}.kb-chart.grow .kb-bar-c i{animation:none}}
@@ -301,3 +303,19 @@ html.kb-story-focus .wk *,html.kb-story-focus .kb .kb-buttons *{pointer-events:n
 .kb-out-img{cursor:zoom-in;pointer-events:auto}
 .kb-out-ring{fill:none;stroke:var(--kb-wine);stroke-width:2;stroke-dasharray:4 3;pointer-events:none}
 @media(prefers-reduced-motion:reduce){.kb-age-strip{transition:none}.kb-age-cap.on{animation:none;opacity:1}}
+
+/* 구름 — 무더운 날(cloudRest.ts heatdays): 섬 길 위 작은 해 배지(그해 날 수만큼 톡), 섬 따뜻한 물들임, 섬 위 큰 숫자 */
+.kb-heat{opacity:0;transition:opacity .5s ease;pointer-events:none}
+.kb-heat.on{opacity:1}
+.kb-heat-tint{fill:#f0a850;opacity:0;transition:opacity .5s ease}
+.kb-heat-b{opacity:0;transform-box:fill-box;transform-origin:center;scale:.3;transition:opacity .25s ease,scale .25s ease}
+.kb-heat-b.on{opacity:1;scale:1;animation:kb-heat-pop .35s cubic-bezier(.2,1.4,.3,1) both}
+@keyframes kb-heat-pop{0%{scale:.3}60%{scale:1.2}100%{scale:1}}
+.kb-heat-n{font:800 34px var(--font-ui);fill:var(--kb-wine);text-anchor:middle;paint-order:stroke;stroke:#f1e2c5;stroke-width:7px;stroke-linejoin:round;letter-spacing:-.02em}
+/* 지도 모서리 범례(그늘길 장): 파란 실 = 그늘 · 노란 실 = 햇볕 */
+.kb-map-key{position:absolute;z-index:4;left:25px;bottom:28px;display:flex;flex-direction:column;gap:6px;padding:11px 14px;background:linear-gradient(#f1e2c5e0,#f1e2c5e0),var(--kb-cream) url(/board/linen.webp);background-size:auto,120px;border:1px solid #c4ae8f;border-radius:5px;box-shadow:0 3px 4px #2e3b4338;color:var(--kb-wine);font:700 12.5px var(--font-ui);letter-spacing:-.02em;zoom:var(--ui);opacity:0;transform:translateY(10px);pointer-events:none;transition:opacity .4s ease,transform .4s ease}
+.kb-map-key.show{opacity:1;transform:none}
+.kb-map-key::after{content:"";position:absolute;inset:4px;border:1.6px dashed var(--kb-stitch);border-radius:2px;pointer-events:none}
+.kb-map-key i{display:inline-block;width:30px;height:9px;margin-right:8px;vertical-align:middle;border-radius:5px;background-image:linear-gradient(90deg,#fbf3e2 50%,transparent 50%);background-size:7px 1.4px;background-repeat:repeat-x;background-position:0 50%}
+@media(max-width:899px){.kb-map-key{left:10px;bottom:auto;top:10px}}
+@media(prefers-reduced-motion:reduce){.kb-heat-b,.kb-heat-b.on{transition:none;animation:none}.kb-map-key{transition:none}}
