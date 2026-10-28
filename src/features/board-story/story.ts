@@ -123,7 +123,7 @@ export function mountStory(o: StoryOptions): BoardStory {
       .catch(() => { if (alive()) root.remove(); });   /* 겹 그림이 실패해도 이야기는 그대로 */
   }
   function clearLayer(keepDim = false) { dropCtl(); [...o.layer.children].forEach((c) => { if (!keepDim || c !== dim) c.remove(); }); if (!keepDim) dim = null; panel?.querySelector('.kb-story-slot')!.replaceChildren(); }
-  function dropCtl() { const c = ctl; ctl = null; held = false; c?.destroy?.(); }   /* 주제를 바꿀 땐 어둠은 그대로(깜빡임 없이) */
+  function dropCtl(instant = true) { const c = ctl; ctl = null; held = false; c?.destroy?.(instant); }   /* 주제를 바꿀 땐 어둠은 그대로(깜빡임 없이) */
   function showDim(on: boolean) {
     if (on) {
       if (!dim) { dim = document.createElementNS(NS, 'path'); dim.setAttribute('class', 'kb-story-dim'); dim.setAttribute('d', o.islandPath); o.layer.prepend(dim); }
@@ -131,7 +131,7 @@ export function mountStory(o: StoryOptions): BoardStory {
     } else dim?.classList.remove('on');
   }
   function close(instant = false) {
-    ++seq; clearTimeout(idleT); off(); pdf.close(true); dropCtl();
+    ++seq; clearTimeout(idleT); off(); pdf.close(true); dropCtl(instant || reduced());
     const was = !!cur; cur = null; data = null; setHot(null);
     document.documentElement.classList.remove('kb-story-on');
     if (panel) { panel.classList.toggle('instant', instant); panel.classList.remove('show'); }

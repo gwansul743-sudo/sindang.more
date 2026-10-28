@@ -1,4 +1,5 @@
 import type { LayerCtl, LayerCtx, Renderer, StoreSpot } from './layers';
+import { mountLift, type LocalFrame, type TransFrame } from './lift';
 
 /* 해 이야기(10-28) — layer.type "diorama". 장의 layer 칸: view "diorama" | "board", date, hour, autoplay, compare, night, stores.
    · diorama: 천을 들추면 — 보드는 살짝 작아지며 흐려지고(#map.kb-dio-on, scale·opacity) 그 위 HTML 무대(#map 안, 상자 왼쪽)에
@@ -7,9 +8,11 @@ import type { LayerCtl, LayerCtx, Renderer, StoreSpot } from './layers';
      재생 중엔 이야기 45초 자동 닫기를 멈춘다(hold).
    · 그림은 지금 날짜(compare 면 두 날짜)만 열 때부터 하나씩 차례로 받는다 — 47장을 한꺼번에 기다리지 않는다. 실패한 그림은 건너뛰고 앞 그림을 둔다.
    · board + stores: 보드로 돌아와 가게 단추 옆에 해 눈금(10분 칸, 해 = 노랑, 그늘 = 회갈색) + 'n시간'. 가게마다 <g> 하나(19개 이하), 장이 바뀌면 지운다.
-   · 닫히면(destroy) 무대를 DOM 에서 지우고, 타이머를 멈추고, img.src 를 놓는다. 그림 내용(픽셀)에 기대지 않는다 — GEN 이 같은 이름으로 다시 렌더한다. */
+   · 닫히면(destroy) 무대를 DOM 에서 지우고, 타이머를 멈추고, img.src 를 놓는다. 그림 내용(픽셀)에 기대지 않는다 — GEN 이 같은 이름으로 다시 렌더한다.
+   · 보드 ⇄ 디오라마 전환은 lift.ts(천을 들추면: 보드 길에 맞춘 위에서 본 그림 → 기울며 솟는 프레임). 사람이 닫으면 거꾸로 돌아간 뒤 지우고,
+     전시 끄기·인트로·다른 이야기로 바뀔 땐 바로 지운다(destroy(instant)). */
 interface Frame { h: number; elev: number; az: number; file: string }
-interface Manifest { dates: Record<string, string>; frames: Record<string, Frame[]>; night?: string }
+interface Manifest { dates: Record<string, string>; frames: Record<string, Frame[]>; night?: string; local?: LocalFrame; transition?: { frames: TransFrame[] } }
 interface DaySun { hours: number; of: number; slots: string; start: string }
 interface StoreSun { id: string; name: string; [day: string]: DaySun | string | unknown }
 interface PageL { view?: 'diorama' | 'board'; date?: string; hour?: number; autoplay?: boolean; compare?: string; night?: boolean; stores?: string }
@@ -50,6 +53,8 @@ function mountPane(parent: HTMLElement) {
   };
 }
 
+let alive: (() => void) | null = null;   /* 앞 이야기의 무대가 아직 거꾸로 돌아가는 중이면 새로 열 때 바로 치운다 */
+
 export const diorama: Renderer = async (c: LayerCtx) => {
   const base = String(c.spec.base || '/board/sun/');
   const m = (await (await fetch(String(c.spec.manifest || base + 'manifest.json'))).json()) as Manifest;
@@ -57,10 +62,18 @@ export const diorama: Renderer = async (c: LayerCtx) => {
   const dates = DATES.filter((d) => m.frames[d]?.length);
 
   /* 무대(HTML, #map 안). 상자 왼쪽을 덮고, 바다색 막 위에 그림 */
-  const stage = document.createElement('div'); stage.className = 'kb-dio'; stage.setAttribute('aria-hidden', 'true');
-  const panes = document.createElement('div'); panes.className = 'kb-dio-panes'; stage.appendChild(panes);
+  alive?.();
+  const stage = document.createElement('div'); stage.className = 'kb-dio'; stage.hidden = true; stage.setAttribute('aria-hidden', 'true');
+  const veil = document.createElement('div'); veil.className = 'kb-dio-veil'; stage.appendChild(veil);
+  const panes = document.createElement('div'); panes.className = 'kb-dio-panes';
   ['pointerdown', 'wheel', 'click'].forEach((ev) => stage.addEventListener(ev, (e) => { e.stopPropagation(); if (ev === 'pointerdown') stop(); }, { passive: true }));   /* 지도 끌기·줌으로 새지 않게. 무대를 누르면 재생 멈춤 */
   c.host.appendChild(stage);
+  const lift = m.transition?.frames?.length && m.local ? mountLift({ stage, host: c.host, base, frames: m.transition.frames, local: m.local, fetchImg,
+    boardAt: (lat, lng) => { const ctm = c.root.getScreenCTM(); if (!ctm) return null; const [x, y] = c.toBoard(lat, lng), q = new DOMPoint(x, y).matrixTransform(ctm), r = c.host.getBoundingClientRect(); return [q.x - r.left, q.y - r.top]; },
+    containBox: () => ({ x: panes.offsetLeft, y: panes.offsetTop, w: panes.offsetWidth, h: panes.offsetHeight }) }) : null;
+  stage.appendChild(panes);   /* 들추는 그림(lift) 위에 해 그림 — 다 오면 덮는다 */
+  if (lift && new URLSearchParams(location.search).has('lift_check')) Object.assign(window, { __liftCheck: (lat: number, lng: number) => lift.check(lat, lng), __liftLocal: m.local });   /* 확인용: 보드 길 ↔ t00 맞춤 오차 */
+  lift?.preload();
   const P = [mountPane(panes), mountPane(panes)];
 
   /* 조작 막대(상자 아래 칸) */
@@ -80,7 +93,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
   const keyDate = document.createElement('b'); keyRow.prepend(keyDate);
 
   let date = dates.includes('today') ? 'today' : dates[0], cmp: string | null = null, idx = 0, night = false, view: 'diorama' | 'board' | null = null;
-  let timer = 0, outT = 0, gaugeG: SVGGElement | null = null, preloadRun = 0;
+  let timer = 0, gaugeG: SVGGElement | null = null, preloadRun = 0, shown = false, landed = false, onLand: (() => void) | null = null;
   const frames = (d: string) => m.frames[d] || [];
   const frameAt = (d: string, h: number) => { const fs = frames(d); let best = 0; fs.forEach((f, i) => { if (Math.abs(f.h - h) < Math.abs(fs[best].h - h)) best = i; }); return fs[best]; };
 
@@ -108,11 +121,18 @@ export const diorama: Renderer = async (c: LayerCtx) => {
   function start() { if (timer || night || !c.alive()) return; c.hold(true); timer = window.setInterval(() => { if (!c.alive()) { stop(); return; } setIdx((idx + 1) % frames(date).length); }, STEP_MS); paint(); }
   function stop() { if (!timer) return; clearInterval(timer); timer = 0; c.hold(false); if (c.alive()) paint(); }
 
-  function showStage(on: boolean) {
-    clearTimeout(outT);
-    c.host.classList.toggle('kb-dio-on', on);
-    if (on) { stage.hidden = false; void stage.offsetWidth; stage.classList.add('show'); }
-    else { stage.classList.remove('show'); outT = window.setTimeout(() => { if (c.alive() && view !== 'diorama') stage.hidden = true; }, OUT_MS); }
+  /* 무대 보이기·숨기기: 들추는 전환(lift)이 있으면 그것으로, 없으면 예전처럼 흐려지며 떠오르기 */
+  function showStage(on: boolean, then?: () => void) {
+    if (on) {
+      if (shown) { if (landed) then?.(); else onLand = then || null; return; }
+      shown = true; landed = false; onLand = then || null; stage.hidden = false; void stage.offsetWidth;
+      const land = () => { if (!c.alive()) return; landed = true; const f = onLand; onLand = null; f?.(); };
+      if (lift) lift.enter(land); else { c.host.classList.add('kb-dio-on'); stage.classList.add('show'); window.setTimeout(land, 700); }
+    } else {
+      if (!shown) return; shown = false; landed = false; onLand = null;
+      const done = () => { if (c.alive() && view !== 'diorama') stage.hidden = true; };
+      if (lift) lift.leave(done); else { c.host.classList.remove('kb-dio-on'); stage.classList.remove('show'); window.setTimeout(done, OUT_MS); }
+    }
   }
 
   /* 해 눈금(보드 장): 단추 자리 옆, 이름표·단추·다른 눈금과 덜 겹치는 쪽에 */
@@ -153,10 +173,15 @@ export const diorama: Renderer = async (c: LayerCtx) => {
       if (L.date && m.frames[L.date]) date = L.date;
       idx = frames(date).indexOf(frameAt(date, L.hour ?? frames(date)[idx]?.h ?? 12));
       if (!night) preload([...frames(date), ...(cmp ? frames(cmp) : [])].map((f) => f.file));
-      c.slot(ctl); showStage(true); paint();
-      if (L.autoplay) start();
+      c.slot(ctl); paint(); showStage(true, () => { if (L.autoplay) start(); });   /* 재생은 전환이 끝난 뒤(들추는 동안 그림이 넘어가지 않게) */
     },
-    destroy() { stop(); clearTimeout(outT); preloadRun++; c.host.classList.remove('kb-dio-on'); P.forEach((p) => p.release()); stage.remove(); gaugeG?.remove(); },
+    destroy(instant) {
+      stop(); preloadRun++; gaugeG?.remove(); view = null;
+      const finish = () => { if (alive !== finish) return; alive = null; lift?.kill(); c.host.classList.remove('kb-dio-on', 'kb-dio-fab'); P.forEach((p) => p.release()); stage.remove(); };
+      alive = finish;
+      if (instant || !shown || !lift) { finish(); return; }
+      shown = false; lift.leave(finish);   /* 사람이 닫으면 거꾸로 돌아가 천이 다시 덮인 뒤 지운다 */
+    },
   };
   return api;
 };

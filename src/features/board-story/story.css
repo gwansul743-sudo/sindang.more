@@ -82,11 +82,26 @@ html.kb-rest #map.kb-story-ptr svg{cursor:pointer}
 /* 해 디오라마(sun.ts): 천을 들추면 — 보드(svg)는 살짝 작아지며 흐려지고, 상자 왼쪽 무대에 렌더 그림이 떠오른다. 움직임은 transform·opacity 만 */
 html.kb-on #map > svg{transition:scale .7s cubic-bezier(.32,.72,0,1),opacity .7s ease}   /* 전시 모드에서만 — 평소 지도는 그대로 */
 #map.kb-dio-on > svg{scale:.96;opacity:.55}
-.kb-dio{position:absolute;z-index:3;inset:0;background:color-mix(in srgb,var(--kb-sea) 85%,transparent);opacity:0;pointer-events:none;transition:opacity .4s ease}
+.kb-dio{position:absolute;z-index:3;inset:0;pointer-events:none}
 .kb-dio[hidden]{display:none}
-.kb-dio.show{opacity:1;pointer-events:auto;transition:opacity .7s ease}
+.kb-dio.show:not(.rev){pointer-events:auto}
+.kb-dio-veil{position:absolute;inset:0;background:color-mix(in srgb,var(--kb-sea) 85%,transparent);opacity:0;transition:opacity .4s ease}
+.kb-dio.show .kb-dio-veil{opacity:1;transition:opacity .7s ease}
 .kb-dio-panes{position:absolute;left:0;top:0;bottom:0;right:calc(401px * var(--ui));display:flex;transform:translateY(24px) scale(.96);opacity:0;transition:transform .4s ease,opacity .4s ease}
 .kb-dio.show .kb-dio-panes{transform:none;opacity:1;transition:transform .7s cubic-bezier(.32,.72,0,1),opacity .7s ease}
+/* 천을 들추면(lift.ts): 들추는 그림(.kb-dio-lw, 1920×1080 을 matrix 로 놓음)이 먼저, 바다색 막은 0.5초 뒤부터 천천히, 해 그림은 다 들춘 뒤 0.35초로 덮는다 */
+.kb-dio.lift .kb-dio-veil{opacity:1;transition:opacity 1.7s ease .5s}
+.kb-dio.lift .kb-dio-panes{transform:none;transition:opacity .35s ease}
+.kb-dio.lift:not(.show) .kb-dio-panes{opacity:0}
+.kb-dio.lift.rev .kb-dio-veil{opacity:0;transition:opacity .9s ease}
+.kb-dio.lift.rev .kb-dio-panes{opacity:0;transition:opacity .2s ease}
+.kb-dio-lw{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;opacity:0;pointer-events:none;will-change:transform,opacity}
+.kb-dio-lw img{position:absolute;inset:0;width:100%;height:100%;opacity:0;user-select:none}
+.kb-dio-lw img.on{opacity:1}
+/* 들추는 동안 천(리넨·장식·제목·단추·이름표·주민·겹 그림)은 걷히고 길·바탕만 남는다 — 들추는 그림의 길이 그 위에 겹친다 */
+#map .kb-cloth,#map .kb-tint,#map .kb-props,#map .kb-title,#map .kb-buttons,#map .kb-story-layer{transition:opacity .5s ease}
+#map.kb-dio-fab .kb-cloth,#map.kb-dio-fab .kb-tint,#map.kb-dio-fab .kb-props,#map.kb-dio-fab .kb-title,#map.kb-dio-fab .kb-buttons,#map.kb-dio-fab .kb-story-layer,#map.kb-dio-fab .wk{opacity:0!important}
+#map.kb-dio-fab .kb-legend.show{opacity:0;pointer-events:none}
 .kb-dio-pane{position:relative;flex:1;min-width:0;margin:0}
 .kb-dio:not(.compare) .kb-dio-pane + .kb-dio-pane{display:none}
 .kb-dio-pane img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .35s ease;user-select:none}

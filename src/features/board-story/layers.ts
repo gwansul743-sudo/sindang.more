@@ -16,7 +16,7 @@ export interface LayerCtx {
   spots(): StoreSpot[];                                    // 보드 가게 단추 자리(캔버스) + 이름표 칸
 }
 export interface StoreSpot { id: string; name: string; x: number; y: number; r: number; lab: { x0: number; y0: number; x1: number; y1: number } | null }
-export interface LayerCtl { page(i: number, p: StoryPage): void; destroy?(): void }   // destroy: SVG 밖(HTML)에 만든 것·타이머 정리
+export interface LayerCtl { page(i: number, p: StoryPage): void; destroy?(instant?: boolean): void }   // destroy: SVG 밖(HTML)에 만든 것·타이머 정리. instant 가 아니면 나가는 장면을 보여도 된다
 export type Renderer = (c: LayerCtx) => LayerCtl | null | Promise<LayerCtl | null>;
 
 const NS = 'http://www.w3.org/2000/svg';
