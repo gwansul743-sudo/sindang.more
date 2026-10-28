@@ -9,10 +9,14 @@ export interface LayerCtx {
   alive(): boolean;                                        // 아직 이 이야기가 열려 있나(늦은 콜백 막기)
   later(fn: () => void, ms: number): void;                 // alive 일 때만 부르는 setTimeout
   load(name: string): Promise<unknown>;                    // content/board-story/ 의 데이터 파일(처음 쓸 때 받음)
-  legend(el: HTMLElement | null): void;                    // 상자 아래쪽 범례 띠(닫히면 story.ts 가 비운다)
+  slot(el: HTMLElement | null): void;                      // 상자 본문 아래 칸(범례·조작 막대). 닫히면 story.ts 가 비운다
+  hold(on: boolean): void;                                 // true 인 동안 이야기 45초 자동 닫기를 멈춘다(자동 재생 중)
+  host: HTMLElement;                                       // #map — HTML 겹(디오라마 무대)을 붙일 칸
   toBoard(lat: number, lng: number): [number, number];     // 실제 위경도 → 보드 캔버스(길과 같은 변환)
+  spots(): StoreSpot[];                                    // 보드 가게 단추 자리(캔버스) + 이름표 칸
 }
-export interface LayerCtl { page(i: number, p: StoryPage): void }
+export interface StoreSpot { id: string; name: string; x: number; y: number; r: number; lab: { x0: number; y0: number; x1: number; y1: number } | null }
+export interface LayerCtl { page(i: number, p: StoryPage): void; destroy?(): void }   // destroy: SVG 밖(HTML)에 만든 것·타이머 정리
 export type Renderer = (c: LayerCtx) => LayerCtl | null | Promise<LayerCtl | null>;
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -62,7 +66,7 @@ const buildingsAge: Renderer = async (c) => {
   const item = (label: string, color: string | null) => { const li = document.createElement('li'), sw = document.createElement('i'); if (color) sw.style.background = color; li.append(sw, label); lg.appendChild(li); return li; };
   const items = decades.map((dec, i) => item(`${dec}년대`, paths[i].getAttribute('fill')));
   const liNone = item(unknown, null); liNone.className = 'none';
-  c.legend(lg);
+  c.slot(lg);
   return { page(_i, p) {
     const h = (p.layer as { highlight?: unknown } | null | undefined)?.highlight ?? null;
     g.classList.toggle('on', h != null); lg.classList.toggle('off', h == null);
@@ -72,4 +76,7 @@ const buildingsAge: Renderer = async (c) => {
   } };
 };
 
-export const RENDERERS: Record<string, Renderer> = { constellation, 'buildings-age': buildingsAge };
+/* 해 디오라마는 코드가 커서 해 이야기를 열 때 받는다(첫 화면 무게, CLAUDE.md §8) */
+const diorama: Renderer = async (c) => (await import('./sun')).diorama(c);
+
+export const RENDERERS: Record<string, Renderer> = { constellation, 'buildings-age': buildingsAge, diorama };

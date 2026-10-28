@@ -1,6 +1,6 @@
 import './story.css';
 import { mountSpeech } from '../chief-speech/speech';
-import { RENDERERS, type LayerCtl } from './layers';
+import { RENDERERS, type LayerCtl, type StoreSpot } from './layers';
 import { mountPdf } from './pdf';
 
 /* 전시 보드 이야기 상자(10-28) — 전시 모드(rest)에서 하늘·소품 그림(해·구름·별·나무·재봉틀)을 누르면 그 주제의 이야기가 열린다.
@@ -29,6 +29,7 @@ export interface StoryOptions {
   onOpen: () => void;                                       // 엔진: 활동으로 치고, 카드·주민 대화·이장님 말풍선 닫기
   onClose?: () => void;
   toBoard?: (lat: number, lng: number) => [number, number];   // 실제 위경도 → 보드 캔버스(건물 겹 그림)
+  spots?: () => StoreSpot[];                                 // 보드 가게 단추 자리(해 눈금)
 }
 export interface BoardStory { readonly open: boolean; close(instant?: boolean): void }
 
@@ -47,7 +48,7 @@ const SKIP = '.kb-btn,.kb-lg,.wk';                         /* 이쪽을 누른 �
 
 export function mountStory(o: StoryOptions): BoardStory {
   let cur: { topic: string; el: SVGGraphicsElement } | null = null, data: StoryTopic | null = null, page = 0, seq = 0;
-  let panel: HTMLElement | null = null, dim: SVGPathElement | null = null, idleT = 0, hot: { topic: string; el: SVGGraphicsElement } | null = null, raf = 0, ctl: LayerCtl | null = null;
+  let panel: HTMLElement | null = null, dim: SVGPathElement | null = null, idleT = 0, hot: { topic: string; el: SVGGraphicsElement } | null = null, raf = 0, ctl: LayerCtl | null = null, held = false;
   const pdf = mountPdf(() => { if (cur) armIdle(); });   /* 논문 틀이 닫히면 45초를 다시 센다(열린 동안은 멈춤) */
   const hook = mountSpeech(o.host, {
     anchor: () => { if (!hot) return null; const r = hot.el.getBoundingClientRect(), m = o.host.getBoundingClientRect(); return { x: r.left + r.width / 2 - m.left, y: r.top + r.height * 0.1 - m.top }; },
@@ -98,7 +99,7 @@ export function mountStory(o: StoryOptions): BoardStory {
     const my = ++seq; o.onOpen(); hook.hide();
     if (!reduced()) t.el.animate([{ scale: '1' }, { scale: '1.16' }, { scale: '.96' }, { scale: '1' }], { duration: 420, easing: 'ease-out' });
     if (cur?.topic === t.topic && data) { cur = t; return; }
-    clearLayer(true); ctl = null; cur = t; data = null;
+    clearLayer(true); cur = t; data = null;
     loadTopic(t.topic).then((d) => {
       if (my !== seq || !d || !o.active()) { if (my === seq && !d) close(true); return; }
       data = d; page = 0; showDim(true); ensurePanel(); render(); armIdle();
@@ -113,13 +114,16 @@ export function mountStory(o: StoryOptions): BoardStory {
     const alive = () => my === seq && root.isConnected;
     Promise.resolve(fn({ root, spec: d.layer!, topic: d, alive, go: goTo,
       later: (f, ms) => { setTimeout(() => { if (alive()) f(); }, ms); },
-      legend: (h) => { if (alive()) panel?.querySelector('.kb-story-legend')!.replaceChildren(...(h ? [h] : [])); },
+      slot: (h) => { if (alive()) panel?.querySelector('.kb-story-slot')!.replaceChildren(...(h ? [h] : [])); },
+      hold: (on) => { if (!alive() || held === on) return; held = on; if (on) clearTimeout(idleT); else armIdle(); },
+      host: o.host, spots: () => (o.spots ? o.spots() : []),
       load: async (name) => { const f = LOAD[`../../../content/board-story/${name}`]; if (!f) throw new Error('없는 데이터 ' + name); return f(); },
       toBoard: (lat, lng) => o.toBoard ? o.toBoard(lat, lng) : [0, 0] }))
-      .then((c) => { if (!alive() || !c) return; ctl = c; c.page(page, d.pages[page]); })
+      .then((c) => { if (!c) return; if (!alive()) { c.destroy?.(); return; } ctl = c; c.page(page, d.pages[page]); })
       .catch(() => { if (alive()) root.remove(); });   /* 겹 그림이 실패해도 이야기는 그대로 */
   }
-  function clearLayer(keepDim = false) { [...o.layer.children].forEach((c) => { if (!keepDim || c !== dim) c.remove(); }); if (!keepDim) dim = null; panel?.querySelector('.kb-story-legend')!.replaceChildren(); }   /* 주제를 바꿀 땐 어둠은 그대로(깜빡임 없이) */
+  function clearLayer(keepDim = false) { dropCtl(); [...o.layer.children].forEach((c) => { if (!keepDim || c !== dim) c.remove(); }); if (!keepDim) dim = null; panel?.querySelector('.kb-story-slot')!.replaceChildren(); }
+  function dropCtl() { const c = ctl; ctl = null; held = false; c?.destroy?.(); }   /* 주제를 바꿀 땐 어둠은 그대로(깜빡임 없이) */
   function showDim(on: boolean) {
     if (on) {
       if (!dim) { dim = document.createElementNS(NS, 'path'); dim.setAttribute('class', 'kb-story-dim'); dim.setAttribute('d', o.islandPath); o.layer.prepend(dim); }
@@ -127,8 +131,8 @@ export function mountStory(o: StoryOptions): BoardStory {
     } else dim?.classList.remove('on');
   }
   function close(instant = false) {
-    ++seq; clearTimeout(idleT); off(); pdf.close(true);
-    const was = !!cur; cur = null; data = null; ctl = null; setHot(null);
+    ++seq; clearTimeout(idleT); off(); pdf.close(true); dropCtl();
+    const was = !!cur; cur = null; data = null; setHot(null);
     document.documentElement.classList.remove('kb-story-on');
     if (panel) { panel.classList.toggle('instant', instant); panel.classList.remove('show'); }
     if (instant || reduced()) clearLayer();
@@ -140,7 +144,7 @@ export function mountStory(o: StoryOptions): BoardStory {
   function ensurePanel() {
     if (panel) { panel.classList.remove('instant'); return panel; }
     panel = document.createElement('aside'); panel.className = 'kb-story'; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-live', 'polite');
-    panel.innerHTML = '<button type="button" class="kb-story-x" aria-label="이야기 닫기">✕</button><h2 class="kb-story-title"></h2><div class="kb-story-page"></div><div class="kb-story-legend"></div>'
+    panel.innerHTML = '<button type="button" class="kb-story-x" aria-label="이야기 닫기">✕</button><h2 class="kb-story-title"></h2><div class="kb-story-page"></div><div class="kb-story-slot"></div>'
       + '<nav class="kb-story-nav"><button type="button" class="kb-story-prev" aria-label="앞 장">‹</button><span class="kb-story-dots"></span><button type="button" class="kb-story-next" aria-label="다음 장">›</button></nav>';
     ['pointerdown', 'wheel', 'click'].forEach((ev) => panel!.addEventListener(ev, (e) => e.stopPropagation(), { passive: true }));   /* 지도 끌기·휠 줌·빈 곳 닫기로 새지 않게(활동 판정은 window capture 라 그대로) */
     panel.querySelector('.kb-story-x')!.addEventListener('click', () => close());
@@ -167,11 +171,12 @@ export function mountStory(o: StoryOptions): BoardStory {
   const go = (dp: number) => goTo(page + dp);
 
   /* 열린 동안: 입력이 오면 45초를 다시 센다, ← → Esc */
-  const armIdle = () => { clearTimeout(idleT); const my = seq; idleT = window.setTimeout(() => { if (my === seq && cur) close(); }, IDLE_CLOSE_MS); on(); };
-  const onInput = () => { if (pdf.open) pdf.poke(); else if (cur && data) armIdle(); };   /* 논문 틀이 열린 동안엔 그 3분만 센다 */
+  const armIdle = () => { clearTimeout(idleT); on(); if (held) return; const my = seq; idleT = window.setTimeout(() => { if (my === seq && cur) close(); }, IDLE_CLOSE_MS); };
+  const onInput = () => { if (pdf.open) pdf.poke(); else if (cur && data && !held) armIdle(); };   /* 논문 틀이 열린 동안엔 그 3분만 센다 */
   const onKey = (e: KeyboardEvent) => {
     if (!cur || !data) return;
     if (pdf.open) { if (e.key === 'Escape') { e.preventDefault(); pdf.close(); } return; }   /* Esc 는 논문 틀부터, 한 번 더 누르면 이야기 */
+    if (e.key !== 'Escape' && e.target instanceof HTMLInputElement) return;   /* 막대(range)에 포커스가 있으면 ← → 는 막대 것 */
     if (e.key === 'Escape') { e.preventDefault(); close(); } else if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); } else if (e.key === 'ArrowRight') { e.preventDefault(); go(1); }
   };
   let listening = false;

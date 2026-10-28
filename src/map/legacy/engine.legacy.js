@@ -386,7 +386,7 @@ export function bootLegacy(DATA){
   const story = board ? mountStory({ host: map, svg, targets: () => board.storyTargets(), layer: board.storyLayer, islandPath: board.islandPath,
     active: () => KIOSK && board.on && !introOpen && kioskStage === 'rest' && document.documentElement.classList.contains('kb-rest'),
     busy: () => cycling || !!current || viewer.visible || talk.visible || speech.visible || vTalk.visible || vSpeech.visible || !!clusterAt,
-    quiet: () => talk.visible || vTalk.visible, moved: () => V.moved, toBoard: (lat, lng) => board.toBoard(...proj(lat, lng)),
+    quiet: () => talk.visible || vTalk.visible, moved: () => V.moved, toBoard: (lat, lng) => board.toBoard(...proj(lat, lng)), spots: () => board.storeSpots(),
     onOpen: () => { idle(); closeCluster(); viewer.close(); speech.hide(); villagerDone(); if(current) closeCard(); board.focus(null); },
     onClose: () => idle() }) : null;
   function kioskView(){ if(!board || introOpen) return; const my = ++kioskSeq; clearTimeout(kioskStartT); kioskStage = 'play'; syncSkip?.();

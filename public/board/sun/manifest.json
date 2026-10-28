@@ -1,0 +1,296 @@
+{
+ "note": "Sun diorama frames (Blender Eevee, GEN 10-28, v4: 881 cleaned buildings, podium+tower, festival on 신당5길 alleys). 1920x1080 RGBA WebP, transparent background; place over the board sea. Real sun position for lat 37.565 N, hourly KST. Buildings: 국토교통부 GIS건물통합정보, trees: 서울시 가로수 위치정보 OA-320, crosswalks: 서울시 교차로·횡단보도 OA-23081, lamps: sindang_axon streetlight.gpkg. Facade/roof detail and festival decorations are stylized (연출).",
+ "dates": {
+  "summer": "6월 21일 · 하지",
+  "equinox": "3월 20일 · 춘분",
+  "today": "10월 30일 · 오늘",
+  "winter": "12월 21일 · 동지"
+ },
+ "frames": {
+  "summer": [
+   {
+    "h": 6,
+    "elev": 7.9,
+    "az": 66.4,
+    "file": "summer_06.webp"
+   },
+   {
+    "h": 7,
+    "elev": 19.1,
+    "az": 74.7,
+    "file": "summer_07.webp"
+   },
+   {
+    "h": 8,
+    "elev": 30.8,
+    "az": 82.7,
+    "file": "summer_08.webp"
+   },
+   {
+    "h": 9,
+    "elev": 42.6,
+    "az": 91.5,
+    "file": "summer_09.webp"
+   },
+   {
+    "h": 10,
+    "elev": 54.4,
+    "az": 102.3,
+    "file": "summer_10.webp"
+   },
+   {
+    "h": 11,
+    "elev": 65.6,
+    "az": 118.7,
+    "file": "summer_11.webp"
+   },
+   {
+    "h": 12,
+    "elev": 74.2,
+    "az": 150.9,
+    "file": "summer_12.webp"
+   },
+   {
+    "h": 13,
+    "elev": 74.8,
+    "az": 204.1,
+    "file": "summer_13.webp"
+   },
+   {
+    "h": 14,
+    "elev": 66.7,
+    "az": 239.0,
+    "file": "summer_14.webp"
+   },
+   {
+    "h": 15,
+    "elev": 55.7,
+    "az": 256.4,
+    "file": "summer_15.webp"
+   },
+   {
+    "h": 16,
+    "elev": 43.9,
+    "az": 267.5,
+    "file": "summer_16.webp"
+   },
+   {
+    "h": 17,
+    "elev": 32.0,
+    "az": 276.4,
+    "file": "summer_17.webp"
+   },
+   {
+    "h": 18,
+    "elev": 20.3,
+    "az": 284.5,
+    "file": "summer_18.webp"
+   },
+   {
+    "h": 19,
+    "elev": 9.1,
+    "az": 292.7,
+    "file": "summer_19.webp"
+   }
+  ],
+  "equinox": [
+   {
+    "h": 7,
+    "elev": 3.5,
+    "az": 93.6,
+    "file": "equinox_07.webp"
+   },
+   {
+    "h": 8,
+    "elev": 15.3,
+    "az": 103.0,
+    "file": "equinox_08.webp"
+   },
+   {
+    "h": 9,
+    "elev": 26.5,
+    "az": 113.6,
+    "file": "equinox_09.webp"
+   },
+   {
+    "h": 10,
+    "elev": 36.9,
+    "az": 126.5,
+    "file": "equinox_10.webp"
+   },
+   {
+    "h": 11,
+    "elev": 45.3,
+    "az": 143.0,
+    "file": "equinox_11.webp"
+   },
+   {
+    "h": 12,
+    "elev": 50.7,
+    "az": 164.0,
+    "file": "equinox_12.webp"
+   },
+   {
+    "h": 13,
+    "elev": 51.6,
+    "az": 188.0,
+    "file": "equinox_13.webp"
+   },
+   {
+    "h": 14,
+    "elev": 47.6,
+    "az": 210.4,
+    "file": "equinox_14.webp"
+   },
+   {
+    "h": 15,
+    "elev": 40.1,
+    "az": 228.5,
+    "file": "equinox_15.webp"
+   },
+   {
+    "h": 16,
+    "elev": 30.3,
+    "az": 242.4,
+    "file": "equinox_16.webp"
+   },
+   {
+    "h": 17,
+    "elev": 19.3,
+    "az": 253.7,
+    "file": "equinox_17.webp"
+   },
+   {
+    "h": 18,
+    "elev": 7.6,
+    "az": 263.4,
+    "file": "equinox_18.webp"
+   }
+  ],
+  "today": [
+   {
+    "h": 8,
+    "elev": 11.4,
+    "az": 116.9,
+    "file": "today_08.webp"
+   },
+   {
+    "h": 9,
+    "elev": 21.5,
+    "az": 128.0,
+    "file": "today_09.webp"
+   },
+   {
+    "h": 10,
+    "elev": 29.9,
+    "az": 141.2,
+    "file": "today_10.webp"
+   },
+   {
+    "h": 11,
+    "elev": 36.0,
+    "az": 157.1,
+    "file": "today_11.webp"
+   },
+   {
+    "h": 12,
+    "elev": 38.9,
+    "az": 175.1,
+    "file": "today_12.webp"
+   },
+   {
+    "h": 13,
+    "elev": 38.0,
+    "az": 193.7,
+    "file": "today_13.webp"
+   },
+   {
+    "h": 14,
+    "elev": 33.4,
+    "az": 210.8,
+    "file": "today_14.webp"
+   },
+   {
+    "h": 15,
+    "elev": 26.0,
+    "az": 225.4,
+    "file": "today_15.webp"
+   },
+   {
+    "h": 16,
+    "elev": 16.7,
+    "az": 237.5,
+    "file": "today_16.webp"
+   },
+   {
+    "h": 17,
+    "elev": 6.2,
+    "az": 247.7,
+    "file": "today_17.webp"
+   }
+  ],
+  "winter": [
+   {
+    "h": 8,
+    "elev": 2.2,
+    "az": 122.0,
+    "file": "winter_08.webp"
+   },
+   {
+    "h": 9,
+    "elev": 11.6,
+    "az": 132.1,
+    "file": "winter_09.webp"
+   },
+   {
+    "h": 10,
+    "elev": 19.6,
+    "az": 143.7,
+    "file": "winter_10.webp"
+   },
+   {
+    "h": 11,
+    "elev": 25.5,
+    "az": 157.2,
+    "file": "winter_11.webp"
+   },
+   {
+    "h": 12,
+    "elev": 28.6,
+    "az": 172.3,
+    "file": "winter_12.webp"
+   },
+   {
+    "h": 13,
+    "elev": 28.6,
+    "az": 187.9,
+    "file": "winter_13.webp"
+   },
+   {
+    "h": 14,
+    "elev": 25.4,
+    "az": 203.0,
+    "file": "winter_14.webp"
+   },
+   {
+    "h": 15,
+    "elev": 19.5,
+    "az": 216.4,
+    "file": "winter_15.webp"
+   },
+   {
+    "h": 16,
+    "elev": 11.5,
+    "az": 228.1,
+    "file": "winter_16.webp"
+   },
+   {
+    "h": 17,
+    "elev": 2.0,
+    "az": 238.1,
+    "file": "winter_17.webp"
+   }
+  ]
+ },
+ "night": "night.webp"
+}

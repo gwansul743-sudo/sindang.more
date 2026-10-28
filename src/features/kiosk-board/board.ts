@@ -34,6 +34,7 @@ export interface Board {
   storyTargets(): { topic: string; el: SVGGraphicsElement }[];  // 이야기 상자(10-28, features/board-story): data-story 가 붙은 하늘·소품 그림
   storyLayer: SVGGElement;                                    // 이야기 겹 그림을 넣을 층(길 위, 장식·제목·단추 아래 — 10-28 건물 겹 그림 위로 집·나무가 보이게). 이야기가 닫히면 비운다
   toBoard(x: number, y: number): XY;                          // 지도 좌표(실제 자리) → 보드 캔버스(길과 같은 변환 R)
+  storeSpots(): { id: string; name: string; x: number; y: number; r: number; lab: Box | null }[];   // 단추 자리·이름표 칸(캔버스, 배치 뒤) — 이야기 겹 그림이 비켜 놓을 때
   islandPath: string;                                         // 섬 덩어리(캔버스 좌표) — 이야기가 열린 동안 보드만 살짝 어둡게
 }
 /* 이야기 상자(10-28): 그림 종류 → 이야기 주제(content/board-story/{주제}.json). 나무는 모두 '쉼', 구름 둘은 '구름' */
@@ -448,6 +449,7 @@ export function mountBoard(o: BoardOptions): Board {
     roadPath: () => roadMapD,
     storyTargets: () => [...g.querySelectorAll<SVGGraphicsElement>('[data-story]')].map((e) => ({ topic: e.dataset.story!, el: e })),
     storyLayer, islandPath: islandD, toBoard: (x, y) => R.to(x, y),
+    storeSpots: () => btns.map((b) => ({ id: b.id, name: b.name, x: b.x, y: b.y, r: b.r, lab: b.lw ? labBox(b) : null })),
     play({ onChief }) {
       const my = ++run; reset(); on = true; loadLinen(); g.classList.add('mounted'); fold(); void (board as unknown as HTMLElement).getBoundingClientRect();
       if (reduced()) { skip(); at(onChief, 300); return; }

@@ -70,7 +70,7 @@ html.kb-rest #map.kb-story-ptr svg{cursor:pointer}
 .kb-age-none{fill:none;stroke:#6b3a30;stroke-width:.6;stroke-opacity:.3;transition:opacity .6s ease}
 .kb-age-d.dim,.kb-age-none.dim{opacity:.15}
 /* 범례 띠(상자 아래쪽) */
-.kb-story-legend:empty{display:none}
+.kb-story-slot:empty{display:none}
 .kb-age-legend{display:grid;grid-template-columns:repeat(5,1fr);gap:5px 6px;margin:12px 0 0;padding:9px 0 0;border-top:1.6px dashed #9b3d4980;list-style:none;transition:opacity .6s ease}
 .kb-age-legend.off{opacity:.4}
 .kb-age-legend li{display:flex;align-items:center;gap:4px;font-size:10px;font-weight:600;letter-spacing:-.4px;white-space:nowrap;transition:opacity .6s ease}
@@ -78,3 +78,53 @@ html.kb-rest #map.kb-story-ptr svg{cursor:pointer}
 .kb-age-legend i{flex:none;width:11px;height:11px;border-radius:2px;box-shadow:inset 0 0 0 1px #6b3a3080}
 .kb-age-legend li.none i{background:none;box-shadow:inset 0 0 0 1px #6b3a3060}
 @media(prefers-reduced-motion:reduce){.kb-age,.kb-age-d,.kb-age-none,.kb-age-legend,.kb-age-legend li{transition:none}}
+
+/* 해 디오라마(sun.ts): 천을 들추면 — 보드(svg)는 살짝 작아지며 흐려지고, 상자 왼쪽 무대에 렌더 그림이 떠오른다. 움직임은 transform·opacity 만 */
+html.kb-on #map > svg{transition:scale .7s cubic-bezier(.32,.72,0,1),opacity .7s ease}   /* 전시 모드에서만 — 평소 지도는 그대로 */
+#map.kb-dio-on > svg{scale:.96;opacity:.55}
+.kb-dio{position:absolute;z-index:3;inset:0;background:color-mix(in srgb,var(--kb-sea) 85%,transparent);opacity:0;pointer-events:none;transition:opacity .4s ease}
+.kb-dio[hidden]{display:none}
+.kb-dio.show{opacity:1;pointer-events:auto;transition:opacity .7s ease}
+.kb-dio-panes{position:absolute;left:0;top:0;bottom:0;right:calc(401px * var(--ui));display:flex;transform:translateY(24px) scale(.96);opacity:0;transition:transform .4s ease,opacity .4s ease}
+.kb-dio.show .kb-dio-panes{transform:none;opacity:1;transition:transform .7s cubic-bezier(.32,.72,0,1),opacity .7s ease}
+.kb-dio-pane{position:relative;flex:1;min-width:0;margin:0}
+.kb-dio:not(.compare) .kb-dio-pane + .kb-dio-pane{display:none}
+.kb-dio-pane img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .35s ease;user-select:none}
+.kb-dio-pane img.on{opacity:1}
+.kb-dio-pane img:not([src]){visibility:hidden}
+.kb-dio-pane figcaption{position:absolute;left:50%;bottom:18%;transform:translateX(-50%);padding:4px 12px 5px;border:1px dashed var(--kb-stitch);border-radius:4px;background:#fbf3e2;color:var(--kb-wine);font:700 13px var(--font-ui);letter-spacing:-.2px;white-space:nowrap;zoom:var(--ui)}
+.kb-dio-pane figcaption[hidden]{display:none}
+@media(max-width:899px){.kb-dio-panes{right:0;bottom:45%}}
+#map.kb-dio-on .kb-legend.show{opacity:0;pointer-events:none}   /* 천을 들춘 동안 범례도 물러난다 */
+@media(prefers-reduced-motion:reduce){html.kb-on #map > svg,.kb-dio,.kb-dio-panes,.kb-dio-pane img{transition:none!important}.kb-dio-panes{transform:none}}
+
+/* 조작 막대(상자 아래 칸): 날짜 탭 · ▶ · 시각 막대(TV 마우스용 큰 손잡이) · 해 높이 */
+.kb-dio-ctl{margin-top:12px;padding-top:10px;border-top:1.6px dashed #9b3d4980}
+.kb-dio-tabs{display:flex;gap:5px}
+.kb-dio-tabs button{flex:1;padding:6px 0;border:1px dashed #c4ae8f;border-radius:4px;background:#fbf3e2b3;color:var(--kb-stitch);font:700 12.5px var(--font-ui);letter-spacing:-.2px;cursor:pointer}
+.kb-dio-tabs button.on{border-color:var(--kb-stitch);background:#fbf3e2;color:var(--kb-wine);box-shadow:inset 0 -2px 0 var(--kb-thread)}
+.kb-dio-tabs button[hidden]{display:none}
+.kb-dio-tabs button.night{cursor:default}
+.kb-dio-row{display:flex;align-items:center;gap:10px;margin-top:10px}
+.kb-dio-row[hidden]{display:none}
+.kb-dio-play{flex:none;width:44px;height:36px;padding:0;border:1px dashed var(--kb-stitch);border-radius:4px;background:#fbf3e2;color:var(--kb-wine);font:700 15px/1 var(--font-ui);cursor:pointer}
+.kb-dio-play:hover{background:#e3cfa8}
+.kb-dio-hour{flex:1;height:36px;margin:0;background:none;accent-color:var(--kb-thread);cursor:pointer;-webkit-appearance:none;appearance:none}
+.kb-dio-hour::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:#c4ae8f}
+.kb-dio-hour::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;margin-top:-10px;border:2px dashed var(--kb-stitch);border-radius:50%;background:#fbf3e2;box-shadow:0 2px 3px #2e3b4338}
+.kb-dio-hour::-moz-range-track{height:6px;border-radius:3px;background:#c4ae8f}
+.kb-dio-hour::-moz-range-thumb{width:22px;height:22px;border:2px dashed var(--kb-stitch);border-radius:50%;background:#fbf3e2}
+.kb-dio-read{margin-top:6px;font-size:12px;font-weight:600;letter-spacing:-.3px;color:var(--kb-stitch)}
+.kb-dio-read b{color:var(--kb-wine)}.kb-dio-read small{font-size:11px;opacity:.85}
+
+/* 해 눈금(보드 장): 가게마다 <g> 하나 — 그늘 막대 + 해 드는 칸 path + 'n시간' */
+.kb-sun-gauges{pointer-events:none}
+.kb-sun-g{animation:kb-sun-in .4s ease both}
+@keyframes kb-sun-in{from{opacity:0}to{opacity:1}}
+.kb-sun-bar{stroke:#fbf3e2;stroke-width:1.2;paint-order:stroke}
+.kb-sun-g text{font-family:var(--font-ui);font-weight:700;fill:#6b3a30;dominant-baseline:central;paint-order:stroke;stroke:#fbf3e2;stroke-width:2.5px;stroke-linejoin:round;letter-spacing:-.02em}
+.kb-sun-g.zero text{fill:var(--kb-wine);font-weight:800}
+.kb-sun-key{display:flex;align-items:center;gap:5px;margin-top:12px;padding-top:9px;border-top:1.6px dashed #9b3d4980;font-size:11px;font-weight:600;letter-spacing:-.3px}
+.kb-sun-key b{margin-right:6px;color:var(--kb-wine)}
+.kb-sun-key i{display:inline-block;width:14px;height:6px;border-radius:1px;margin-left:6px}
+@media(prefers-reduced-motion:reduce){.kb-sun-g{animation:none}}
