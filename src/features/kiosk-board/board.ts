@@ -8,7 +8,7 @@ import { type XY, type Box, bboxOf, distToPoly, inPoly, pathOf, roadsInside, pol
    · 켜진 동안 html.kb-on: 섬 위 원래 층은 사라지고(1.1s) 바다는 시안 색. 엔진은 카메라(view)·이장님·주민 그래프(roadPath·land)만 맡는다. */
 
 export interface BoardStore { id: string; name: string; x: number; y: number; category?: string; status?: string }
-export interface BoardContent { hideRoads?: HideShape[]; hideMain?: HideShape[]; title?: string; sub?: string; titleAt?: number[]; titleImg?: (string | number)[]; chiefAt?: number[]; props?: (string | number)[][]; sky?: (string | number)[][]; waves?: number[][] }
+export interface BoardContent { hideRoads?: HideShape[]; hideMain?: HideShape[]; showRoads?: HideShape[]; route?: number[][]; title?: string; sub?: string; titleAt?: number[]; titleImg?: (string | number)[]; chiefAt?: number[]; props?: (string | number)[][]; sky?: (string | number)[][]; waves?: number[][] }
 export interface BoardOptions {
   svg: SVGSVGElement; before: Element;            // 이 요소 앞에 끼운다(주민 층 앞)
   host: HTMLElement;                              // 범례(HTML)를 붙일 지도 칸
@@ -97,7 +97,8 @@ export function mountBoard(o: BoardOptions): Board {
   const roadsG = el('g', { class: 'kb-roads' }, body);
   /* 정돈(10-23): ① 숨길 자리(hideRoads, 골목만)를 잘라 내고 ② 맞닿은 토막을 한 줄로 이어 점선 박자를 맞추고 ③ 막다른 큰 길은 섬 가장자리까지 늘려 실에 물려 끝나게
      ④ 골목 점선은 큰 길 띠 안에서 가린다(mask) — 띠 위로 골목 점선이 지나가던 것 */
-  const hidden = hiddenBy(c.hideRoads || []);
+  /* showRoads(10-28): 숨긴 자리 안이라도 이 띠 안의 토막은 다시 그린다 — 해안 쪽 골목 셋만 되살리고 붙은 가지는 계속 숨긴다 */
+  const hid0 = hiddenBy(c.hideRoads || []), shown = hiddenBy(c.showRoads || []), hidden = (x: number, y: number) => hid0(x, y) && !shown(x, y);
   const roadsOf = (keys: string[]) => keys.flatMap((k) => (o.roads[k] ? roadsInside(o.roads[k], o.cut, R, 2.5) : []));
   const alley = mergeChains(cutHidden(roadsOf(['c']), hidden));
   /* 큰 길: hideMain 자리를 잘라 내고, 그 자리에 붙어 남은 짧은 조각(60 미만)은 버리고, 잘린 끝은 해안까지 늘리지 않는다 */
@@ -107,6 +108,20 @@ export function mountBoard(o: BoardOptions): Board {
   const mainD = polylinePath(main), alleyD = polylinePath(alley);
   if (mainD) { el('path', { class: 'kb-stitch main', d: mainD }, roadsG); el('path', { class: 'kb-band main', d: mainD }, roadsG); }
   if (alleyD) el('path', { class: 'kb-band alley', d: alleyD }, roadsG);   /* 골목은 흰 띠만 — 점선은 10-23 사용자 요청으로 뺐다(정신없어 보임) */
+  /* 동선(10-28): 정해 둔 길 가운데에만 연한 빨간 점선. 큰 길 띠(폭 24)·홈질(폭 29) 안으로 점선이 삐져나오지 않게
+     2 단위로 촘촘히 짚어 큰 길 중심선에서 ROUTE_GAP 안쪽인 곳은 빼고 그린다(끝은 띠 가장자리에서, 가운데서 큰 길을 건너면 그 자리만 비운다) */
+  if (c.route && c.route.length > 1) {
+    const ROUTE_GAP = 16, r = c.route as XY[];
+    const segD = (p: XY, a: XY, b: XY) => { const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2)); return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+    const onMain = (p: XY) => main.some((pl) => pl.some((q, i) => i > 0 && segD(p, pl[i - 1], q) < ROUTE_GAP));
+    const runs: XY[][] = []; let cur: XY[] = [];
+    for (let i = 1; i < r.length; i++) {
+      const a = r[i - 1], b = r[i], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 2));
+      for (let k = i === 1 ? 0 : 1; k <= n; k++) { const q: XY = [a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]; if (onMain(q)) { if (cur.length > 1) runs.push(cur); cur = []; } else cur.push(q); }
+    }
+    if (cur.length > 1) runs.push(cur);
+    if (runs.length) el('path', { class: 'kb-route', d: polylinePath(runs) }, roadsG);
+  }
   const roadMapD = polylinePath(insideRuns([...main, ...alley], ISLAND).map((pl) => pl.map(toMap)));
   /* 가장자리: 실 + 블랭킷 빗금(바늘 따라 드러남) */
   const edge = el('g', { class: 'kb-edge' }, board);
