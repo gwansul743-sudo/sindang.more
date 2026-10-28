@@ -37,20 +37,38 @@ html.kb-rest #map.kb-story-ptr svg{cursor:pointer}
 
 /* 장의 덧붙은 칸(10-28): 글쓴이 · 손글씨 질문 · 논문 원문 보기 */
 .kb-story-author{margin:-2px 0 6px;font-size:11.5px;font-weight:600;letter-spacing:-.3px;color:var(--kb-stitch)}
-.kb-story-page .kb-story-q{margin:0 0 9px;padding:5px 9px 6px;border-left:3px solid var(--kb-thread);background:#fbf3e2b3;font-family:var(--kb-hand);font-size:20px;font-weight:400;line-height:1.25;letter-spacing:.2px;color:var(--kb-wine);white-space:normal}
+.kb-story-page .kb-story-q,.kb-rd-text .kb-story-q{margin:0 0 9px;padding:5px 9px 6px;border-left:3px solid var(--kb-thread);background:#fbf3e2b3;font-family:var(--kb-hand);font-size:20px;font-weight:400;line-height:1.25;letter-spacing:.2px;color:var(--kb-wine);white-space:normal}
 .kb-story-pdf{display:block;width:100%;margin-top:12px;padding:9px 0;border:1px dashed var(--kb-stitch);border-radius:4px;background:#fbf3e2;color:var(--kb-wine);font:700 13px var(--font-ui);letter-spacing:-.2px;cursor:pointer}
 .kb-story-pdf:hover{background:#e3cfa8}
 
-/* 논문 원문(pdf.ts): 화면 전체를 덮는 천 틀 + 브라우저 PDF 보기. 새 탭은 열지 않는다 */
-.kb-pdf{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;padding:14px 22px 22px;box-sizing:border-box;background:linear-gradient(#f1e2c5e6,#f1e2c5e6),var(--kb-cream) url(/board/linen.webp);background-size:auto,120px;opacity:0;transition:opacity .25s ease}
-.kb-pdf.show{opacity:1}
-.kb-pdf::after{content:"";position:absolute;inset:8px;border:2px dashed var(--kb-stitch);border-radius:3px;pointer-events:none}
-.kb-pdf-bar{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 6px 10px 10px;zoom:var(--ui)}
-.kb-pdf-bar b{font-family:var(--kb-title);font-size:24px;font-weight:700;color:var(--kb-wine);letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.kb-pdf-frame{display:block;flex:1;min-height:0;width:100%;border:1px solid #c4ae8f;border-radius:3px;background:#fbf3e2}
-.kb-pdf-x{flex:none;width:56px;height:56px;padding:0;border:2px dashed var(--kb-stitch);border-radius:50%;background:#fbf3e2;color:var(--kb-wine);font:700 26px/1 var(--font-ui);box-shadow:0 3px 4px #2e3b4338;cursor:pointer}
-.kb-pdf-x:hover{background:#e3cfa8}
-@media(prefers-reduced-motion:reduce){.kb-pdf{transition:none}}
+/* 논문 읽기(reader.ts): 화면을 덮는 천 틀 — 왼쪽 쪽 그림 목록 / 큰 쪽(확대·이동), 오른쪽 이야기 글. PDF 보기·도구 막대는 없다 */
+.kb-rd{position:fixed;inset:0;z-index:60;display:flex;gap:18px;padding:22px;box-sizing:border-box;background:linear-gradient(#f1e2c5e6,#f1e2c5e6),var(--kb-cream) url(/board/linen.webp);background-size:auto,120px;opacity:0;transition:opacity .25s ease}
+.kb-rd.show{opacity:1}
+.kb-rd::after{content:"";position:absolute;inset:8px;border:2px dashed var(--kb-stitch);border-radius:3px;pointer-events:none}
+.kb-rd-left{position:relative;flex:0 0 68%;min-width:0;display:flex}
+.kb-rd-grid{flex:1;display:grid;grid-template-columns:repeat(5,1fr);gap:18px 16px;align-content:start;overflow:auto;padding:10px 12px 10px 6px}
+.kb-rd-grid[hidden],.kb-rd-big[hidden]{display:none}
+.kb-rd-th{display:flex;flex-direction:column;align-items:center;gap:5px;padding:0;border:0;background:none;cursor:pointer}
+.kb-rd-th img{display:block;width:100%;aspect-ratio:260/370;object-fit:cover;background:#fbf3e2;border:1px solid #c4ae8f;border-radius:2px;box-shadow:0 2px 3px #2e3b4330;transition:transform .15s ease}
+.kb-rd-th:hover img{transform:translateY(-3px)}
+.kb-rd-th span{font:700 13px var(--font-ui);color:var(--kb-wine)}
+.kb-rd-none{font:600 14px var(--font-ui);color:#9a7a60}
+.kb-rd-big{position:relative;flex:1;display:flex;flex-direction:column;min-height:0}
+.kb-rd-frame{position:relative;flex:1;min-height:0;overflow:hidden;border:1px solid #c4ae8f;border-radius:3px;background:#fbf3e2;box-shadow:inset 0 0 0 4px #fbf3e2,inset 0 0 0 5.5px #9b3d4966}
+.kb-rd-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transform-origin:0 0;user-select:none}
+.kb-rd-big.zoomed .kb-rd-frame{cursor:grab}.kb-rd-big.zoomed .kb-rd-frame:active{cursor:grabbing}
+.kb-rd-prev,.kb-rd-next{position:absolute;top:calc(50% - 50px);width:52px;height:64px;padding:0;border:1px dashed var(--kb-stitch);border-radius:4px;background:#fbf3e2e6;color:var(--kb-wine);font:700 30px/1 var(--font-ui);cursor:pointer;z-index:1}
+.kb-rd-prev{left:10px}.kb-rd-next{right:10px}
+.kb-rd-prev:disabled,.kb-rd-next:disabled{opacity:.3;cursor:default}
+.kb-rd-bar{display:flex;align-items:center;gap:14px;padding:10px 4px 0}
+.kb-rd-all{padding:7px 14px;border:1px dashed var(--kb-stitch);border-radius:4px;background:#fbf3e2;color:var(--kb-wine);font:700 13px var(--font-ui);cursor:pointer}
+.kb-rd-no{font:700 14px var(--font-ui);color:var(--kb-wine)}.kb-rd-bar small{font:600 11px var(--font-ui);color:#9a7a60}
+.kb-rd-side{position:relative;flex:1;min-width:0;overflow:auto;padding:18px 18px 18px 22px;border-left:1.6px dashed #9b3d4980;color:var(--kb-wine);font-family:var(--font-ui);word-break:keep-all;zoom:var(--ui)}
+.kb-rd-x{position:sticky;top:0;float:right;width:52px;height:52px;margin:-6px -6px 6px 10px;padding:0;border:2px dashed var(--kb-stitch);border-radius:50%;background:#fbf3e2;color:var(--kb-wine);font:700 24px/1 var(--font-ui);box-shadow:0 3px 4px #2e3b4338;cursor:pointer}
+.kb-rd-x:hover{background:#e3cfa8}
+.kb-rd-text h3{margin:6px 0 6px;font-size:18px;font-weight:800;color:var(--kb-thread);letter-spacing:-.03em}
+.kb-rd-text p{margin:0 0 10px;font-size:15px;font-weight:500;line-height:1.65}
+@media(prefers-reduced-motion:reduce){.kb-rd{transition:none}.kb-rd-th img{transition:none}}
 
 /* 별자리(layers.ts constellation): 작은 별이 하나씩 떠오르고 홈질 선으로 이어진다. 지금 장의 별은 크고 밝게 */
 .kb-const-line{fill:none;stroke:var(--kb-stitch);stroke-width:2;stroke-dasharray:7 5;stroke-linecap:round;stroke-linejoin:round;opacity:0;transition:opacity .6s ease}

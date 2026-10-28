@@ -2,7 +2,8 @@ import './story.css';
 import { mountSpeech } from '../chief-speech/speech';
 import { RENDERERS, type LayerCtl, type StoreSpot } from './layers';
 import type { DioVillagers } from './dioWalkers';
-import { mountPdf } from './pdf';
+import { mountReader } from './reader';
+import { pageHtml } from './pageHtml';
 
 /* 전시 보드 이야기 상자(10-28) — 전시 모드(rest)에서 하늘·소품 그림(해·구름·별·나무·재봉틀)을 누르면 그 주제의 이야기가 열린다.
    · 그림은 board.ts 가 data-story 를 달아 둔 <image>. 그림엔 투명 여백이 있어 요소를 새로 만들지 않고 JS 로 판정한다: 그림 칸을 15% 줄인 칸(최소 44px).
@@ -11,7 +12,7 @@ import { mountPdf } from './pdf';
    · 열기: 그림이 한 번 통 튀고 → 보드만 살짝 어두워지고(하늘은 그대로) → 오른쪽에서 천 이야기 상자(제목·장·점·‹ ›·✕). ← → 로 장, Esc 로 닫기.
    · 겹 그림(layer): 주제 JSON 에 layer 가 있으면 열 때 storyLayer 에 그리고 닫을 때 DOM 에서 지운다(요소 수 = 팬·줌 렉, CLAUDE.md §8).
      그리는 쪽은 layers.ts 의 RENDERERS[type](별자리 constellation …). 장마다 page() 로 상태를 바꾼다(장의 layer 칸은 렌더러가 읽는다).
-   · 장: h 제목 → author(작은 줄) → q(손글씨 한 줄 질문) → body → src(작게) → pdf 가 있으면 '논문 원문 보기'(pdf.ts — 새 탭 없이 화면을 덮는 틀).
+   · 장: h 제목 → author(작은 줄) → q(손글씨 한 줄 질문) → body → src(작게) → pdf 가 있으면 '논문 원문 보기'(reader.ts — 새 탭·PDF 보기 없이 쪽 그림을 펼쳐 읽는 틀).
    · 닫기: ✕·Esc·보드 빈 곳. 카메라·단추·필터는 건드리지 않는다. 열린 채 45초 입력이 없으면 스스로 닫혀 자동 순환이 다시 돈다.
    · 주제 JSON(content/board-story/*.json)은 처음 열 때 받는다(첫 화면 무게). 늦게 도착한 것은 seq 로 버린다.
    순수 UI: 엔진 상태는 옵션 함수로만 묻는다. */
@@ -48,13 +49,12 @@ async function loadTopic(id: string): Promise<StoryTopic | null> {
 const IDLE_CLOSE_MS = 45000, HINT_MS = 9000, SHRINK = 0.15, MIN_HIT = 44;
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const NS = 'http://www.w3.org/2000/svg';
-const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 const SKIP = '.kb-btn,.kb-lg,.wk';                         /* 이쪽을 누른 것이면 이야기 판정을 안 한다 */
 
 export function mountStory(o: StoryOptions): BoardStory {
   let cur: { topic: string; el: SVGGraphicsElement } | null = null, data: StoryTopic | null = null, page = 0, seq = 0;
   let panel: HTMLElement | null = null, dim: SVGPathElement | null = null, idleT = 0, hot: { topic: string; el: SVGGraphicsElement } | null = null, raf = 0, ctl: LayerCtl | null = null, held = false;
-  const pdf = mountPdf(() => { if (cur) armIdle(); });   /* 논문 틀이 닫히면 45초를 다시 센다(열린 동안은 멈춤) */
+  const pdf = mountReader(() => { if (cur) armIdle(); });   /* 논문 읽기 틀이 닫히면 45초를 다시 센다(열린 동안은 멈춤) */
   const hook = mountSpeech(o.host, {
     anchor: () => { if (!hot) return null; const r = hot.el.getBoundingClientRect(), m = o.host.getBoundingClientRect(); return { x: r.left + r.width / 2 - m.left, y: r.top + r.height * 0.1 - m.top }; },
     bounds: () => { const m = o.host.getBoundingClientRect(); return { left: 0, top: 0, width: m.width, height: m.height }; },
@@ -168,11 +168,8 @@ export function mountStory(o: StoryOptions): BoardStory {
     const d = data!, p: StoryPage = d.pages[page] || { h: '', body: '' };
     panel!.setAttribute('aria-label', d.title);
     panel!.querySelector('.kb-story-title')!.textContent = d.title;
-    panel!.querySelector('.kb-story-page')!.innerHTML = (p.img ? `<img src="${esc(p.img)}" alt="" loading="lazy">` : '')
-      + `<h3>${esc(p.h)}</h3>` + (p.author ? `<div class="kb-story-author">${esc(p.author)}</div>` : '') + (p.q ? `<p class="kb-story-q">${esc(p.q)}</p>` : '')
-      + `<p>${esc(p.body)}</p>` + (p.src ? `<small class="kb-story-src">${esc(p.src)}</small>` : '')
-      + (p.pdf ? '<button type="button" class="kb-story-pdf">논문 원문 보기</button>' : '');
-    panel!.querySelector('.kb-story-pdf')?.addEventListener('click', () => { if (p.pdf) { clearTimeout(idleT); pdf.show(p.pdf, `${p.author ?? ''} 「${p.h}」`); } });   /* 틀이 열린 동안 45초 자동 닫기는 멈춘다 */
+    panel!.querySelector('.kb-story-page')!.innerHTML = pageHtml(p, { pdfButton: true });
+    panel!.querySelector('.kb-story-pdf')?.addEventListener('click', () => { if (p.pdf) { clearTimeout(idleT); pdf.show(p.pdf, p); } });   /* 틀이 열린 동안 45초 자동 닫기는 멈춘다 */
     panel!.querySelector('.kb-story-dots')!.innerHTML = d.pages.map((_, i) => `<i${i === page ? ' class="on"' : ''}></i>`).join('');
     (panel!.querySelector('.kb-story-prev') as HTMLButtonElement).disabled = page === 0;
     (panel!.querySelector('.kb-story-next') as HTMLButtonElement).disabled = page >= d.pages.length - 1;
@@ -186,7 +183,7 @@ export function mountStory(o: StoryOptions): BoardStory {
   const onInput = () => { if (pdf.open) pdf.poke(); else if (cur && data && !held) armIdle(); };   /* 논문 틀이 열린 동안엔 그 3분만 센다 */
   const onKey = (e: KeyboardEvent) => {
     if (!cur || !data) return;
-    if (pdf.open) { if (e.key === 'Escape') { e.preventDefault(); pdf.close(); } return; }   /* Esc 는 논문 틀부터, 한 번 더 누르면 이야기 */
+    if (pdf.open) { pdf.key(e); return; }   /* 논문 읽기 틀이 열려 있으면 그쪽 키(Esc: 큰 쪽 → 쪽 목록 → 틀 닫기, ← →) */
     if (e.key !== 'Escape' && e.target instanceof HTMLInputElement) return;   /* 막대(range)에 포커스가 있으면 ← → 는 막대 것 */
     if (e.key === 'Escape') { e.preventDefault(); if (!ctl?.back?.()) close(); } else if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); } else if (e.key === 'ArrowRight') { e.preventDefault(); go(1); }
   };
