@@ -31,7 +31,12 @@ export interface Board {
   roadPath(): string;                                         // 지도 좌표의 길(주민 그래프)
   land: BoardLand;                                            // 섬 덩어리(지도 좌표)
   chiefAt(): XY;                                              // 이장님 자리(지도 좌표)
+  storyTargets(): { topic: string; el: SVGGraphicsElement }[];  // 이야기 상자(10-28, features/board-story): data-story 가 붙은 하늘·소품 그림
+  storyLayer: SVGGElement;                                    // 이야기 겹 그림을 넣을 층(길·장식 위, 단추 아래). 이야기가 닫히면 비운다
+  islandPath: string;                                         // 섬 덩어리(캔버스 좌표) — 이야기가 열린 동안 보드만 살짝 어둡게
 }
+/* 이야기 상자(10-28): 그림 종류 → 이야기 주제(content/board-story/{주제}.json). 나무는 모두 '쉼', 구름 둘은 '구름' */
+const STORY: Record<string, string> = { sewing: 'sewing', 'tree-g': 'rest', 'tree-d': 'rest', sun: 'sun', 'cloud-b': 'cloud', 'cloud-g': 'cloud', star: 'star' };
 
 const NS = 'http://www.w3.org/2000/svg';
 const el = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string | number>, parent?: Element | null): SVGElementTagNameMap[K] => {
@@ -83,7 +88,7 @@ export function mountBoard(o: BoardOptions): Board {
   const dark = document.createElement('div'); dark.className = 'kb-shade'; dark.setAttribute('aria-hidden', 'true'); o.host.appendChild(dark);
   /* 하늘·물결(바다 위, 보드 밖) */
   const skyG = el('g', { class: 'kb-sky' }, g);
-  const skyEls = (c.sky || []).map(([kind, x, y, w]) => el('image', { class: 'kb-skyimg kb-' + kind, href: `/board/${kind}.webp`, x, y, width: w, height: +w * (kind === 'sun' ? 0.996 : kind === 'star' ? 1 : 0.7) }, skyG));
+  const skyEls = (c.sky || []).map(([kind, x, y, w]) => el('image', { class: 'kb-skyimg kb-' + kind, href: `/board/${kind}.webp`, x, y, width: w, height: +w * (kind === 'sun' ? 0.996 : kind === 'star' ? 1 : 0.7), ...(STORY[kind] ? { 'data-story': STORY[kind] } : {}) }, skyG));
   const waveEls = (c.waves || []).map(([x, y]) => el('path', { class: 'kb-wave', d: `M${x} ${y} q 10 -8 20 0 t 20 0 t 20 0` }, skyG));
 
   /* 보드(펼쳐지는 덩어리): 그림자 → (clip) 바탕·리넨·빛 → 길 → 가장자리 → 장식 → 제목 → 단추 */
@@ -133,7 +138,7 @@ export function mountBoard(o: BoardOptions): Board {
   /* 장식(아플리케, 시안 자리 그대로): [종류, x 가운데, y 발끝, 높이] */
   const propsG = el('g', { class: 'kb-props' }, board);
   const PROP_W: Record<string, number> = { bench: 1.17, 'bench-s': 1.63, sewing: 1.55, sign: 0.74, hedge: 1.65, 'house-check': 0.9 };   /* 그림 가로:세로(기본 0.84 = 집·나무). 벤치+가로등('펠트 패치워크' 3행 4~5열, 10-26)은 가로로 넓다. 팻말·덤불은 '학교 캠퍼스 펠트' 4행 8·9열(10-26). bench-s 는 가로등 없는 벤치만, sewing 은 학교 자리의 천 재봉틀(10-26 사용자 제공). house-check 는 '펠트 패치워크' 1행 1열 집(10-26) */
-  const propEls = (c.props || []).map(([kind, x, y, h]) => { const w = +h * (PROP_W[kind] ?? 0.84); return el('image', { class: 'kb-prop', href: `/board/${kind}.webp`, x: (+x - w / 2).toFixed(1), y: (+y - +h).toFixed(1), width: w.toFixed(1), height: h, preserveAspectRatio: 'xMidYMax meet' }, propsG); });
+  const propEls = (c.props || []).map(([kind, x, y, h]) => { const w = +h * (PROP_W[kind] ?? 0.84); return el('image', { class: 'kb-prop', href: `/board/${kind}.webp`, x: (+x - w / 2).toFixed(1), y: (+y - +h).toFixed(1), width: w.toFixed(1), height: h, preserveAspectRatio: 'xMidYMax meet', ...(STORY[kind] ? { 'data-story': STORY[kind] } : {}) }, propsG); });
   /* 제목(천 글자) */
   const titleG = el('g', { class: 'kb-title' }, board); const [tx, ty] = c.titleAt || [470, 215];
   if (c.titleImg) {   /* 제목 그림(10-26 사용자 제공): [주소, 왼쪽, 위, 폭, 높이, 기울기(도, 선택)] 캔버스 단위. 없으면 아래 천 글자 */
@@ -154,6 +159,7 @@ export function mountBoard(o: BoardOptions): Board {
        손으로 정하려면 kiosk-board.json labelAt: { "가게 이름": [dx, dy] } — 단추 가운데에서 이름표 가운데까지(캔버스 단위).
      · 작은 단추는 큰 단추·이름표를 피해 살짝 비켜 서고, 이름 글씨도 빈 자리를 찾는다(위가 먼저, 단추에 붙여서).
      · featured 목록이 비어 있으면 전부 큰 단추 — 예전 모습 */
+  const storyLayer = el('g', { class: 'kb-story-layer' }, board);   /* 이야기 겹 그림(10-28): 비어 있다가 이야기가 열린 동안만 */
   const btnG = el('g', { class: 'kb-buttons' }, board);
   const minorG = el('g', {}, btnG), leadG = el('g', {}, btnG), featG = el('g', {}, btnG), labG = el('g', {}, btnG), minorLabG = el('g', {}, btnG);
   type Btn = { id: string; name: string; cat: string; feat: boolean; img: boolean; ox: number; oy: number; x: number; y: number; k: number; r: number; bund: boolean; bc?: XY;
@@ -439,6 +445,8 @@ export function mountBoard(o: BoardOptions): Board {
     view: () => ({ x: cx0, y: cy0, w: CW, h: CH, iw: ib.x1 - ib.x0 }),
     chiefAt: () => toMap([(c.chiefAt || [905, 430])[0], (c.chiefAt || [905, 430])[1]]),
     roadPath: () => roadMapD,
+    storyTargets: () => [...g.querySelectorAll<SVGGraphicsElement>('[data-story]')].map((e) => ({ topic: e.dataset.story!, el: e })),
+    storyLayer, islandPath: islandD,
     play({ onChief }) {
       const my = ++run; reset(); on = true; loadLinen(); g.classList.add('mounted'); fold(); void (board as unknown as HTMLElement).getBoundingClientRect();
       if (reduced()) { skip(); at(onChief, 300); return; }

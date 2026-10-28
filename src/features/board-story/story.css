@@ -1,0 +1,36 @@
+/* 전시 보드 이야기 상자(10-28) — 색·천 톤은 범례(.kb-legend)·말풍선(.speech) 값 그대로(kiosk-board/board.css). 움직임은 transform·opacity 만 */
+
+/* 그림: hover 로 살짝 커진다. scale 속성이라 해(회전)·구름(흔들림)·장식 등장(transform 애니메이션)과 겹쳐도 안 싸운다 */
+html.kb-rest .kb [data-story]{transition:scale .15s ease}
+html.kb-rest .kb .kb-story-hot{scale:1.06}
+html.kb-rest #map.kb-story-ptr svg{cursor:pointer}
+
+/* 보드만 살짝 어둡게(하늘은 그대로) — 이야기가 열린 동안만 있는 path 하나(어둠막 색 .kb-shade) */
+.kb-story-dim{fill:#04202d;opacity:0;pointer-events:none;transition:opacity .25s ease}
+.kb-story-dim.on{opacity:.16}
+
+/* 상자: 오른쪽에서 들어오는 천 조각(리넨 + 안쪽 홈질) */
+.kb-story{position:absolute;z-index:4;top:28px;right:25px;width:360px;max-height:calc(100% - 56px);display:flex;flex-direction:column;box-sizing:border-box;padding:20px 22px 16px;
+  background:linear-gradient(#f1e2c5e6,#f1e2c5e6),var(--kb-cream) url(/board/linen.webp);background-size:auto,120px;border:1px solid #c4ae8f;border-radius:5px;box-shadow:0 3px 4px #2e3b4338;color:var(--kb-wine);
+  font-family:var(--font-ui);zoom:var(--ui);opacity:0;transform:translateX(calc(100% + 40px));pointer-events:none;visibility:hidden;
+  transition:opacity .3s ease,transform .45s cubic-bezier(.32,.72,0,1),visibility 0s linear .45s}
+.kb-story::after{content:"";position:absolute;inset:4px;border:1.8px dashed var(--kb-stitch);border-radius:2px;opacity:.95;pointer-events:none}
+.kb-story.show{opacity:1;transform:none;pointer-events:auto;visibility:visible;transition:opacity .3s ease .12s,transform .45s cubic-bezier(.32,.72,0,1) .12s,visibility 0s}
+.kb-story.instant{transition:none!important}
+.kb-story-x{position:absolute;z-index:1;top:9px;right:10px;width:32px;height:32px;padding:0;border:0;background:none;color:var(--kb-stitch);font:700 16px/1 var(--font-ui);cursor:pointer}
+.kb-story-x:hover{color:var(--kb-wine)}
+.kb-story-title{margin:0 30px 10px 0;padding-bottom:9px;border-bottom:1.6px dashed #9b3d4980;font-family:var(--kb-title);font-size:26px;font-weight:700;line-height:1.15;letter-spacing:-.2px}
+.kb-story-page{flex:1;min-height:0;overflow:auto;word-break:keep-all}
+.kb-story-page img{display:block;width:100%;margin:2px 0 10px;border:1px solid #c4ae8f;border-radius:3px}
+.kb-story-page h3{margin:4px 0 6px;font-size:15px;font-weight:700;letter-spacing:-.025em;color:var(--kb-thread)}
+.kb-story-page p{margin:0;font-size:14px;font-weight:500;line-height:1.6;letter-spacing:-.3px;white-space:pre-line}
+.kb-story-src{display:block;margin-top:10px;font-size:10px;color:#9a7a60;letter-spacing:-.3px}
+.kb-story-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px}
+.kb-story-nav button{width:44px;height:36px;padding:0;border:1px dashed var(--kb-stitch);border-radius:4px;background:#fbf3e2;color:var(--kb-wine);font:700 20px/1 var(--font-ui);cursor:pointer}
+.kb-story-nav button:hover:not(:disabled){background:#e3cfa8}
+.kb-story-nav button:disabled{opacity:.3;cursor:default}
+.kb-story-dots{display:flex;gap:7px}
+.kb-story-dots i{width:7px;height:7px;border-radius:50%;background:#c4ae8f}
+.kb-story-dots i.on{background:var(--kb-thread)}
+@media(max-width:899px){.kb-story{top:auto;right:10px;left:10px;bottom:14px;width:auto;max-height:60%}}
+@media(prefers-reduced-motion:reduce){.kb-story,.kb-story.show{transition:opacity .2s,visibility 0s}.kb-story{transform:none}html.kb-rest .kb [data-story]{transition:none}}

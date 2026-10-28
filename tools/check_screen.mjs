@@ -17,7 +17,7 @@ const BASE = join(ROOT, 'tools/.baseline.json'), SHOTS = join(ROOT, 'tools/.shot
 const baseline = process.argv.includes('--baseline');
 mkdirSync(SHOTS, { recursive: true });
 
-const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { cwd: ROOT, stdio: 'pipe' });
+const server = spawn(process.execPath, [join(ROOT, 'node_modules/vite/bin/vite.js'), 'preview', '--port', String(PORT), '--strictPort'], { cwd: ROOT, stdio: 'pipe' });
 await new Promise((ok, no) => { server.stdout.on('data', d => { if (String(d).includes('localhost')) ok(); }); server.on('exit', no); setTimeout(ok, 4000); });
 
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox'] });

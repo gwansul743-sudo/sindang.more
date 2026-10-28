@@ -35,6 +35,7 @@ import { mountHoldGate } from '../../features/admin-gate/holdGate';
 import { onSwipeRight } from '../../shared/lib/swipe';
 import { onPullDown } from '../../shared/lib/sheetDrag';
 import { mountPhotoViewer } from '../../features/photo-viewer/viewer';
+import { mountStory } from '../../features/board-story/story';
 
 export function bootLegacy(DATA){
 /* ═══════════════ CORE (투영 · 팬줌 · 가게 점 · 카드 · 관리 · 인트로) ═══════════════ */
@@ -380,6 +381,14 @@ export function bootLegacy(DATA){
   /* 차례 번호(10-23): 전시 연출을 시작·멈출 때마다 올린다. 사이드바 접힘·커튼·지연 시작처럼 늦게 도착하는 콜백은 자기 차례가 아니면 아무것도 안 한다
      — 인트로를 다시 열거나 버튼을 빠르게 눌렀을 때 뒤에서 옛 연출이 계속 돌던 것을 막는다 */
   let kioskSeq = 0, kioskStartT = null;
+  /* 이야기 상자(10-28, features/board-story): 전시 보드 rest 에서 해·구름·별·나무·재봉틀을 누르면. 여는 것도 활동 — 카드·주민 대화·이장님 말풍선은 닫는다.
+     열린 동안 자동 순환은 안 돈다(canCycle). 연출을 멈추거나 끄거나 인트로를 다시 열면 그 자리에서 닫는다 */
+  const story = board ? mountStory({ host: map, svg, targets: () => board.storyTargets(), layer: board.storyLayer, islandPath: board.islandPath,
+    active: () => KIOSK && board.on && !introOpen && kioskStage === 'rest' && document.documentElement.classList.contains('kb-rest'),
+    busy: () => cycling || !!current || viewer.visible || talk.visible || speech.visible || vTalk.visible || vSpeech.visible || !!clusterAt,
+    quiet: () => talk.visible || vTalk.visible, moved: () => V.moved,
+    onOpen: () => { idle(); closeCluster(); viewer.close(); speech.hide(); villagerDone(); if(current) closeCard(); board.focus(null); },
+    onClose: () => idle() }) : null;
   function kioskView(){ if(!board || introOpen) return; const my = ++kioskSeq; clearTimeout(kioskStartT); kioskStage = 'play'; syncSkip?.();
     villagerDone(); speech.hide(); closeCluster();   /* 켜기 전에 hover 로 떠 있던 주민·이장님 말풍선은 닫는다(10-26) — 주민 hook 은 3초 남짓 남아 연출 위에 떠 있었다 */
     withSide(true, () => { if(my !== kioskSeq || !KIOSK) return; const t2 = kioskTarget(); centerOn(t2.x, t2.y, t2.s, 0); walkersTo('kiosk'); chiefTo(true);
@@ -387,7 +396,7 @@ export function bootLegacy(DATA){
       board.play({ onChief: () => { if(my !== kioskSeq || !KIOSK) return; const [cx, cy] = board.chiefAt(), t = kioskTarget();
         V.centerOn(cx, cy - 12, t.s * 1.6 ** 2, 0, () => { if(my !== kioskSeq || !KIOSK) return; showChief(true); speech.say(CHIEF_LINES); }, true); } }); }); }   /* always: 줌인 도중 지도를 눌러 비행이 끊겨도 이장님은 그 자리에서 나온다(10-26) */
   /* 전시 연출을 그 자리에서 다 멈추고 평소 상태로(카메라·사이드바는 부르는 쪽이 정한다) */
-  function stopKiosk(){ viewer.close(); closeCluster(); kioskSeq++; clearTimeout(kioskStartT); stopCycle(); kioskStage = 'off'; syncSkip?.(); speech.hide(); talk.hide(); villagerDone(); showChief(false); board?.hide(); walkersTo('home'); chiefTo(false); sideDone?.(false); }
+  function stopKiosk(){ story?.close(true); viewer.close(); closeCluster(); kioskSeq++; clearTimeout(kioskStartT); stopCycle(); kioskStage = 'off'; syncSkip?.(); speech.hide(); talk.hide(); villagerDone(); showChief(false); board?.hide(); walkersTo('home'); chiefTo(false); sideDone?.(false); }
   function kioskRest(){ if(!KIOSK || !board || kioskStage !== 'play') return; kioskStage = 'rest'; syncSkip?.(); idle(); board.rest(); const t = kioskTarget(), k = REST_ZOOM(), [cx, cy] = board.chiefAt(); centerOn(cx + (t.x - cx) / k, cy + (t.y - cy) / k, t.s * k, 0); }
   /* 이장님 줌인에서 물러나며 범례·단추 — 보드 전체까지 다 물러나지 않고 데스크톱 ×1.25 · 폰 ×1.6(+ 버튼 한 번) 남긴다(10-28 사용자 요청).
      중심은 이장님을 고정점으로 줌아웃한 자리(보드 전체 화면에서 이장님이 있던 곳에 그대로 보인다). 30초 쉼·자동 순환 한 바퀴 끝은 보드 전체 그대로 */
@@ -401,7 +410,7 @@ export function bootLegacy(DATA){
   function goHome(){ withSide(!side.classList.contains('welcome'), () => {   /* 소개가 떠 있으면 편 채로 */ const hv = homeView(); centerOn(hv.x, hv.y, hv.s, 0); }); }
   /* 이장님·고양이는 평소엔 숨겨 두고(body.chief-hidden), 보드 연출의 제목 뒤에 등장한다. 끄면 다시 숨김 */
   const showChief = (on) => { document.body.classList.toggle('chief-hidden', !on); document.querySelectorAll('.wk-chief,.wk-cat').forEach(g => g.classList.toggle('appear', on)); };
-  function kioskOff(){ speech.hide(); talk.hide(); kioskStage = 'off'; syncSkip?.(); const my = ++kioskSeq; clearTimeout(kioskStartT);
+  function kioskOff(){ story?.close(true); speech.hide(); talk.hide(); kioskStage = 'off'; syncSkip?.(); const my = ++kioskSeq; clearTimeout(kioskStartT);
     withCurtain(() => { if(my !== kioskSeq) return; stopKiosk(); closeCard(); side.classList.add('closed'); V.fit(); resetHome(); }); }   /* 커튼이 덮이는 사이 다시 켰으면 되돌리지 않는다 */
   /* 인트로가 떠 있는 동안엔 상태(ON/OFF)만 바꾼다 — 연출은 인트로가 끝난 뒤(endIntro) */
   kioskBtn.onclick = () => { KIOSK=!KIOSK; renderKiosk(); if(introOpen) return; if(KIOSK){ showChief(false); closeCard(); kioskView(); } else kioskOff(); };
@@ -413,7 +422,7 @@ export function bootLegacy(DATA){
      한 바퀴 끝의 보드 전체 뷰에선 카드를 닫고 사이드바를 접는다. 사람이 끼어들어 멈추면 열린 카드는 그대로 둔다 */
   const IDLE_MS = 4000, DWELL_MS = 6000;
   let idleT = null, cycleT = null, cycleI = 0, cycling = false;
-  const canCycle = () => KIOSK && board && !introOpen && kioskStage === 'rest' && !viewer.visible && !talk.visible && !speech.visible && !vTalk.visible && !vSpeech.visible && !clusterAt && !videoPlaying();   /* 묶음 말풍선을 보고 있는 동안·영상 재생 중에도 쉬지 않는다 */
+  const canCycle = () => KIOSK && board && !introOpen && kioskStage === 'rest' && !viewer.visible && !talk.visible && !speech.visible && !vTalk.visible && !vSpeech.visible && !clusterAt && !videoPlaying() && !story?.open;   /* 이야기 상자가 열린 동안에도(10-28). 묶음 말풍선을 보고 있는 동안·영상 재생 중에도 쉬지 않는다 */
   /* 영상 재생 중엔 자동 순환을 하지 않는다(10-26). 카드의 <video> 는 paused 로 바로 안다. 유튜브·구글 드라이브 iframe 은 다른 출처라 재생 여부를 못 읽으니
      iframe 을 누른 뒤(포커스가 그 안에 있는 동안)를 재생 중으로 본다 — 바깥을 누르면 풀린다. 다 보고 자리를 뜬 경우를 위해 iframe 은 VIDEO_MAX_MS 뒤엔 풀어 준다. 전체화면도 재생 중 */
   const VIDEO_MAX_MS = 60 * 1000; let frameAt = 0;
@@ -496,7 +505,7 @@ export function bootLegacy(DATA){
      전시 모드 ON/OFF 상태는 그대로 — 인트로가 끝나면 다시 시작.
      부드럽게(10-28): 인트로를 먼저 덮고(.back — 0.4s 페이드, visibility 지연 없음) 다 덮인 뒤에 그 아래서 보드 끄기·카드 닫기·사이드바·카메라를 한꺼번에 정리한다.
      전엔 인트로가 나타나는 같은 프레임에 이것들이 몰려 SVG 전체를 다시 그리는 게 보였고(지지직), visibility 가 .18s 늦게 켜져 툭 튀어나왔다 */
-  function playIntro(){ if(introOpen) return; introOpen=true; clearTimeout(introT); stopCycle(); stopHomeCycle(); villagerDone(); speech.hide(); talk.hide(); closeCluster(); viewer.close();
+  function playIntro(){ if(introOpen) return; story?.close(true); introOpen=true; clearTimeout(introT); stopCycle(); stopHomeCycle(); villagerDone(); speech.hide(); talk.hide(); closeCluster(); viewer.close();
     const quick = matchMedia('(prefers-reduced-motion: reduce)').matches;
     intro.classList.remove('open'); intro.classList.add('back'); void intro.offsetWidth;   /* 숨은 채로 표지 애니메이션을 처음으로 되돌린 뒤 */
     requestAnimationFrame(() => intro.classList.remove('done'));
