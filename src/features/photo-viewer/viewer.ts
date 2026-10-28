@@ -13,8 +13,8 @@ import './viewer.css';
 export interface PhotoViewer { open(urls: string[], index?: number, label?: string): void; close(): void; readonly visible: boolean }
 
 const MAX = 4, TAP_ZOOM = 2.5;
-/* 커버플로 수치 — gap·inactiveOpacity·round 는 사용자 지정(10-28). round 0~20 → 모서리 반지름 = 짧은 변 절반 × round/20(원본 계산), 나머지는 원본 기본값 */
-const CF = { gap: 6, inactiveOpacity: 24, round: 3, tilt: 12, sideTilt: 8, scaleStep: 0.16, maxVisible: 2, depth: 240, perspective: 1600, base: 400 };
+/* 커버플로 수치 — gap·gapNarrow(좁은 화면)·inactiveOpacity·round 는 사용자 지정(10-28). round 0~20 → 모서리 반지름 = 짧은 변 절반 × round/20(원본 계산), 나머지는 원본 기본값 */
+const CF = { gap: 6, gapNarrow: 5, inactiveOpacity: 30, round: 3, tilt: 12, sideTilt: 8, scaleStep: 0.16, maxVisible: 2, depth: 240, perspective: 1600, base: 400 };
 const DIM = 1 - CF.inactiveOpacity / 100;   // 옆 사진 위에 덮는 바탕색 농도(가운데 0)
 const BOX_W = 0.94, BOX_W_NARROW = 0.8, NARROW = 600, BOX_H = 0.86, ASPECT = 0.8;
 
@@ -29,14 +29,14 @@ export function mountPhotoViewer(): PhotoViewer {
   const stage = el.querySelector('.pv-stage') as HTMLElement, ring = el.querySelector('.pv-ring') as HTMLElement, count = el.querySelector('.pv-count') as HTMLElement;
   let urls: string[] = [], cards: Card[] = [], i = 0, label = '', visible = false, back: Element | null = null;
   let s = 1, tx = 0, ty = 0;   // 가운데 사진의 확대 배율과 옮김(px, 화면 가운데 기준)
-  let K = 1, stepPx = 180;     // K: 원본 400px 칸 대비 배율, stepPx: 한 장 넘어가는 끌기 거리
+  let K = 1, stepPx = 180, gap = CF.gap;   // K: 원본 400px 칸 대비 배율, stepPx: 한 장 넘어가는 끌기 거리, gap: 지금 화면의 사진 간격
 
   /* ── 사진 칸 크기·커버플로 배치 ── */
   const box = () => ({ w: el.clientWidth * (el.clientWidth < NARROW ? BOX_W_NARROW : BOX_W), h: el.clientHeight * BOX_H });
   function size(c: Card) { const b = box(), w = Math.min(b.w, b.h * c.a); c.el.style.width = `${w}px`; c.el.style.height = `${w / c.a}px`; c.el.style.setProperty('--pv-r', `${(CF.round / 20) * Math.min(w, w / c.a) / 2}px`); }
   function layout() {
-    const b = box(); K = Math.min(b.w, b.h * ASPECT) / CF.base;
-    stage.style.perspective = `${CF.perspective * K}px`; stepPx = Math.max(80, CF.gap * 30 * K); cards.forEach(size);
+    const b = box(); K = Math.min(b.w, b.h * ASPECT) / CF.base; gap = el.clientWidth < NARROW ? CF.gapNarrow : CF.gap;
+    stage.style.perspective = `${CF.perspective * K}px`; stepPx = Math.max(80, gap * 30 * K); cards.forEach(size);
   }
   /* drag: 끄는 중 밀린 장 수(손가락을 따라 움직임). jump: 애니메이션 없이 바로 그 자리로 */
   function render(drag = 0, jump = false) {
@@ -46,7 +46,7 @@ export function mountPhotoViewer(): PhotoViewer {
       const wrap = Math.abs(rel - c.rel) > 1.5; c.rel = rel;   // 맨 끝 ↔ 맨 앞으로 건너가는 사진은 가로질러 날아가지 않게
       const r = rel + drag, ax = Math.abs(r), sc = Math.max(0.4, 1 - ax * CF.scaleStep), vis = Math.max(0, Math.min(1, CF.maxVisible + 1 - ax));
       if (jump || wrap) c.el.classList.add('jump');
-      c.el.style.transform = `translate(-50%, -50%) translateX(${r * CF.gap * 30 * K}px) translateZ(${-ax * CF.depth * K}px) rotateY(${-r * CF.tilt}deg) rotateZ(${r * CF.sideTilt}deg) scale(${sc})`;
+      c.el.style.transform = `translate(-50%, -50%) translateX(${r * gap * 30 * K}px) translateZ(${-ax * CF.depth * K}px) rotateY(${-r * CF.tilt}deg) rotateZ(${r * CF.sideTilt}deg) scale(${sc})`;
       c.el.style.opacity = String(vis); c.el.style.pointerEvents = vis > 0.5 ? 'auto' : 'none';
       c.dim.style.opacity = String(Math.min(1, ax) * DIM);
       c.el.classList.toggle('cur', rel === 0); c.el.setAttribute('aria-hidden', String(rel !== 0));
