@@ -51,7 +51,8 @@ async function loadTopic(id: string): Promise<StoryTopic | null> {
   const f = LOAD[`../../../content/board-story/${id}.json`]; if (!f) return null;
   return (cache[id] = await f());
 }
-const IDLE_CLOSE_MS = 45000, HINT_MS = 9000, SHRINK = 0.15, MIN_HIT = 44;
+const IDLE_CLOSE_MS = Number(new URLSearchParams(location.search).get('story_idle')) || 45000,   /* ?story_idle=ms: 확인용으로 줄이기 */
+  HINT_MS = 9000, SHRINK = 0.15, MIN_HIT = 44;
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const NS = 'http://www.w3.org/2000/svg';
 const SKIP = '.kb-btn,.kb-lg,.wk';                         /* 이쪽을 누른 것이면 이야기 판정을 안 한다 */
@@ -129,6 +130,7 @@ export function mountStory(o: StoryOptions): BoardStory {
       later: (f, ms) => { setTimeout(() => { if (alive()) f(); }, ms); },
       slot: (h) => { if (alive()) panel?.querySelector('.kb-story-slot')!.replaceChildren(...(h ? [h] : [])); },
       cover: (h) => { if (alive()) setCover(h); },
+      close: () => { if (alive()) close(); },
       hold: (on) => { if (!alive() || held === on) return; held = on; if (on) clearTimeout(idleT); else armIdle(); },
       host: o.host, spots: () => (o.spots ? o.spots() : []), villagers: o.villagers ?? null, island: islandPts,
       openPhoto: (urls, i, label) => o.openPhoto?.(urls, i, label),
@@ -193,7 +195,7 @@ export function mountStory(o: StoryOptions): BoardStory {
   const go = (dp: number) => goTo(page + dp);
 
   /* 열린 동안: 입력이 오면 45초를 다시 센다, ← → Esc */
-  const armIdle = () => { clearTimeout(idleT); on(); if (held) return; const my = seq; idleT = window.setTimeout(() => { if (my === seq && cur) close(); }, IDLE_CLOSE_MS); };
+  const armIdle = () => { clearTimeout(idleT); on(); if (held) return; const my = seq; idleT = window.setTimeout(() => { if (my !== seq || !cur) return; if (ctl?.back?.()) armIdle(); else close(); }, IDLE_CLOSE_MS); };   /* 45초: 한 단계씩 물러난다(해 이야기 건물 → 위에서 본 신당 → 보드) */
   const onInput = () => { if (pdf.open) pdf.poke(); else if (cur && data && !held) armIdle(); };   /* 논문 틀이 열린 동안엔 그 3분만 센다 */
   const onKey = (e: KeyboardEvent) => {
     if (!cur || !data) return;

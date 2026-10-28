@@ -16,7 +16,8 @@
     "view": "diorama",
     "date": "today",
     "hour": 9,
-    "autoplay": true
+    "autoplay": true,
+    "mode": "select"
    }
   },
   {

@@ -69,7 +69,7 @@ function buildGraph(data: RoadData, L: Local) {
   };
 }
 
-export function mountDioWalkers(o: { pane: HTMLElement; axon: Axon; local: Local; size: number[]; data: RoadData; who: DioVillagers; onTalk: () => void }) {
+export function mountDioWalkers(o: { pane: HTMLElement; axon: Axon; local: Local; size: number[]; data: RoadData; who: DioVillagers; onTalk: () => void; cell?: () => number; scale?: () => number }) {   // cell: 스프라이트 한 칸 = 세계 몇 단위(카메라가 당겨도 화면 크기를 지키게)
   const G = buildGraph(o.data, o.local);
   const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('class', 'kb-dio-wk'); svg.setAttribute('aria-hidden', 'true');
   o.pane.appendChild(svg);
@@ -106,7 +106,7 @@ export function mountDioWalkers(o: { pane: HTMLElement; axon: Axon; local: Local
   function tick(now: number) {
     raf = requestAnimationFrame(tick);
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
-    const { k, ox, oy, q } = box;
+    const { k, ox, oy, q } = box; if (Math.abs(pxPerCell() - ppc) > 0.05) sizeHits();
     for (const w of ws) {
       const na = G.nodes[w.a], nb = G.nodes[w.b], L = Math.hypot(nb.x - na.x, nb.y - na.y) || 0.01;
       if (!w.held) { w.d += SPEED * dt; w.walkT += dt; while (w.d >= L) { w.d -= L; const n = G.next(w.b, w.a); w.a = w.b; w.b = n; break; } }
@@ -118,13 +118,15 @@ export function mountDioWalkers(o: { pane: HTMLElement; axon: Axon; local: Local
       else { const face = Math.abs(du) > Math.abs(dv) * 1.2 ? 'side' : dv > 0 ? 'front' : 'back'; w.face = face; w.flip = face === 'side' && du < 0 ? -1 : 1;
         show(w, FRAMES.indexOf(face + CYCLE[Math.floor(w.walkT / 0.19) % 4])); }
       w.sx = sx; w.sy = sy; w.proxy.x = sx; w.proxy.y = sy;
-      w.g.setAttribute('transform', `translate(${Math.round(sx)},${Math.round(sy)}) scale(${q})`);
+      w.g.setAttribute('transform', `translate(${sx.toFixed(1)},${sy.toFixed(1)}) scale(${(o.cell ? o.cell() : q).toFixed(3)})`);
       w.body.setAttribute('transform', `translate(${w.flip < 0 ? SW / 2 : -SW / 2},${-FEET}) scale(${w.flip},1)`);
     }
     ws.slice().sort((a, b) => a.sy - b.sy).forEach((w, i) => { if (svg.children[i] !== w.g) svg.appendChild(w.g); });   /* 아래(앞)에 있는 사람이 위에 */
   }
   const onResize = () => { measure(); sizeHits(); };
-  function sizeHits() { const hw = Math.max(6, 22 / box.q), hh = Math.max(18, 44 / box.q); ws.forEach((w) => { const r = w.g.querySelector('.kb-dio-hit')!; r.setAttribute('x', String(-hw)); r.setAttribute('width', String(hw * 2)); r.setAttribute('y', String(-FEET - (hh - 18) / 2)); r.setAttribute('height', String(hh)); }); }   /* 누르는 칸은 화면에서 44px 이상 */
+  let ppc = 0;   /* 화면 px / 스프라이트 칸 — 바뀌면 누르는 칸을 다시(화면에서 44px 이상) */
+  const pxPerCell = () => (o.cell && o.scale ? o.cell() * o.scale() : box.q);
+  function sizeHits() { ppc = pxPerCell(); const hw = Math.max(6, 22 / ppc), hh = Math.max(18, 44 / ppc); ws.forEach((w) => { const r = w.g.querySelector('.kb-dio-hit')!; r.setAttribute('x', String(-hw)); r.setAttribute('width', String(hw * 2)); r.setAttribute('y', String(-FEET - (hh - 18) / 2)); r.setAttribute('height', String(hh)); }); }   /* 누르는 칸은 화면에서 44px 이상 */
   return {
     start() { if (on) return; on = true; measure(); spawn(); sizeHits(); svg.classList.add('on'); last = performance.now(); raf = requestAnimationFrame(tick); window.addEventListener('resize', onResize); },
     stop() { if (!on) return; on = false; cancelAnimationFrame(raf); svg.classList.remove('on'); window.removeEventListener('resize', onResize); if (ws.some((w) => w.held)) o.who.done(); ws.forEach((w) => w.g.remove()); ws = []; },

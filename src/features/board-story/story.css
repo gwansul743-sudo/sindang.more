@@ -98,51 +98,54 @@ html.kb-rest #map.kb-story-ptr svg{cursor:pointer}
 .kb-age-legend li.none i{background:none;box-shadow:inset 0 0 0 1px #6b3a3060}
 @media(prefers-reduced-motion:reduce){.kb-age,.kb-age-d,.kb-age-none,.kb-age-legend,.kb-age-legend li{transition:none}}
 
-/* 해 디오라마(sun.ts): 천을 들추면 — 보드(svg)는 살짝 작아지며 흐려지고, 상자 왼쪽 무대에 렌더 그림이 떠오른다. 움직임은 transform·opacity 만 */
-html.kb-on #map > svg{transition:scale .7s cubic-bezier(.32,.72,0,1),opacity .7s ease}   /* 전시 모드에서만 — 평소 지도는 그대로 */
-#map.kb-dio-on > svg{scale:.96;opacity:.55}
+/* 해 디오라마(sun.ts · sunStage.ts, TASK_12): 무대 = 바다색 막 + 밤 막·별 + 세계 상자(기준 1920×1440, 카메라 = matrix). 움직임은 transform·opacity 만 */
 .kb-dio{position:absolute;z-index:2;inset:0;pointer-events:none}   /* 말풍선(.speech, 3)이 무대 위에 뜨게 */
 .kb-dio[hidden]{display:none}
-.kb-dio.show:not(.rev){pointer-events:auto}
-.kb-dio-veil{position:absolute;inset:0;background:color-mix(in srgb,var(--kb-sea) 85%,transparent);opacity:0;transition:opacity .4s ease}
+.kb-dio.live{pointer-events:auto}
+.kb-dio.kb-pick{cursor:pointer}
+.kb-dio[data-level="2"]{cursor:grab}.kb-dio[data-level="2"]:active{cursor:grabbing}.kb-dio[data-level="2"].kb-pick{cursor:pointer}
+.kb-dio-veil{position:absolute;inset:0;background:color-mix(in srgb,var(--kb-sea) 85%,transparent);opacity:0;transition:opacity .9s ease}
+.kb-dio.veil .kb-dio-veil{opacity:1}
 /* 밤 프레임: 해 질 녘·밤 파랑(어둠막 색 #04202d) + 별 두 겹 — 보이는 동안만 */
 .kb-dio-dusk{position:absolute;inset:0;background:#04202d;opacity:0;transition:opacity .8s ease;pointer-events:none}
 .kb-dio-stars{position:absolute;left:0;top:0;width:1.6px;height:1.6px;border-radius:50%;opacity:0;transition:opacity .8s ease;pointer-events:none}
-.kb-dio.show.night .kb-dio-dusk{opacity:.6}
-.kb-dio.show.night .kb-dio-stars{opacity:.85;animation:kb-twinkle 2.8s ease-in-out infinite alternate}
-.kb-dio.show.night .kb-dio-stars.s1{animation-delay:-1.4s}
+.kb-dio.veil.night .kb-dio-dusk{opacity:.6}
+.kb-dio.veil.night .kb-dio-stars{opacity:.85;animation:kb-twinkle 2.8s ease-in-out infinite alternate}
+.kb-dio.veil.night .kb-dio-stars.s1{animation-delay:-1.4s}
 @keyframes kb-twinkle{from{opacity:.25}to{opacity:.9}}
-@media(prefers-reduced-motion:reduce){.kb-dio.show.night .kb-dio-stars{animation:none}}
-.kb-dio.show .kb-dio-veil{opacity:1;transition:opacity .7s ease}
-.kb-dio-panes{position:absolute;left:12px;top:12px;bottom:12px;right:calc(401px * var(--ui) + 4px);display:flex;transform:translateY(24px) scale(.96);opacity:0;transition:transform .4s ease,opacity .4s ease}
-.kb-dio.show .kb-dio-panes{transform:none;opacity:1;transition:transform .7s cubic-bezier(.32,.72,0,1),opacity .7s ease}
-/* 천을 들추면(lift.ts): 들추는 그림(.kb-dio-lw, 1920×1080 을 matrix 로 놓음)이 먼저, 바다색 막은 0.5초 뒤부터 천천히, 해 그림은 다 들춘 뒤 0.35초로 덮는다 */
-.kb-dio.lift .kb-dio-veil{opacity:1;transition:opacity 1.7s ease .5s}
-.kb-dio.lift .kb-dio-panes{transform:none;transition:opacity .35s ease}
-.kb-dio.lift:not(.show) .kb-dio-panes{opacity:0}
-.kb-dio.lift.rev .kb-dio-veil{opacity:0;transition:opacity .9s ease}
-.kb-dio.lift.rev .kb-dio-panes{opacity:0;transition:opacity .2s ease}
-.kb-dio-lw{position:absolute;left:0;top:0;transform-origin:0 0;opacity:0;pointer-events:none;will-change:transform,opacity}   /* 크기는 기준 그림(1920×1440)으로 lift.ts 가 */
-.kb-dio-lw img,.kb-dio-lw video{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;opacity:0;user-select:none}   /* t00·영상(1440×1080)을 기준 크기에 꽉 */
-.kb-dio-lw img.on,.kb-dio-lw video.on{opacity:1}
-/* 들추는 동안 천(리넨·장식·제목·단추·이름표·주민·겹 그림)은 걷히고 길·바탕만 남는다 — 들추는 그림의 길이 그 위에 겹친다 */
+/* 무대 칸(카메라 contain 기준, 보이지 않음) */
+.kb-dio-panes{position:absolute;left:12px;top:12px;bottom:12px;right:calc(401px * var(--ui) + 4px);pointer-events:none}
+@media(max-width:899px){.kb-dio-panes{right:0;bottom:45%}}
+/* 세계 상자: 그림 두 장(이중 버퍼) + 전환 영상 둘 + 겹쳐 그리기(고르기 SVG·주민) */
+.kb-dio-world{position:absolute;left:0;top:0;transform-origin:0 0;opacity:0;will-change:transform;transition:opacity .45s ease}
+.kb-dio-world.on{opacity:1}
+.kb-dio-world > img,.kb-dio-world > video{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;opacity:0;user-select:none;pointer-events:none}
+.kb-dio-world > img.on,.kb-dio-world > video.on{opacity:1}
+.kb-dio-world > img:not([src]){visibility:hidden}
+/* 길잡이(보드 › 위에서 본 신당 › 건물) · '‹ 위에서 보기' */
+.kb-dio-crumbs{position:absolute;z-index:1;left:22px;top:20px;display:flex;align-items:center;gap:6px;padding:7px 12px;background:linear-gradient(#f1e2c5e6,#f1e2c5e6),var(--kb-cream) url(/board/linen.webp);background-size:auto,120px;border:1px solid #c4ae8f;border-radius:5px;box-shadow:0 3px 4px #2e3b4338;font:700 13px var(--font-ui);color:var(--kb-stitch);zoom:var(--ui);pointer-events:auto}
+.kb-dio-crumbs[hidden],.kb-dio-up[hidden]{display:none}
+.kb-dio-crumbs button{padding:2px 4px;border:0;background:none;font:inherit;color:var(--kb-stitch);cursor:pointer;text-decoration:underline dashed;text-underline-offset:3px}
+.kb-dio-crumbs button:hover{color:var(--kb-wine)}
+.kb-dio-crumbs i{font-style:normal;opacity:.6}
+.kb-dio-crumbs b{color:var(--kb-wine)}
+.kb-dio[data-level="1"] .kb-dio-crumbs .z{display:none}
+.kb-dio[data-level="1"] .kb-dio-crumbs [data-l="1"]{color:var(--kb-wine);text-decoration:none;cursor:default}
+.kb-dio-up{position:absolute;z-index:1;left:22px;bottom:22px;padding:10px 16px;border:1.5px dashed var(--kb-stitch);border-radius:5px;background:#fbf3e2;color:var(--kb-wine);font:800 15px var(--font-ui);box-shadow:0 3px 4px #2e3b4338;cursor:pointer;zoom:var(--ui);pointer-events:auto}
+.kb-dio-up:hover{background:#e3cfa8}
+.kb-dio-hint{margin:12px 0 0;padding:9px 0 0;border-top:1.6px dashed #9b3d4980;font-size:12.5px;font-weight:700;color:var(--kb-stitch);letter-spacing:-.2px}
+/* 들추는 동안 천(리넨·장식·제목·단추·이름표·주민·겹 그림)은 걷히고 길·바탕만 남는다 — 위에서 본 장면의 길이 그 위에 겹친다 */
 #map .kb-cloth,#map .kb-tint,#map .kb-props,#map .kb-title,#map .kb-buttons,#map .kb-story-layer{transition:opacity .5s ease}
 #map.kb-dio-fab .kb-cloth,#map.kb-dio-fab .kb-tint,#map.kb-dio-fab .kb-props,#map.kb-dio-fab .kb-title,#map.kb-dio-fab .kb-buttons,#map.kb-dio-fab .kb-story-layer,#map.kb-dio-fab .kb-story-top,#map.kb-dio-fab .wk{opacity:0!important}
 #map.kb-dio-fab .kb-legend.show{opacity:0;pointer-events:none}
-.kb-dio-pane{position:relative;flex:1;min-width:0;margin:0}
-.kb-dio-pane img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .35s ease;user-select:none}
-.kb-dio-pane img.on{opacity:1}
-.kb-dio-pane img:not([src]){visibility:hidden}
-@media(max-width:899px){.kb-dio-panes{right:0;bottom:45%}}
-#map.kb-dio-on .kb-legend.show{opacity:0;pointer-events:none}   /* 천을 들춘 동안 범례도 물러난다 */
-@media(prefers-reduced-motion:reduce){html.kb-on #map > svg,.kb-dio,.kb-dio-panes,.kb-dio-pane img{transition:none!important}.kb-dio-panes{transform:none}}
+@media(prefers-reduced-motion:reduce){.kb-dio-veil,.kb-dio-world,.kb-dio-dusk,.kb-dio-stars{transition:none!important}.kb-dio.veil.night .kb-dio-stars{animation:none}}
 
 /* 조작 막대(상자 아래 칸): 날짜 탭 · ▶ · 시각 막대(TV 마우스용 큰 손잡이) · 해 높이 */
 .kb-dio-ctl{margin-top:12px;padding-top:10px;border-top:1.6px dashed #9b3d4980}
 .kb-dio-tabs{display:flex;gap:5px}
 .kb-dio-tabs button{flex:1;padding:6px 0;border:1px dashed #c4ae8f;border-radius:4px;background:#fbf3e2b3;color:var(--kb-stitch);font:700 12.5px var(--font-ui);letter-spacing:-.2px;cursor:pointer}
 .kb-dio-tabs button.on{border-color:var(--kb-stitch);background:#fbf3e2;color:var(--kb-wine);box-shadow:inset 0 -2px 0 var(--kb-thread)}
-.kb-dio-tabs button[hidden]{display:none}
+.kb-dio-tabs button[hidden],.kb-dio-tabs[hidden]{display:none}
 .kb-dio-tabs button.night{cursor:default}
 .kb-dio-row{display:flex;align-items:center;gap:10px;margin-top:10px}
 .kb-dio-row[hidden]{display:none}
@@ -237,8 +240,7 @@ html.kb-on #map > svg{transition:scale .7s cubic-bezier(.32,.72,0,1),opacity .7s
 .kb-setback .sb-t.c{text-anchor:middle}.kb-setback .sb-t.e{text-anchor:end}
 
 /* 건물 고르기(select.ts): 그림 칸 위 SVG(viewBox = 그림 크기, contain 과 똑같이). 선 굵기는 화면 px 그대로(non-scaling) */
-#map .kb-dio-pane svg.kb-dio-sel{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;will-change:auto;shape-rendering:auto;opacity:1}
-.kb-dio-pane.kb-pick{cursor:pointer}
+#map .kb-dio-world svg.kb-dio-sel{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;will-change:auto;shape-rendering:auto;opacity:1}
 .kb-dio-sel path{vector-effect:non-scaling-stroke;stroke-linejoin:round}
 .kb-dio-sel .sl-hover{fill:#fbf3e2;fill-opacity:.35;stroke:#fbf3e2;stroke-width:1.5}
 .kb-dio-sel .sl-ring{fill:#7d203014;stroke:var(--kb-wine);stroke-width:1.6;stroke-dasharray:7 5}
@@ -249,7 +251,7 @@ html.kb-on #map > svg{transition:scale .7s cubic-bezier(.32,.72,0,1),opacity .7s
 .kb-dio-sel .sl-lead{fill:none;stroke:var(--kb-thread);stroke-width:1.4;stroke-dasharray:5 3}
 .kb-dio-sel .sl-tag rect{fill:#fbf3e2;stroke:#c4ae8f;stroke-width:2}
 .kb-dio-sel .sl-tag rect.st{fill:none;stroke:var(--kb-stitch);stroke-width:1.5;stroke-dasharray:6 4}
-.kb-dio-sel .sl-tag text{font:700 26px var(--font-ui);fill:var(--kb-wine);dominant-baseline:central;letter-spacing:-.02em}
+.kb-dio-sel .sl-tag text{font-family:var(--font-ui);font-weight:700;fill:var(--kb-wine);dominant-baseline:central;letter-spacing:-.02em}
 .kb-dio-sel:not(.on) .sl-tags{display:none}
 /* 건물 카드(상자 본문 자리) */
 .kb-story-cover{flex:1;min-height:0;overflow:auto;word-break:keep-all}
@@ -319,3 +321,14 @@ html.kb-story-focus .wk *,html.kb-story-focus .kb .kb-buttons *{pointer-events:n
 .kb-map-key i{display:inline-block;width:30px;height:9px;margin-right:8px;vertical-align:middle;border-radius:5px;background-image:linear-gradient(90deg,#fbf3e2 50%,transparent 50%);background-size:7px 1.4px;background-repeat:repeat-x;background-position:0 50%}
 @media(max-width:899px){.kb-map-key{left:10px;bottom:auto;top:10px}}
 @media(prefers-reduced-motion:reduce){.kb-heat-b,.kb-heat-b.on{transition:none;animation:none}.kb-map-key{transition:none}}
+
+/* 고르기 SVG(select.ts): 이름표(plan 가리키기) · 내려앉은 뒤 차례로(enter, 0.12초씩) */
+.kb-dio-sel .sl-name{opacity:0;transition:opacity .1s ease}
+.kb-dio-sel .sl-name.on{opacity:1}
+.kb-dio-sel .sl-name rect{fill:#fbf3e2;stroke:var(--kb-wine);vector-effect:non-scaling-stroke;stroke-width:1.2}
+.kb-dio-sel .sl-name text{font-family:var(--font-ui);font-weight:800;fill:var(--kb-wine);text-anchor:middle;dominant-baseline:central;letter-spacing:-.02em}
+.kb-dio-sel.enter .sl-ring,.kb-dio-sel.enter .sl-near,.kb-dio-sel.enter .sl-base,.kb-dio-sel.enter .sl-edge,.kb-dio-sel.enter .sl-top,.kb-dio-sel.enter .sl-lead,.kb-dio-sel.enter .sl-tag{animation:kb-sel-in .35s ease both}
+.kb-dio-sel.enter .sl-ring{animation-delay:0s}.kb-dio-sel.enter .sl-near{animation-delay:.12s}.kb-dio-sel.enter .sl-base,.kb-dio-sel.enter .sl-edge,.kb-dio-sel.enter .sl-top{animation-delay:.24s}
+.kb-dio-sel.enter .sl-lead{animation-delay:.36s}.kb-dio-sel.enter .sl-tag{animation-delay:calc(.48s + var(--i) * .12s)}
+@keyframes kb-sel-in{from{opacity:0}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.kb-dio-sel.enter *{animation:none!important}}

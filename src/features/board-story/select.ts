@@ -1,12 +1,12 @@
-/* 해 디오라마 — 건물 하나 골라 보기(10-28, 감독 요청 "건물을 고르면 그 건물과 반경 안 이웃의 환경 분석을 3D 위에").
-   · 고르기: idmap.png(해 그림과 같은 카메라·크기 1920×1440)을 화면 밖 캔버스에 한 번 그려 두고, 포인터 자리 → 그림 px → RGB.
-     B == 255 이면 건물 번호 = R + 256·G − 1 (sun-buildings.json 의 순서). 주민(dioWalkers)을 누른 것은 건드리지 않는다.
-   · 3D 위 표시(그림 칸 위 SVG 한 장, viewBox = 그림 크기 → contain 과 똑같이 겹친다, 요소 약 20개):
-     고른 건물 = 바닥(xy, 탑이 있으면 7.6 m 까지 기단) + 탑(tower, 7.6 m → 높이) 윗면을 와인 35% + 테두리, 바깥쪽 모서리 세로선, 바닥 윤곽.
-     이웃(near.ids) = 윗면만 한 path 로 옅게. 반경 50 m = 땅 위 원(64점)을 점선 타원으로. 데이터 꼬리표 넷 = 빈 쪽에 세로로 쌓고 실로 잇는다.
-     정사영(manifest.axon): 그림 px = origin + x·perX + y·perY + z·perZ (지역 미터).
-   · 상자: 고르면 본문 대신 건물 카드(기본 정보 · 햇볕 · 하늘과 열 · 이웃과 함께). '‹ 이야기로' · Esc · ✕ 는 고른 것부터 푼다.
-   · 날짜 탭(하지·오늘·동지, 춘분은 자료가 없어 오늘)이 바뀌면 값만 다시. 시각 막대와 상관없이 고른 것은 그대로(모양은 시간과 무관). */
+import { project, type Aff } from './sunStage';
+
+/* 해 디오라마 — 건물 고르기(10-28, TASK_08 → TASK_12). 포인터는 sun.ts 가 받아(끌기와 누르기를 가려) 여기 함수를 부른다.
+   · 어느 건물: 해 그림과 같은 카메라의 idmap(그림 px 의 RGB, B == 255 → 번호 = R + 256·G − 1)을 화면 밖 캔버스에 한 번 그려 두고 읽는다.
+     plan(위에서 본 신당) = hi/idmap_top(3840×2880 → 기준 1920×1440 으로 이웃값 줄이기), axon = idmap.png(기준 크기). 세계 상자(무대)의 화면 칸으로 되돌려 찾는다.
+   · plan: 가리키면 크림색 바닥 윤곽 + 작은 이름표 '용도 · n층 · n년'.
+   · axon: 고르면 고른 건물 윗면(기단 7.6 m + 탑)·바깥 모서리·바닥 윤곽, 이웃 윗면(path 하나), 반경 50 m 점선 타원, 데이터 꼬리표 넷 + 실, 상자에 건물 카드.
+     SVG 는 세계 상자 안(viewBox = 기준 그림 크기)이라 카메라와 같이 움직이고, 선 굵기·꼬리표 글씨는 화면 크기를 지킨다(카메라가 바뀌면 redraw).
+   · 날짜 탭이 바뀌면 값만 다시(refresh). 요소 약 25개 */
 export interface Bld {
   i: number; c: number[]; h: number; xy: number[][][]; tower?: number[][][]; svf: number | null;
   info: { use: string | null; struct: string | null; year: number | null; floors: number; basement: number; height: number; bldg_area: number; gfa: number; site_area: number; bcr: number; far: number; dong: string } | null;
@@ -14,78 +14,81 @@ export interface Bld {
   cast: Record<string, { neighbors: number; hours: number; top: number[] }>;
   near: { r: number; ids: number[]; count: number; median_year: number | null; median_floors: number | null; trees: number; road_shade_aug15: number | null; walk_to_rest_min: number | null };
 }
-interface Axon { origin: number[]; perX: number[]; perY: number[]; perZ: number[] }
+export type Mode = 'plan' | 'axon';
 export interface SelectOptions {
-  pane: HTMLElement; size: number[]; axon: Axon; idmap: string;
+  world: HTMLElement; size: number[]; plan: Aff; axon: Aff; idmapPlan: string; idmapAxon: string;
   load(): Promise<{ b: Bld[] }>;
   cover(el: HTMLElement | null): void;          // 상자 본문 자리(카드)
   date(): string;                                // 지금 날짜 탭
-  onSelect(): void;                              // 골랐다(재생 멈춤 등)
+  scale(): number;                               // 화면 px / 기준 px(카메라 배율)
 }
 
 const NS = 'http://www.w3.org/2000/svg', TOWER_Z = 7.6, THIS_YEAR = 2026;
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 const n1 = (v: number | null | undefined, unit = '') => (v == null || !isFinite(v) || v === 0 ? '—' : `${Math.round(v * 10) / 10}${unit}`);
 const area = (v: number | null | undefined) => (v ? `${Math.round(v).toLocaleString('ko-KR')}㎡` : '—');
+export const shortName = (b: Bld) => [b.info?.use || '건물', b.info?.floors ? `${b.info.floors}층` : null, b.info?.year ? `${b.info.year}년` : null].filter(Boolean).join(' · ');
 
 export function mountSelect(o: SelectOptions) {
-  const [IW, IH] = o.size, A = o.axon;
-  const P = (x: number, y: number, z: number) => [A.origin[0] + x * A.perX[0] + y * A.perY[0] + z * A.perZ[0], A.origin[1] + x * A.perX[1] + y * A.perY[1] + z * A.perZ[1]];
-  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('class', 'kb-dio-sel'); svg.setAttribute('viewBox', `0 0 ${IW} ${IH}`); svg.setAttribute('preserveAspectRatio', 'xMidYMid meet'); svg.setAttribute('aria-hidden', 'true');
-  o.pane.appendChild(svg);
-  const mk = (tag: string, cls: string) => { const e = document.createElementNS(NS, tag); e.setAttribute('class', cls); svg.appendChild(e); return e; };
+  const [IW, IH] = o.size;
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('class', 'kb-dio-sel'); svg.setAttribute('viewBox', `0 0 ${IW} ${IH}`); svg.setAttribute('aria-hidden', 'true');
+  o.world.appendChild(svg);
+  const mk = (tag: string, cls: string, parent: Element = svg) => { const e = document.createElementNS(NS, tag); e.setAttribute('class', cls); parent.appendChild(e); return e; };
   const ring = mk('path', 'sl-ring'), near = mk('path', 'sl-near'), base = mk('path', 'sl-base'), edges = mk('path', 'sl-edge'), tops = mk('path', 'sl-top'), hover = mk('path', 'sl-hover'), leads = mk('path', 'sl-lead');
-  const tagG = mk('g', 'sl-tags');
-  let data: Bld[] | null = null, ids: Uint8ClampedArray | null = null, loading: Promise<void> | null = null, sel: Bld | null = null, hot = -1, raf = 0, dead = false;
+  const tagG = mk('g', 'sl-tags'), nameG = mk('g', 'sl-name'), nameR = mk('rect', '', nameG), nameT = mk('text', '', nameG);
+  let data: Bld[] | null = null, sel: Bld | null = null, mode: Mode = 'axon', dead = false;
+  const maps: Partial<Record<Mode, Uint8ClampedArray>> = {}, loads: Partial<Record<Mode | 'data', Promise<void>>> = {};
 
-  function ensure() {
-    if (!loading) loading = Promise.all([o.load().then((d) => { data = d.b; }), new Promise<void>((ok) => {
-      const im = new Image(); im.onload = () => { const cv = document.createElement('canvas'); cv.width = IW; cv.height = IH; const cx = cv.getContext('2d', { willReadFrequently: true })!; cx.drawImage(im, 0, 0); ids = cx.getImageData(0, 0, IW, IH).data; ok(); }; im.onerror = () => ok(); im.src = o.idmap; })]).then(() => undefined);
-    return loading;
+  function loadMap(m: Mode) {
+    return (loads[m] ||= new Promise<void>((ok) => {
+      const im = new Image(); im.onload = () => { const cv = document.createElement('canvas'); cv.width = IW; cv.height = IH; const cx = cv.getContext('2d', { willReadFrequently: true })!;
+        cx.imageSmoothingEnabled = false; cx.drawImage(im, 0, 0, IW, IH); maps[m] = cx.getImageData(0, 0, IW, IH).data; ok(); };   /* 2× 지도는 이웃값으로 줄인다(번호가 섞이지 않게) */
+      im.onerror = () => ok(); im.src = m === 'plan' ? o.idmapPlan : o.idmapAxon; }));
   }
-  /* 포인터 → 그림 px(contain) → 건물 번호 */
+  const ensure = (m: Mode) => Promise.all([loads.data ||= o.load().then((d) => { data = d.b; }), loadMap(m)]).then(() => undefined);
+  const aff = () => (mode === 'plan' ? o.plan : o.axon);
+  /* 화면 자리 → 기준 px → 건물 번호(세계 상자의 화면 칸으로 되돌린다) */
   function idAt(cx: number, cy: number) {
-    if (!ids) return -1;
-    const r = o.pane.getBoundingClientRect(), k = Math.min(r.width / IW, r.height / IH), ox = (r.width - IW * k) / 2, oy = (r.height - IH * k) / 2;
-    const u = Math.floor((cx - r.left - ox) / k), v = Math.floor((cy - r.top - oy) / k); if (u < 0 || v < 0 || u >= IW || v >= IH) return -1;
+    const ids = maps[mode]; if (!ids) return -1;
+    const r = o.world.getBoundingClientRect(), k = r.width / IW, u = Math.floor((cx - r.left) / k), v = Math.floor((cy - r.top) / k);
+    if (u < 0 || v < 0 || u >= IW || v >= IH) return -1;
     const p = (v * IW + u) * 4; return ids[p + 3] && ids[p + 2] === 255 ? ids[p] + 256 * ids[p + 1] - 1 : -1;
   }
-  const poly = (rings: number[][][], z: number) => rings.map((r) => r.map(([x, y], j) => { const [u, v] = P(x, y, z); return `${j ? 'L' : 'M'}${u.toFixed(1)} ${v.toFixed(1)}`; }).join('') + 'Z').join('');
-  /* 바깥쪽 세로 모서리: 화면에서 가장 왼쪽·오른쪽, 가장 앞(아래) 꼭짓점 */
-  function verts(rings: number[][][], z0: number, z1: number) {
+  const poly = (rings: number[][][], z: number) => rings.map((r) => r.map(([x, y], j) => { const [u, v] = project(aff(), x, y, z); return `${j ? 'L' : 'M'}${u.toFixed(1)} ${v.toFixed(1)}`; }).join('') + 'Z').join('');
+  function verts(rings: number[][][], z0: number, z1: number) {   /* 바깥쪽 세로 모서리: 화면에서 가장 왼쪽·오른쪽·앞 꼭짓점 */
     const pts = rings[0] || []; if (!pts.length) return '';
-    const g = pts.map(([x, y]) => [P(x, y, z0), P(x, y, z1)]);
+    const g = pts.map(([x, y]) => [project(o.axon, x, y, z0), project(o.axon, x, y, z1)]);
     const pick = new Set([g.reduce((a, q, i) => (q[0][0] < g[a][0][0] ? i : a), 0), g.reduce((a, q, i) => (q[0][0] > g[a][0][0] ? i : a), 0), g.reduce((a, q, i) => (q[0][1] > g[a][0][1] ? i : a), 0)]);
     return [...pick].map((i) => `M${g[i][0][0].toFixed(1)} ${g[i][0][1].toFixed(1)}L${g[i][1][0].toFixed(1)} ${g[i][1][1].toFixed(1)}`).join('');
   }
-  const topOf = (b: Bld) => (b.tower?.length ? poly(b.xy, TOWER_Z) + poly(b.tower, b.h) : poly(b.xy, b.h));
-  function day() { const d = o.date(); return d === 'summer' || d === 'winter' ? d : 'today'; }
+  const topOf = (b: Bld) => (mode === 'plan' ? poly(b.xy, 0) : b.tower?.length ? poly(b.xy, TOWER_Z) + poly(b.tower, b.h) : poly(b.xy, b.h));
+  const day = () => { const d = o.date(); return d === 'summer' || d === 'winter' ? d : 'today'; };
 
   function draw() {
     tagG.replaceChildren();
-    if (!sel || !data) { [ring, near, base, edges, tops, leads].forEach((e) => e.setAttribute('d', '')); svg.classList.remove('on'); return; }
-    const b = sel, d = day();
-    tops.setAttribute('d', topOf(b));
-    base.setAttribute('d', poly(b.xy, 0));
+    if (!sel || !data || mode !== 'axon') { [ring, near, base, edges, tops, leads].forEach((e) => e.setAttribute('d', '')); svg.classList.remove('on'); return; }
+    const b = sel, d = day(), k = 1 / Math.max(0.05, o.scale());   /* 화면 1px = 기준 k px */
+    tops.setAttribute('d', topOf(b)); base.setAttribute('d', poly(b.xy, 0));
     edges.setAttribute('d', b.tower?.length ? verts(b.xy, 0, TOWER_Z) + verts(b.tower, TOWER_Z, b.h) : verts(b.xy, 0, b.h));
-    near.setAttribute('d', b.near.ids.map((k) => data![k]).filter(Boolean).map((q) => topOf(q)).join(''));
-    ring.setAttribute('d', Array.from({ length: 64 }, (_, j) => { const a = (j / 64) * Math.PI * 2, [u, v] = P(b.c[0] + Math.cos(a) * b.near.r, b.c[1] + Math.sin(a) * b.near.r, 0); return `${j ? 'L' : 'M'}${u.toFixed(1)} ${v.toFixed(1)}`; }).join('') + 'Z');
-    /* 꼬리표: 건물 윗면 가운데에서 빈 쪽(그림 가운데에서 먼 쪽)으로 세로로 쌓는다 */
-    const [ax, ay] = P(b.c[0], b.c[1], b.h), s = b.sun[d], cast = b.cast[d];
+    near.setAttribute('d', b.near.ids.map((q) => data![q]).filter(Boolean).map((q) => topOf(q)).join(''));
+    ring.setAttribute('d', Array.from({ length: 64 }, (_, j) => { const a = (j / 64) * Math.PI * 2, [u, v] = project(o.axon, b.c[0] + Math.cos(a) * b.near.r, b.c[1] + Math.sin(a) * b.near.r, 0); return `${j ? 'L' : 'M'}${u.toFixed(1)} ${v.toFixed(1)}`; }).join('') + 'Z');
+    /* 꼬리표: 건물 윗면 가운데에서 그림 가운데의 반대쪽으로, 화면 13px 글씨 */
+    const [ax, ay] = project(o.axon, b.c[0], b.c[1], b.h), s = b.sun[d], cast = b.cast[d];
     const tags = [s ? `옥상 일조 ${s.roof}시간` : null, b.svf != null ? `앞길 하늘 ${Math.round(b.svf * 100)}%` : null, cast ? `이웃 ${cast.neighbors}동에 그림자` : null, `반경 ${b.near.r}m 나무 ${b.near.trees}그루`].filter(Boolean) as string[];
-    const FS = 26, TH = 46, GAP = 14, right = ax < IW / 2, x0 = right ? Math.min(ax + 120, IW - 380) : Math.max(ax - 120 - 330, 20);
-    const y0 = Math.max(20, Math.min(IH - 20 - tags.length * (TH + GAP), ay - (tags.length * (TH + GAP)) / 2));
-    let ld = '';
+    const FS = 13 * k, TH = 24 * k, GAP = 7 * k, OFF = 34 * k, right = ax < IW / 2;
+    /* 건물 + 반경 원이 화면에 차지하는 칸 바깥에 놓는다(건물 위를 덮지 않게) */
+    const ext = [...(b.tower?.length ? b.tower : b.xy).flatMap((r) => r.map(([x, y]) => project(o.axon, x, y, b.h))), ...b.xy.flatMap((r) => r.map(([x, y]) => project(o.axon, x, y, 0)))];
+    const bx0 = Math.min(...ext.map((p) => p[0])), bx1 = Math.max(...ext.map((p) => p[0]));
+    const y0 = ay - (tags.length * (TH + GAP)) / 2; let ld = '';
     tags.forEach((t, j) => {
-      const w = t.length * FS * 0.92 + 30, x = right ? x0 : x0 + 330 - w, y = y0 + j * (TH + GAP);
-      const g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'sl-tag'); g.setAttribute('transform', `translate(${x.toFixed(1)},${y.toFixed(1)})`);
-      g.innerHTML = `<rect width="${w.toFixed(1)}" height="${TH}" rx="6"/><rect class="st" x="4" y="4" width="${(w - 8).toFixed(1)}" height="${TH - 8}" rx="3"/><text x="15" y="${TH / 2}">${esc(t)}</text>`;
+      const w = t.length * FS * 0.92 + 16 * k, x = right ? bx1 + OFF : bx0 - OFF - w, y = y0 + j * (TH + GAP);
+      const g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'sl-tag'); g.setAttribute('transform', `translate(${x.toFixed(1)},${y.toFixed(1)})`); g.style.setProperty('--i', String(j));
+      g.innerHTML = `<rect width="${w.toFixed(1)}" height="${TH.toFixed(1)}" rx="${(3 * k).toFixed(1)}"/><rect class="st" x="${(2.5 * k).toFixed(1)}" y="${(2.5 * k).toFixed(1)}" width="${(w - 5 * k).toFixed(1)}" height="${(TH - 5 * k).toFixed(1)}" rx="${(2 * k).toFixed(1)}"/><text x="${(8 * k).toFixed(1)}" y="${(TH / 2).toFixed(1)}" font-size="${FS.toFixed(1)}">${esc(t)}</text>`;
       tagG.appendChild(g);
       ld += `M${ax.toFixed(1)} ${ay.toFixed(1)}L${(right ? x : x + w).toFixed(1)} ${(y + TH / 2).toFixed(1)}`;
     });
     leads.setAttribute('d', ld);
     svg.classList.add('on');
-    o.cover(card(b, d));
   }
   /* 상자 카드 */
   function card(b: Bld, d: string) {
@@ -107,22 +110,28 @@ export function mountSelect(o: SelectOptions) {
     el.querySelector('.kb-bld-back')!.addEventListener('click', (e) => { e.stopPropagation(); clear(); });
     return el;
   }
-  function select(i: number) { if (!data || !data[i]) return; sel = data[i]; hover.setAttribute('d', ''); o.onSelect(); draw(); }
+  /* 가리키기: plan 은 바닥 윤곽 + 이름표, axon 은 윗면만 옅게 */
+  function hoverAt(cx: number, cy: number) {
+    if (dead) return -1;
+    const i = idAt(cx, cy), b = i >= 0 ? data?.[i] : null;
+    hover.setAttribute('d', b && b !== sel ? topOf(b) : '');
+    if (mode === 'plan' && b) {
+      const k = 1 / Math.max(0.05, o.scale()), [u, v] = project(o.plan, b.c[0], b.c[1], 0), t = shortName(b), FS = 12 * k, w = t.length * FS * 0.9 + 14 * k, h = 22 * k;
+      nameR.setAttribute('x', (u - w / 2).toFixed(1)); nameR.setAttribute('y', (v - h - 14 * k).toFixed(1)); nameR.setAttribute('width', w.toFixed(1)); nameR.setAttribute('height', h.toFixed(1)); nameR.setAttribute('rx', (3 * k).toFixed(1));
+      nameT.setAttribute('x', u.toFixed(1)); nameT.setAttribute('y', (v - h / 2 - 14 * k).toFixed(1)); nameT.setAttribute('font-size', FS.toFixed(1)); nameT.textContent = t; nameG.classList.add('on');
+    } else nameG.classList.remove('on');
+    return i;
+  }
+  function select(i: number) { if (!data?.[i]) return false; sel = data[i]; hover.setAttribute('d', ''); nameG.classList.remove('on'); draw(); o.cover(card(sel, day())); return true; }
   function clear() { if (!sel) return false; sel = null; draw(); o.cover(null); return true; }
-
-  const onMove = (e: PointerEvent) => {
-    if (e.pointerType === 'touch' || (e.target as Element).closest?.('.kb-dio-hit')) return;
-    void ensure(); cancelAnimationFrame(raf); const { clientX: x, clientY: y } = e;
-    raf = requestAnimationFrame(() => { if (dead) return; const i = idAt(x, y); if (i === hot) return; hot = i; o.pane.classList.toggle('kb-pick', i >= 0);
-      hover.setAttribute('d', i >= 0 && data?.[i] && i !== sel?.i ? topOf(data[i]) : ''); });
-  };
-  const onClick = (e: MouseEvent) => { if ((e.target as Element).closest?.('.kb-dio-hit')) return; void ensure().then(() => { if (dead) return; const i = idAt(e.clientX, e.clientY); if (i >= 0) select(i); }); };
-  const onLeave = () => { hot = -1; hover.setAttribute('d', ''); o.pane.classList.remove('kb-pick'); };
-  o.pane.addEventListener('pointermove', onMove, { passive: true }); o.pane.addEventListener('click', onClick); o.pane.addEventListener('pointerleave', onLeave);
   return {
-    ensure, clear, refresh: () => { if (sel) draw(); },
-    get selected() { return sel?.i ?? -1; },
-    destroy() { dead = true; cancelAnimationFrame(raf); o.pane.removeEventListener('pointermove', onMove); o.pane.removeEventListener('click', onClick); o.pane.removeEventListener('pointerleave', onLeave); svg.remove(); ids = null; data = null; },
+    ensure, idAt, hoverAt, select, clear,
+    setMode(m: Mode) { mode = m; hover.setAttribute('d', ''); nameG.classList.remove('on'); draw(); },
+    get mode() { return mode; }, get selected() { return sel; }, building: (i: number) => data?.[i] ?? null,
+    refresh() { if (sel) { draw(); o.cover(card(sel, day())); } },   /* 날짜가 바뀌었을 때 */
+    redraw() { if (sel) draw(); if (nameG.classList.contains('on')) nameG.classList.remove('on'); },   /* 카메라가 바뀌었을 때(꼬리표 크기) */
+    enter() { svg.classList.remove('enter'); void svg.getBoundingClientRect(); svg.classList.add('enter'); },   /* 내려앉은 뒤 차례로 그려지기 */
+    destroy() { dead = true; svg.remove(); delete maps.plan; delete maps.axon; data = null; },
   };
 }
 export type Select = ReturnType<typeof mountSelect>;
