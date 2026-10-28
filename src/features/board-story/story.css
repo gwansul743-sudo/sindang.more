@@ -197,3 +197,16 @@ html.kb-on #map > svg{transition:scale .7s cubic-bezier(.32,.72,0,1),opacity .7s
 .kb-rs-key i.wc{width:11px;height:11px;border-radius:2px;background:#7d2030}
 .kb-rs-key i.dot{width:7px;height:7px;border-radius:50%;background:#24382d}
 @media(prefers-reduced-motion:reduce){.kb-rs,.kb-rs > g{transition:none}.kb-rs-props.on{animation:none}}
+
+/* 일조 사선 단면(sun.ts setbackSVG) — 천 톤: 건물 크림 + 와인 테두리, 경계·안내선은 홈질 점선, 해는 해 눈금 노랑 */
+.kb-setback-fig{margin:10px 0 0;padding-top:6px;border-top:1.6px dashed #9b3d4980}
+#map .kb-story svg.kb-setback{display:block;position:static;inset:auto;width:264px;height:151px;will-change:auto;shape-rendering:auto}   /* 테마의 '#map svg{position:absolute;inset:0;width:100%;height:100%}'(지도 SVG 용)가 상자 안 SVG 에도 걸린다 — 10-28 구름 막대그래프가 어긋난 진짜 까닭 */
+.kb-setback .sb-ground{stroke:#6b3a30;stroke-width:1.6}
+.kb-setback .sb-lot{fill:none;stroke:var(--kb-stitch);stroke-width:1.4;stroke-dasharray:5 3.5}
+.kb-setback .sb-guide{fill:none;stroke:var(--kb-thread);stroke-width:1.2;stroke-dasharray:3 3;opacity:.8}
+.kb-setback .sb-bldg{fill:#fbf3e2;stroke:var(--kb-wine);stroke-width:2;stroke-linejoin:round}
+.kb-setback .sb-dim{fill:none;stroke:#9a7a60;stroke-width:1}
+.kb-setback .sb-sun circle{fill:#f0a850}.kb-setback .sb-sun path{stroke:#f0a850;stroke-width:2;stroke-linecap:round}
+.kb-setback .sb-ray{fill:none;stroke:#f0a850;stroke-width:1.4;stroke-dasharray:4 3;opacity:.9}
+.kb-setback .sb-t{font:700 11px var(--font-ui);fill:var(--kb-wine);letter-spacing:-.02em}
+.kb-setback .sb-t.c{text-anchor:middle}.kb-setback .sb-t.e{text-anchor:end}

@@ -16,12 +16,32 @@ interface Frame { h: number; elev: number; az: number; file: string }
 interface Manifest { dates: Record<string, string>; frames: Record<string, Frame[]>; night?: string; local?: LocalFrame; transition?: { frames: TransFrame[] }; axon?: { origin: number[]; perX: number[]; perY: number[]; perZ: number[] } }
 interface DaySun { hours: number; of: number; slots: string; start: string }
 interface StoreSun { id: string; name: string; [day: string]: DaySun | string | unknown }
-interface PageL { view?: 'diorama' | 'board'; date?: string; hour?: number; autoplay?: boolean; compare?: string; night?: boolean; stores?: string }
+interface PageL { view?: 'diorama' | 'board'; date?: string; hour?: number; autoplay?: boolean; compare?: string; night?: boolean; stores?: string; diagram?: string }
 
 const DATES = ['summer', 'equinox', 'today', 'winter'];
 const STEP_MS = 900, FADE_MS = 350, OUT_MS = 400;
 const SUN = '#f0a850', SHADE = '#9a7a60';                 /* 해 눈금: 해 = 밤 하늘 노을 노랑(night.ts), 그늘 = 범례 안내 글자 회갈색(board.css .kb-note) */
 const NS = 'http://www.w3.org/2000/svg';
+/* 일조 사선 단면(10-28, 「건축법 시행령」 제86조): 높이 10 m 까지는 북쪽 땅 경계에서 1.5 m, 그 위는 높이의 1/2 이상 떨어진다.
+   1 m = 6 px. 경계선(점선) 오른쪽이 북쪽 이웃 땅, 1:2 사선은 점선 안내선, 건물은 층(3 m)마다 계단처럼 물러난다. 왼쪽 위 해에서 이웃 땅까지 빛줄기.
+   크기는 CSS 에서 px 로 — 테마의 '#map svg'(지도 SVG 를 칸 가득 펴는 규칙)가 상자 안 SVG 에도 걸리므로 덮어써야 한다 */
+function setbackSVG(): SVGSVGElement {
+  const M = 6, G = 150, LX = 214, y = (h: number) => G - h * M, x = (d: number) => LX - d * M;
+  const steps = [[19, 9.5], [16, 8], [13, 6.5], [10, 1.5]].map(([h, d], i, a) => `H${x(d)}` + (i < a.length - 1 ? `V${y(a[i + 1][0])}` : '')).join('');   /* 지붕(19 m)에서 층(3 m)마다 h/2 선 안쪽으로 내려와 10 m 에서 1.5 m 벽으로 */
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('class', 'kb-setback'); svg.setAttribute('viewBox', '0 0 300 172');
+  svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', '일조 사선: 높이 10미터까지는 북쪽 땅 경계에서 1.5미터, 그 위는 높이의 절반 이상 떨어져 계단처럼 물러난다');
+  svg.innerHTML = `<g class="sb-sun"><circle cx="34" cy="26" r="11"/><path d="M34 8v-5M34 44v5M16 26h-5M52 26h5M21 13l-3-3M47 39l3 3M47 13l3-3M21 39l-3 3"/></g>`
+    + `<path class="sb-ray" d="M46 34L${x(9.5)} ${y(19)}L${LX + 50} ${G}M46 34L${x(6.5)} ${y(10)}L${LX + 22} ${G}"/>`
+    + `<path class="sb-guide" d="M${LX} ${G}L${x(12.5)} ${y(25)}"/>`
+    + `<path class="sb-bldg" d="M${x(14)} ${G}V${y(19)}${steps}V${G}Z"/>`
+    + `<path class="sb-lot" d="M${LX} ${G + 6}V${y(24)}"/><path class="sb-ground" d="M6 ${G}H294"/>`
+    + `<path class="sb-dim" d="M${x(1.5)} ${G - 8}H${LX}M${LX + 8} ${G}V${y(10)}"/>`
+    + `<text x="${(x(1.5) + LX) / 2}" y="${G - 12}" class="sb-t c">1.5m</text>`
+    + `<text x="${LX + 12}" y="${(G + y(10)) / 2 + 4}" class="sb-t">10m</text>`
+    + `<text x="${x(10.5) - 6}" y="${y(21) - 4}" class="sb-t e">높이의 1/2</text>`
+    + `<text x="${LX + 6}" y="${G + 16}" class="sb-t">북쪽 이웃 땅</text>`;
+  return svg;
+}
 const hourLabel = (h: number) => (h < 12 ? `오전 ${h}시` : h === 12 ? '낮 12시' : `오후 ${h - 12}시`);
 const short = (label: string) => label.split(' · ').pop() || label;
 
@@ -201,7 +221,9 @@ export const diorama: Renderer = async (c: LayerCtx) => {
       if (L.date && m.frames[L.date]) date = L.date;
       idx = frames(date).indexOf(frameAt(date, L.hour ?? frames(date)[idx]?.h ?? 12));
       if (!night) preload([...frames(date), ...(cmp ? frames(cmp) : [])].map((f) => f.file));
-      c.slot(ctl); paint(); showStage(true, () => { if (L.autoplay) start(); });   /* 재생은 전환이 끝난 뒤(들추는 동안 그림이 넘어가지 않게) */
+      if (L.diagram === 'setback') { const fig = document.createElement('figure'); fig.className = 'kb-setback-fig'; fig.appendChild(setbackSVG()); const box = document.createElement('div'); box.append(fig, ctl); c.slot(box); }   /* 일조 사선 그림은 본문 아래, 조작 막대 위 */
+      else c.slot(ctl);
+      paint(); showStage(true, () => { if (L.autoplay) start(); });   /* 재생은 전환이 끝난 뒤(들추는 동안 그림이 넘어가지 않게) */
       if (landed) void people(!cmp);   /* 장이 바뀌어도 무대가 떠 있으면: 비교 장에선 숨기고 한 장짜리면 다시 */
     },
     destroy(instant) {

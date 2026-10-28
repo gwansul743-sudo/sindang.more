@@ -59,7 +59,8 @@
     "view": "diorama",
     "date": "today",
     "hour": 14,
-    "autoplay": false
+    "autoplay": false,
+    "diagram": "setback"
    }
   },
   {

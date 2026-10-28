@@ -31,7 +31,7 @@ export const shade: Renderer = async (c: LayerCtx) => {
   /* 범례 띠 */
   const key = document.createElement('div'); key.className = 'kb-shade-key';
   key.innerHTML = '<span>그늘 많음</span>' + SHADE_COL.slice().reverse().map((col) => `<i style="background:${col}"></i>`).join('') + '<span>햇볕</span>';
-  /* 막대그래프: 체감 35℃ 넘는 날(해마다). 2024 는 와인색. HTML 막대 — 상자의 CSS zoom 안에서 인라인 SVG 는 그려지는 자리와 누르는 칸이 어긋났다 */
+  /* 막대그래프: 체감 35℃ 넘는 날(해마다). 2024 는 와인색. HTML 막대 — 상자 안 인라인 SVG 는 테마의 '#map svg'(칸 가득 펴기) 규칙을 받아 상자를 덮었다 */
   const chart = document.createElement('figure'); chart.className = 'kb-chart';
   const max = Math.max(...clim.feel35, 1), bars = document.createElement('div'); bars.className = 'kb-bars';
   bars.setAttribute('role', 'img'); bars.setAttribute('aria-label', '체감온도 35℃ 넘는 날, ' + clim.years.map((y, i) => `${y}년 ${clim.feel35[i]}일`).join(', '));
