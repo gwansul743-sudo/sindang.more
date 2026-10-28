@@ -138,6 +138,8 @@ export function mountStory(o: StoryOptions): BoardStory {
       openPhoto: (urls, i, label) => o.openPhoto?.(urls, i, label),
       top: o.top ?? null, obstacles: () => (o.obstacles ? o.obstacles() : []), camera: o.camera ?? null,
       load: async (name) => { const f = LOAD[`../../../content/board-story/${name}`]; if (!f) throw new Error('없는 데이터 ' + name); return f(); },
+      foldable: (on) => { if (alive()) setFoldable(on); },
+      fold: (on, how) => { if (alive()) setFold(on, how); },
       toBoard: (lat, lng) => o.toBoard ? o.toBoard(lat, lng) : [0, 0] }))
       .then((c) => { if (!c) return; if (!alive()) { c.destroy?.(); return; } ctl = c; c.page(page, d.pages[page]); })
       .catch(() => { if (alive()) root.remove(); });   /* 겹 그림이 실패해도 이야기는 그대로 */
@@ -148,7 +150,7 @@ export function mountStory(o: StoryOptions): BoardStory {
     if (!panel) return; const cov = panel.querySelector('.kb-story-cover') as HTMLElement, pg = panel.querySelector('.kb-story-page') as HTMLElement;
     cov.replaceChildren(...(h ? [h] : [])); cov.hidden = !h; pg.hidden = !!h;
   }
-  function dropCtl(instant = true) { const c = ctl; ctl = null; held = false; c?.destroy?.(instant); }   /* 주제를 바꿀 땐 어둠은 그대로(깜빡임 없이) */
+  function dropCtl(instant = true) { const c = ctl; ctl = null; held = false; setFoldable(false); c?.destroy?.(instant); }   /* 주제를 바꿀 땐 어둠은 그대로(깜빡임 없이) */
   function showDim(on: boolean) {
     if (on) {
       if (!dim) { dim = document.createElementNS(NS, 'path'); dim.setAttribute('class', 'kb-story-dim'); dim.setAttribute('d', o.islandPath); o.layer.prepend(dim); }
@@ -169,10 +171,16 @@ export function mountStory(o: StoryOptions): BoardStory {
   function ensurePanel() {
     if (panel) { panel.classList.remove('instant'); return panel; }
     panel = document.createElement('aside'); panel.className = 'kb-story'; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-live', 'polite');
-    panel.innerHTML = '<button type="button" class="kb-story-x" aria-label="이야기 닫기">✕</button><h2 class="kb-story-title"></h2><div class="kb-story-page"></div><div class="kb-story-cover" hidden></div><div class="kb-story-slot"></div>'
+    panel.innerHTML = '<button type="button" class="kb-story-fold" aria-label="패널 접기" hidden>›</button><div class="kb-story-strip" hidden><button type="button" class="kb-story-sx" aria-label="이야기 닫기">✕</button><span class="kb-story-sdots"></span></div>'
+      + '<button type="button" class="kb-story-x" aria-label="이야기 닫기">✕</button><h2 class="kb-story-title"></h2><div class="kb-story-page"></div><div class="kb-story-cover" hidden></div><div class="kb-story-slot"></div>'
       + '<nav class="kb-story-nav"><button type="button" class="kb-story-prev" aria-label="앞 장">‹</button><span class="kb-story-dots"></span><button type="button" class="kb-story-next" aria-label="다음 장">›</button></nav>';
     ['pointerdown', 'wheel', 'click'].forEach((ev) => panel!.addEventListener(ev, (e) => e.stopPropagation(), { passive: true }));   /* 지도 끌기·휠 줌·빈 곳 닫기로 새지 않게(활동 판정은 window capture 라 그대로) */
     panel.querySelector('.kb-story-x')!.addEventListener('click', () => { if (!ctl?.back?.()) close(); });   /* 고른 건물이 있으면 그것부터 푼다 */
+    panel.querySelector('.kb-story-sx')!.addEventListener('click', (e) => { e.stopPropagation(); if (!ctl?.back?.()) close(); });
+    panel.querySelector('.kb-story-fold')!.addEventListener('click', () => setFold(!folded, { user: true }));
+    panel.querySelector('.kb-story-strip')!.addEventListener('click', (e) => {   /* 접힌 띠: 점 = 그 장으로, 그 밖 = 펴기 */
+      const dt = (e.target as Element).closest?.('[data-p]'); if (dt) { goTo(Number(dt.getAttribute('data-p'))); return; }
+      setFold(false, { user: true }); });
     panel.querySelector('.kb-story-prev')!.addEventListener('click', () => go(-1));
     panel.querySelector('.kb-story-next')!.addEventListener('click', () => go(1));
     o.host.appendChild(panel); void panel.offsetWidth;
@@ -189,9 +197,35 @@ export function mountStory(o: StoryOptions): BoardStory {
     const nx = d.pages[page + 1]; if (nx?.img) { const im = new Image(); im.src = imgSrc(nx, imgBase(d.id)); }   /* 다음 장 그림 미리 */
     panel!.querySelector('.kb-story-pdf')?.addEventListener('click', () => { if (p.pdf) { clearTimeout(idleT); pdf.show(p.pdf, p); } });   /* 틀이 열린 동안 45초 자동 닫기는 멈춘다 */
     panel!.querySelector('.kb-story-dots')!.innerHTML = d.pages.map((_, i) => `<i${i === page ? ' class="on"' : ''}></i>`).join('');
+    panel!.querySelector('.kb-story-sdots')!.innerHTML = d.pages.map((_, i) => `<button type="button" data-p="${i}"${i === page ? ' class="on" aria-current="page"' : ''} aria-label="${i + 1}장"></button>`).join('');   /* 접힌 띠의 점 = 그 장으로 */
+    if (page !== foldPage) { foldPage = page; userFold = null; }   /* 사람이 고른 접기는 장이 바뀔 때까지 */
     (panel!.querySelector('.kb-story-prev') as HTMLButtonElement).disabled = page === 0;
     (panel!.querySelector('.kb-story-next') as HTMLButtonElement).disabled = page >= d.pages.length - 1;
     ctl?.page(page, p);
+  }
+  /* 상자 접기(TASK_18): 상자는 transform 으로만 밀려나고(왼쪽 56 px 띠만 남음), 무대 폭(#map.kb-story-folded)은 다 밀려난 뒤 한 번 바뀐다 — 그다음 무대가 카메라를 새 맞춤으로 0.4초에.
+     펼 때는 무대 폭을 먼저 줄인다(상자가 섬을 덮지 않게). peek 은 상자만(무대 폭 그대로). 좁은 화면(아래 칸 상자)에선 접지 않는다 */
+  let foldable = false, folded = false, userFold: boolean | null = null, foldPage = -1, foldT = 0;
+  const wide = () => matchMedia('(min-width: 900px)').matches;
+  function setFold(on: boolean, how: { peek?: boolean; user?: boolean } = {}) {
+    if (!panel) return;
+    if (!foldable || !wide()) on = false;
+    if (how.user) userFold = on; else if (userFold !== null) return;
+    if (!how.user && on && panel.matches(':hover')) {   /* 가리키고 있는 동안엔 저절로 접지 않는다 — 떠나면 그때 */
+      const p0 = panel, my0 = seq; p0.addEventListener('pointerleave', () => { if (my0 === seq && foldable && userFold === null && !folded) setFold(true, how); }, { once: true }); return; }
+    folded = on; clearTimeout(foldT);
+    panel.classList.toggle('kb-folded', on);
+    const h = panel.querySelector('.kb-story-fold') as HTMLButtonElement; h.textContent = on ? '‹' : '›'; h.setAttribute('aria-label', on ? '패널 펴기' : '패널 접기'); h.setAttribute('aria-expanded', String(!on));
+    (panel.querySelector('.kb-story-strip') as HTMLElement).hidden = !on;
+    if (how.peek) return;
+    const my = seq;
+    if (on) foldT = window.setTimeout(() => { if (my === seq && folded) o.host.classList.add('kb-story-folded'); }, reduced() ? 0 : 460);
+    else o.host.classList.remove('kb-story-folded');
+  }
+  function setFoldable(on: boolean) {
+    foldable = on; userFold = null; foldPage = page;
+    if (panel) (panel.querySelector('.kb-story-fold') as HTMLElement).hidden = !on || !wide();
+    if (!on) { folded = false; clearTimeout(foldT); panel?.classList.remove('kb-folded'); if (panel) (panel.querySelector('.kb-story-strip') as HTMLElement).hidden = true; o.host.classList.remove('kb-story-folded'); }
   }
   function goTo(i: number) { if (!data) return; const n = Math.max(0, Math.min(data.pages.length - 1, i)); if (n !== page) { page = n; render(); } }
   const go = (dp: number) => goTo(page + dp);

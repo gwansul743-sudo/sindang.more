@@ -13,7 +13,7 @@
    · 영상이 800ms 안에 재생되지 않으면(못 받음·오류·막힘) 카메라만 움직이며 그림을 겹쳐 바꾸는 쪽으로 — 멈추지 않는다. 동작 줄이기도 같음.
    · 맞춤(TASK_16): 내려앉은 보기는 4:3 그림 전체가 아니라 섬이 보이는 칸(그림 알파 > 8 의 상자, 그림마다 한 번)을 무대 칸에 2.5 % 여백으로 맞춘다.
      plan 은 top_today13, axon(·zoom 의 1–3배 기준)은 hi 해 그림 한 장. plan ⇄ axon 영상 동안엔 두 맞춤 사이를 카메라로 잇는다. 보드 자리(t00)는 그대로.
-   · 크기가 바뀌면(전체 화면·창 크기·TV, ResizeObserver) 전환이 끝나 가만히 있을 때 다시 맞춘다: plan·axon 은 새 맞춤으로,
+   · 크기가 바뀌면(전체 화면·창 크기·TV·상자 접기, ResizeObserver) 전환이 끝나 가만히 있을 때 0.4초에 다시 맞춘다: plan·axon 은 새 맞춤으로,
      zoom 은 무대 가운데 점을 지키며 맞춤 배율 비율만큼. 칸이 0 크기일 때 잰 맞춤은 쓰지 않는다(마지막 정상 맞춤으로).
    · ?patch_slow=N 이면 N배 느리게. */
 export interface Aff { origin: number[]; perX: number[]; perY: number[]; perZ?: number[] }
@@ -30,7 +30,7 @@ export interface StageOpts {
 }
 
 const SLOW = Math.max(1, Number(new URLSearchParams(location.search).get('patch_slow')) || 1);
-const WAIT_MS = 800, FADE = 250;
+const WAIT_MS = 800, FADE = 250, REFIT_MS = 400;   /* REFIT_MS: 무대 칸이 바뀐 뒤(상자 접기·창 크기) 새 맞춤으로 */
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 const mtx = (c: Cam) => `matrix(${c.s},0,0,${c.s},${c.tx},${c.ty})`;
@@ -134,12 +134,12 @@ export function mountSunStage(o: StageOpts) {
     if (idleRun !== run) { rsT = window.setTimeout(refit, 250); return; }
     const K = view === 'plan' ? 'plan' : 'axon', a = o.area.getBoundingClientRect(); if (a.width < 40 || a.height < 40) return;
     const nf = contain(K);
-    if (view !== 'zoom' || !lastArea) { apply(nf); noteArea(); return; }
+    if (view !== 'zoom' || !lastArea) { tween(nf, REFIT_MS); noteArea(); return; }
     /* zoom: 옛 칸의 맞춤 배율과 새 맞춤 배율의 비율만큼, 옛 가운데가 보던 세계 점을 새 가운데로 */
     const b = boxes.axon || [0, 0, W, H], bw = b[2] - b[0], bh = b[3] - b[1], oldS = Math.min((lastArea[2] * 0.95) / bw, (lastArea[3] * 0.95) / bh);
     const r = o.stage.getBoundingClientRect(), ax = a.left - r.left + a.width / 2, ay = a.top - r.top + a.height / 2, ow = [lastArea[0] + lastArea[2] / 2, lastArea[1] + lastArea[3] / 2];
     const wx = (ow[0] - cam.tx) / cam.s, wy = (ow[1] - cam.ty) / cam.s, s = cam.s * (nf.s / oldS);
-    apply({ s, tx: ax - s * wx, ty: ay - s * wy }); noteArea();
+    tween({ s, tx: ax - s * wx, ty: ay - s * wy }, REFIT_MS); noteArea();
   }
   function noteArea() { const a = o.area.getBoundingClientRect(), r = o.stage.getBoundingClientRect(); if (a.width >= 40 && a.height >= 40) lastArea = [a.left - r.left, a.top - r.top, a.width, a.height];
   }

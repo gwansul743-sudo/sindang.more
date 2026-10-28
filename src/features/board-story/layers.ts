@@ -23,6 +23,10 @@ export interface LayerCtx {
   top: SVGGElement | null;                                 // 단추·이름표 위 층(닫히면 story.ts 가 비운다)
   obstacles(): { x0: number; y0: number; x1: number; y1: number }[];   // 장식 칸(캔버스)
   camera: { focus(x: number, y: number, mul: number, dx?: number): void; restore(): void } | null;   // 카메라 잠깐 당기기(보드 캔버스) · 되돌리기
+  /* 상자 접기(TASK_18, 해 이야기만): foldable(true) 면 왼쪽 손잡이·접힌 띠가 생긴다. fold(on) 은 이 장의 기본값 — 사람이 고른 것이 있으면(장이 바뀔 때까지) 무시.
+     peek: 무대 폭은 그대로 두고 상자만 잠깐 편다(덮어 보이기). user: 사람이 고른 것처럼(지도 위 '자세히 ›') */
+  foldable(on: boolean): void;
+  fold(on: boolean, how?: { peek?: boolean; user?: boolean }): void;
 }
 export interface StoreSpot { id: string; name: string; x: number; y: number; r: number; lab: { x0: number; y0: number; x1: number; y1: number } | null }
 export interface LayerCtl { page(i: number, p: StoryPage): void; destroy?(instant?: boolean): void; back?(): boolean }   // back: Esc·✕ 를 먼저 받는다(고른 건물 풀기) — true 면 이야기는 그대로   // destroy: SVG 밖(HTML)에 만든 것·타이머 정리. instant 가 아니면 나가는 장면을 보여도 된다

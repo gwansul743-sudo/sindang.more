@@ -35,6 +35,7 @@ export interface SelectOptions {
   idmapAxon2?: string;                           // 2× axon idmap(흐림 막을 2× 로)
   frameImg?(): HTMLImageElement | null;          // 지금 그림(섬 밖을 잘라 낼 알파 — 섬 알파를 아직 못 받았을 때만)
   islandSrc?: string;                            // 섬 알파를 떠 올 그림(hi 해 그림 하나)
+  more?(): void;                                 // 정보 카드 '자세히 ›'(접힌 상자를 편다)
   heatSrc?: string; valuesSrc?: string;          // 햇볕 지도 그림(2×) · 값 그림(기준 크기, 시간 × 25)
 }
 
@@ -207,7 +208,8 @@ export function mountSelect(o: SelectOptions) {
         + m('sun', st?.roof, '시간', '옥상 햇볕')
         + (sky === 0 ? `<div class="m">${ICON.sky}<p><b class="s">거의 막힘</b></p><span>앞길 하늘</span></div>` : m('sky', sky, '%', '앞길 하늘'))
         + m('shadow', cast?.neighbors, '동', '그림자 드리우는 이웃')
-        + m('tree', b.near?.trees, '그루', `반경 ${b.near?.r ?? 50}m 나무`) + '</div>';
+        + m('tree', b.near?.trees, '그루', `반경 ${b.near?.r ?? 50}m 나무`) + '</div>' + (o.more ? '<button type="button" class="kb-bld-more">자세히 ›</button>' : '');
+      infoIn.querySelector('.kb-bld-more')?.addEventListener('click', (e) => { e.stopPropagation(); o.more?.(); });
     }
     /* 자리: 화면 좌표로 — 건물(지붕·바닥 꼭짓점)이 차지하는 칸 바깥의 빈 쪽(오른쪽 → 왼쪽 → 위 → 아래), 무대 칸 안.
        어느 쪽에도 안 들어가면 카드를 줄여(큰 화면 배율 → 1배까지) 가장 넓은 쪽에 — 건물 위는 덮지 않는다 */
