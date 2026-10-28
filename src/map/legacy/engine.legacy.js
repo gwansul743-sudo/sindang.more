@@ -65,6 +65,8 @@ export function bootLegacy(DATA){
   /* 겹친 가게 말풍선: 숫자 점을 누르면 지도 위에 사진·이름 목록이 뜨고, 하나를 고르면 카드가 열린다. 점이 떨어지면(확대) 자동으로 닫힌다 */
   const viewer = mountPhotoViewer();   /* 카드 사진 크게 보기(10-26) */
   const clusterPop = document.createElement('div'); clusterPop.id = 'cluster-pop'; document.getElementById('map').appendChild(clusterPop);   /* map 변수는 뒤에서 선언된다 */
+  /* 묶음 말풍선 목록에서만: 영상이 있는 가게 썸네일 가운데에 픽셀 재생 표시(10-28) — 유튜브 로고를 지도 분위기로(모서리 깎은 빨간 판 + 계단 세모). 색은 tokens.css .cl-vid */
+  const VID_BADGE = '<svg class="cl-vid" viewBox="0 0 14 10" aria-label="영상" role="img"><path class="b" d="M1 0h12v1h1v8h-1v1H1V9H0V1h1z"/><path class="t" d="M5 2h1v6H5zM6 3h1v4H6zM7 4h1v2H7z"/></svg>';
   let clusterAt = null;   /* { key, x, y } 열려 있는 말풍선의 지도 좌표 */
   function openCluster(members, x, y){ openClusterOf(members.map(m => STORES.find(s => s._dot === m)).filter(Boolean), x, y, false); }
   /* 전시 보드의 숫자 단추(10-26): 같은 말풍선, 고르면 단추를 눌렀을 때와 같은 카드(board.select + select). 보드 묶음은 가게·필터가 바뀔 때까지 그대로라 확대로 닫히지 않는다 */
@@ -72,7 +74,7 @@ export function bootLegacy(DATA){
   function openClusterOf(stores, x, y, onBoard){
     const key = stores.map(s => s.id).sort().join('|');
     clusterPop.innerHTML = `<div class="cl-title">이 자리의 가게 ${stores.length}곳</div>` + stores.map(st =>
-      `<button type="button" class="cl-row${st.status==='up'?' up':''}" data-id="${esc(st.id)}"><span class="cl-thumb"${st.photoUrl?` style="background-image:url('${esc(st.photoUrl)}')"`:''}></span><span class="cl-text"><b>${esc(st.name)}</b><small>${esc(st.issue||'')}${st.status==='up'?' · 다음 호':''}</small></span><span class="cl-go">›</span></button>`).join('');
+      `<button type="button" class="cl-row${st.status==='up'?' up':''}" data-id="${esc(st.id)}"><span class="cl-thumb"${st.photoUrl?` style="background-image:url('${esc(st.photoUrl)}')"`:''}>${(st.video||'').trim()?VID_BADGE:''}</span><span class="cl-text"><b>${esc(st.name)}</b><small>${esc(st.issue||'')}${st.status==='up'?' · 다음 호':''}</small></span><span class="cl-go">›</span></button>`).join('');
     clusterPop.querySelectorAll('.cl-row').forEach(b => b.onclick = e => { e.stopPropagation(); const st = STORES.find(s => s.id === b.dataset.id); closeCluster(); if(!st) return;
       if(onBoard && board){ board.select(st.id); select(st, false); } else select(st, true); });
     clusterAt = { key, x, y, onBoard }; clusterPop.classList.add('show'); placeCluster();
@@ -149,6 +151,7 @@ export function bootLegacy(DATA){
     current = s; dots.select(s._dot);
     const up = s.status==='up', href = s.ig || IG;
     const list = STORES, idx = list.indexOf(s)+1, vid = renderVideo(s.video), photos = s.photos || (s.photoUrl ? [s.photoUrl] : []);   /* 영상이 있으면 포스터 칸에 사진 대신 플레이어 (10-21) */
+    card.classList.toggle('has-video', !!vid.embed);   /* 영상 카드(10-28): 인스타 버튼·안내 문구 없이 영상이 카드 폭을 다 쓴다(theme CSS 대신 tokens.css) */
     card.innerHTML = `
       <button class="x" aria-label="닫기" onclick="closeCard()">✕</button>
       <div class="ig-meta"><span class="account">@sindang.more</span><span class="num">${idx} / ${list.length}</span></div>
@@ -157,10 +160,10 @@ export function bootLegacy(DATA){
         <h3>${esc(s.name)}</h3>
         ${up?'<p class="copy">인터뷰가 끝나면 이 자리에 카드뉴스가 올라옵니다.</p>':''}
         ${up?'<div class="tags"><span class="tag">다음 호</span></div>':''}
-        <a class="ig-link ${up?'up':''}" href="${esc(href)}" target="_blank" rel="noopener"><span>${up?'매거진 팔로우하기':'Instagram에서 보기'}</span><span>↗</span></a>
+        ${vid.embed ? '' : `<a class="ig-link ${up?'up':''}" href="${esc(href)}" target="_blank" rel="noopener"><span>${up?'매거진 팔로우하기':'Instagram에서 보기'}</span><span>↗</span></a>`}
         ${vid.link||''}
         <div class="navs"><button class="nav" aria-label="이전" onclick="step(-1)">‹</button><button class="nav" aria-label="다음" onclick="step(1)">›</button></div>
-        <div class="small-note">카드뉴스 전체는 인스타그램 게시물에서 볼 수 있습니다.</div>
+        ${vid.embed ? '' : '<div class="small-note">카드뉴스 전체는 인스타그램 게시물에서 볼 수 있습니다.</div>'}
       </div>
       ${renderInterview(s.interview)}`;
     /* 스켈레톤(10-23): 사진·영상을 다 받기 전엔 포스터 칸에 반짝이는 자리표시. 이미 받아 둔 사진이면 바로. 사진을 못 받으면 원래 픽셀 포스터로 */

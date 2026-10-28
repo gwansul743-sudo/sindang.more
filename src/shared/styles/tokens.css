@@ -58,3 +58,14 @@ body.chief-hidden .wk-chief,body.chief-hidden .wk-cat{display:none}
 .poster.video{aspect-ratio:16/9}
 /* 드라이브는 작은 칸에서 영상을 잘라 보여서 560×315 로 그리고 줄인다(--vk = 칸 폭 / 560, engine.legacy.js driveFit). 전체화면은 브라우저가 transform 을 끈다 */
 .poster.video iframe.drive{inset:0 auto auto 0;width:560px;height:315px;transform:scale(var(--vk,1));transform-origin:0 0}
+/* 영상 카드(10-28): 영상이 있는 가게는 인스타 버튼·안내 문구를 빼고, 영상이 카드 폭을 다 쓴다(16:9 그대로). 이름과 ‹ › 는 영상 아래 한 줄.
+   테마 시트(낮·밤)가 이 파일보다 뒤에 오므로 #card 로 우선순위를 올린다 */
+#card.has-video{display:block}
+#card.has-video .poster.video{width:100%;margin:0 0 12px}
+#card.has-video .detail{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#card.has-video .detail h3{margin:0}
+#card.has-video .navs{margin-top:0;flex:none}
+/* 묶음 말풍선 목록의 영상 표시(engine.legacy.js VID_BADGE): 썸네일 가운데 픽셀 재생 단추. 빨강은 인스타 버튼과 같은 --red, 세모는 크림 — 낮·밤 공통 */
+#cluster-pop .cl-thumb{position:relative}
+#cluster-pop .cl-thumb .cl-vid{display:block;position:absolute;inset:auto;left:50%;top:50%;width:21px;height:15px;margin:-7.5px 0 0 -10.5px;shape-rendering:crispEdges;filter:drop-shadow(1px 1px 0 #0b1a2299);will-change:auto;pointer-events:none}   /* 말풍선은 #map 안이라 '#map svg'(지도 판 꽉 채우기)를 이겨야 한다 */
+.cl-vid .b{fill:var(--red)}.cl-vid .t{fill:#fff4d6}
