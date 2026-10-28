@@ -18,7 +18,7 @@ import { mountTalk } from '../../features/chief-talk/talk';
 import { majorRoadPath } from '../layers/roads';
 import { buildRoadGraph } from '../actors/roadGraph';
 import { createScene } from '../actors/scene';
-import { spawnWalkers, spawnWalker } from '../actors/walker';
+import { spawnWalker } from '../actors/walker';
 import { listFormVillagers, watchFormVillagers } from '../../entities/villager/api';
 import { scriptFromRow, seedOf } from '../../features/villagers/formScript';
 import formSamples from '../../../content/characters/form-samples.json';
@@ -345,7 +345,7 @@ export function bootLegacy(DATA){
   }
   /* 보드 전체(시안 캔버스 1774×887)를 담는 카메라 */
   const kioskTarget = () => { const v = board.view(); return { x: v.x, y: v.y, s: desktop() ? Math.min(V.pw / v.w, V.ph / v.h) : V.pw / (v.iw * 1.08) }; };   /* 데스크톱: 캔버스 전체(하늘까지) · 폰: 섬 폭에 맞춤 */
-  let walkers = [], walkerGraphs = null, walkerScene = null, extras = [];   /* WALKERS 에서 채움. extras: 대본이 없는(인터뷰와 상관없는) 지나가는 주민 */
+  let walkers = [], walkerGraphs = null, walkerScene = null, extras = [];   /* WALKERS 에서 채움. extras: 대본이 없는 지나가는 주민 — 10-28 부터 없다(가게 주민은 돌아가며, 나머지는 시민 인터뷰 주민) */
   /* 전시 모드에서는 인터뷰가 있는 사람만(10-26): 이장님 · 가게 인터뷰 주민 · 시민 인터뷰 주민. 지나가는 주민은 장면에서 잠시 빼 두었다가(걷지도 그리지도 않음) 평소 지도로 돌아오면 다시 넣는다 */
   function parkExtras(off){ if(!walkerScene) return;
     for(const w of extras){ const i = walkerScene.actors.indexOf(w);
@@ -639,16 +639,31 @@ export function bootLegacy(DATA){
   const graph = buildRoadGraph(majorRoadPath(ROADS), LAND);
   if(graph.edges.length){
     const scene = createScene({ svg, map, V, landmarks: lmLayer, before: gDist, frontBefore: gDots, isKiosk: () => KIOSK, actorMul: () => (board?.on ? 1.3 : 1) });   /* 보드 위에서는 조금 크게(10-23: 2.6 → 1.3, 사용자 '많이 줄여') */
-    walkers = spawnWalkers(scene, { graph, parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, count: Math.max(5, (DATA.villagers || []).length), speed: 6.5, home: LANDMARKS[0] || {x:W/2, y:H/2}, fixed: (DATA.villagers || []).map(v => v.look) });   /* 대본에 look 이 있으면 그 주민은 그 모습(10-23) */
-    (DATA.villagers || []).forEach((script, i) => { if(walkers[i]) bindVillager(walkers[i], script); });   /* 대본이 있는 주민: 앞에서부터 하나씩 */
-    walkerScene = scene; extras = walkers.slice((DATA.villagers || []).length);   /* 나머지는 대본 없는 지나가는 사람 — 전시 모드에서 빠진다(parkExtras) */
+    walkerScene = scene;
     walkerGraphs = { home: graph, kiosk: board ? buildRoadGraph(board.roadPath(), board.land, { minLen: 40 }) : graph };   /* 전시 모드: 보드 위의 실제 길(골목까지) */
+    const offscreen = (x, y) => { const s = scale(), px = (x - V.x) * s, py = (y - V.y) * s; return px < -40 || py < -40 || px > V.pw + 40 || py > V.ph + 40; };
+    /* 가게 인터뷰 주민(10-28): 대본(content/characters/villagers/*.json) 중 무작위 SHOP_SLOTS 명만 나와 있고, SHOP_SWAP_MS 마다 가장 먼저 나온 사람이
+       퇴장하고 아직 안 나온 사람이 화면 밖 길에서 걸어 들어온다. 퇴장은 화면 밖이면 바로, 보이는 곳이면 살짝 사라지며. 말을 거는 중인 사람은 내보내지 않는다.
+       모습은 대본 id 로 정해져(다시 나와도 같은 사람) look 이 있으면 그 모습. 대본 없는 지나가는 사람은 없다 — 나머지 자리는 시민 인터뷰 주민(아래 구글폼) */
+    const SHOP_SLOTS = 2, SHOP_SWAP_MS = 40000, shopScripts = (DATA.villagers || []).slice(), shopOn = [];   /* shopOn: 나온 순서대로 { script, w } */
+    function shopEnter(script, walkIn){
+      const w = spawnWalker(scene, { graph: walkerGraphs[board?.on ? 'kiosk' : 'home'], parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, speed: 6.5, seed: seedOf(script.id), offscreen: walkIn ? offscreen : undefined, fixed: script.look });
+      w.g.dataset.script = script.id; walkers.push(w); shopOn.push({ script, w }); bindVillager(w, script); }   /* data-script: 지금 누가 나와 있는지 개발자 도구에서 보이게 */
+    function shopLeave(o){
+      shopOn.splice(shopOn.indexOf(o), 1); const w = o.w, i = walkers.indexOf(w); if(i >= 0) walkers.splice(i, 1);
+      if(w.lastT === 'off' || offscreen(w.x, w.y)){ scene.remove(w); return; }
+      w.g.style.pointerEvents = 'none'; w.g.style.transition = 'opacity .8s'; w.g.style.opacity = '0'; setTimeout(() => scene.remove(w), 800); }
+    function shopSwap(){
+      const out = shopOn.find(o => villager?.w !== o.w), rest = shopScripts.filter(v => !shopOn.some(o => o.script === v) && v !== out?.script);
+      if(!out || !rest.length) return;
+      shopLeave(out); shopEnter(rest[Math.floor(Math.random() * rest.length)], true); }
+    shopScripts.slice().sort(() => Math.random() - 0.5).slice(0, SHOP_SLOTS).forEach(v => shopEnter(v, false));   /* 처음 둘은 길 위 아무 데서나 */
+    if(shopScripts.length > SHOP_SLOTS) setInterval(shopSwap, SHOP_SWAP_MS);
     /* 시민 인터뷰 주민(10-23): 구글폼 응답 → Apps Script(tools/apps-script/form_to_supabase.gs) → Supabase characters(approved) + interviews(answers).
        앱이 답으로 대본을 만들고(features/villagers/formScript — 3장이 안 되면 띄우지 않음) 빨간 세모 주민으로 띄운다. 동시에 FORM_SLOTS 명까지,
        새 사람이 오면 가장 먼저 온 사람부터 퇴장(FIFO, 인터뷰는 DB 에 남는다). 표가 바뀌면 실시간으로, 아니어도 20초마다 맞춘다.
        새 주민은 화면 밖 길에서 걸어 들어온다. status 를 hidden 으로 바꾸면 다음 맞춤 때 사라진다. ?formdemo=N 은 DB 대신 견본 응답 N건(content/characters/form-samples.json) */
     const FORM_SLOTS = 6, formOn = new Map();   /* 캐릭터 id → 주민 */
-    const offscreen = (x, y) => { const s = scale(), px = (x - V.x) * s, py = (y - V.y) * s; return px < -40 || py < -40 || px > V.pw + 40 || py > V.ph + 40; };
     function syncForm(rows){
       const want = rows.map(r => ({ id: r.id, script: scriptFromRow(r.id, r.answers, r.summary) })).filter(r => r.script).slice(-FORM_SLOTS), ids = new Set(want.map(r => r.id));
       for(const [id, w] of [...formOn]) if(!ids.has(id)){ if(villager?.w === w) villagerDone(); scene.remove(w); formOn.delete(id); const i = walkers.indexOf(w); if(i >= 0) walkers.splice(i, 1); }
