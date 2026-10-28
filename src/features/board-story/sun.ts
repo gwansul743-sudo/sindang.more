@@ -94,6 +94,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
     onCam: () => camMoved() });
   stage.append(crumbs, upBtn, heatBtn, heatKey, heatTag);
   st.preload();
+  if (m.hi) st.setFit({ plan: base + m.hi.top, axon: base + (m.hi.today[0] || '') });   /* 섬 상자 맞춤(TASK_16) */
 
   let date = dates.includes('today') ? 'today' : dates[0], idx = 0, view: 'diorama' | 'board' | null = null, level = 0, flow = false, pageL: PageL = {};
   let timer = 0, liveT = 0, live = false, gaugeG: SVGGElement | null = null, preloadRun = 0;
@@ -201,12 +202,12 @@ export const diorama: Renderer = async (c: LayerCtx) => {
     c.slot(ctl);
   }
   const anchorOf = (b: Bld) => { const c0 = centre(b); return (k: number) => project(tr!.aff_frames![k] || m.axon!, c0[0], c0[1], b.h / 2); };
-  /* 건물로 다가갈 끝 카메라: 건물 + 반경 50 m 가 무대의 60 % 를 채우게(1–3배), 건물 가운데가 무대 가운데에 */
+  /* 건물로 다가갈 끝 카메라: 건물 + 반경 50 m 가 무대의 75 % 를 채우게(TASK_16, 기울어진 맞춤의 1–3배), 건물 가운데가 무대 가운데에 */
   function zoomCam(b: Bld): Cam {
-    const R0 = b.near?.r ?? 50, c0 = centre(b), a = st.areaBox(), tc = st.contain(), pts = Array.from({ length: 32 }, (_, j) => { const t = (j / 32) * Math.PI * 2; return project(m.axon!, c0[0] + Math.cos(t) * R0, c0[1] + Math.sin(t) * R0, 0); });
+    const R0 = b.near?.r ?? 50, c0 = centre(b), a = st.areaBox(), tc = st.contain('axon'), pts = Array.from({ length: 32 }, (_, j) => { const t = (j / 32) * Math.PI * 2; return project(m.axon!, c0[0] + Math.cos(t) * R0, c0[1] + Math.sin(t) * R0, 0); });
     pts.push(project(m.axon!, b.c[0], b.c[1], b.h));
     const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]), bw = Math.max(...xs) - Math.min(...xs), bh = Math.max(...ys) - Math.min(...ys);
-    const s = Math.max(tc.s, Math.min(tc.s * ZMAX, 0.6 * Math.min(a.w / bw, a.h / bh))), u = project(m.axon!, b.c[0], b.c[1], b.h / 2);
+    const s = Math.max(tc.s, Math.min(tc.s * ZMAX, 0.75 * Math.min(a.w / bw, a.h / bh))), u = project(m.axon!, b.c[0], b.c[1], b.h / 2);
     return { s, tx: a.x + a.w / 2 - s * u[0], ty: a.y + a.h / 2 - s * u[1] };
   }
   /* 1 → 2: 고른 건물로(2× idmap 은 영상이 도는 동안 받는다 — 흐림 막을 그 해상도로) */

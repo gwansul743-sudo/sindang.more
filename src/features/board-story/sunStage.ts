@@ -11,6 +11,8 @@
      plan/axon → 보드 : plan 은 카메라를 보드 자리로 되돌리고, axon 은 거꾸로 영상 — 끝에 천이 다시 덮인다
    · 이음매: 영상 첫 장 = 지금 그림, 끝 장 = 내릴 그림(미리 decode)이라 바꿔 끼울 때 0.25초 겹치기만. 그림은 decode 가 끝난 뒤에만 바꾼다(빈 장면 없음).
    · 영상이 800ms 안에 재생되지 않으면(못 받음·오류·막힘) 카메라만 움직이며 그림을 겹쳐 바꾸는 쪽으로 — 멈추지 않는다. 동작 줄이기도 같음.
+   · 맞춤(TASK_16): 내려앉은 보기는 4:3 그림 전체가 아니라 섬이 보이는 칸(그림 알파 > 8 의 상자, 그림마다 한 번)을 무대 칸에 2.5 % 여백으로 맞춘다.
+     plan 은 top_today13, axon(·zoom 의 1–3배 기준)은 hi 해 그림 한 장. plan ⇄ axon 영상 동안엔 두 맞춤 사이를 카메라로 잇는다. 보드 자리(t00)는 그대로.
    · ?patch_slow=N 이면 N배 느리게. */
 export interface Aff { origin: number[]; perX: number[]; perY: number[]; perZ?: number[] }
 export interface LocalFrame { lat0: number; lng0: number; kx: number; ky: number }
@@ -46,10 +48,11 @@ export function mountSunStage(o: StageOpts) {
   const apply = (c: Cam) => { cam = c; world.style.transform = mtx(c); o.onCam?.(c); };
 
   function preload() { if (loading) return; loading = true; void o.fetchImg(o.base + o.trans.first); [fwd, rev].forEach((v) => { v.src = v.dataset.src!; v.load(); }); }
-  /* 무대 칸(상자 왼쪽, #map 기준 px)에 contain */
-  function contain(): Cam {
-    const a = o.area.getBoundingClientRect(), r = o.stage.getBoundingClientRect(), k = Math.min(a.width / W, a.height / H);
-    return { s: k, tx: a.left - r.left + (a.width - W * k) / 2, ty: a.top - r.top + (a.height - H * k) / 2 };
+  /* 무대 칸(상자 왼쪽, #map 기준 px)에 맞춤: 섬 상자(없으면 그림 전체)를 2.5 % 여백으로. kind 를 안 주면 지금 보기의 것 */
+  function contain(kind?: 'plan' | 'axon'): Cam {
+    const b = boxes[kind || (view === 'plan' ? 'plan' : 'axon')] || [0, 0, W, H], bw = b[2] - b[0], bh = b[3] - b[1];
+    const a = o.area.getBoundingClientRect(), r = o.stage.getBoundingClientRect(), k = Math.min((a.width * 0.95) / bw, (a.height * 0.95) / bh);
+    return { s: k, tx: a.left - r.left + a.width / 2 - k * (b[0] + bw / 2), ty: a.top - r.top + a.height / 2 - k * (b[1] + bh / 2) };
   }
   const areaBox = () => { const a = o.area.getBoundingClientRect(), r = o.stage.getBoundingClientRect(); return { x: a.left - r.left, y: a.top - r.top, w: a.width, h: a.height }; };
   /* 기준 px → 무대 px: 축마다 1차식 — 보드 길에 맞춘 카메라(배율은 두 축 평균. 두 정사영의 축 배율 차는 0.1% 미만) */
@@ -115,35 +118,51 @@ export function mountSunStage(o: StageOpts) {
   const fab = (on: boolean) => o.host.classList.toggle('kb-dio-fab', on);   /* 천(리넨·장식·단추…)을 걷기 */
   const show = (on: boolean) => { o.stage.classList.toggle('veil', on); world.classList.toggle('on', on); };
   let lastLanding: { before: number[]; after: number[] } | null = null;
+  /* 섬 상자(기준 px): 그림 알파를 작게 그려 > 8 인 칸 */
+  const boxes: Partial<Record<'plan' | 'axon', number[]>> = {};
+  let boxReady: Promise<unknown> = Promise.resolve();
+  function alphaBox(src: string) {
+    return new Promise<number[] | null>((ok) => {
+      const im = new Image(); im.onload = () => {
+        const w = 480, h = Math.round((480 * H) / W), cv = document.createElement('canvas'); cv.width = w; cv.height = h; const cx = cv.getContext('2d', { willReadFrequently: true })!;
+        cx.drawImage(im, 0, 0, w, h); const d = cx.getImageData(0, 0, w, h).data; let x0 = w, y0 = h, x1 = -1, y1 = -1;
+        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+        ok(x1 < 0 ? null : [(x0 / w) * W, (y0 / h) * H, ((x1 + 1) / w) * W, ((y1 + 1) / h) * H]); };
+      im.onerror = () => ok(null); im.src = src; });
+  }
 
   return {
     world, preload, contain, areaBox, frame, frontImg: () => imgs[front],
+    /* 섬 상자를 셀 그림(위에서 본 · 기울어진) — 열 때 한 번 */
+    setFit(src: { plan?: string; axon?: string }) {
+      boxReady = Promise.all((['plan', 'axon'] as const).map((k) => (src[k] ? alphaBox(src[k]!).then((b) => { if (b) boxes[k] = b; }) : null)));
+    },
     get cam() { return cam; }, get view() { return view; }, get lastLanding() { return lastLanding; },
     setCam(c: Cam) { apply(c); }, tween,
     check(lat: number, lng: number) { const tb = fitBoard(), p = o.boardAt(lat, lng); if (!tb || !p) return null; const L = o.local, [u, v] = project(o.trans.aff_t00, (lng - L.lng0) * L.kx, (lat - L.lat0) * L.ky); return { board: p, t00: [tb.s * u + tb.tx, tb.s * v + tb.ty] }; },
     /* 보드·axon → plan(위에서 본 신당) */
     toPlan(top: string, then: () => void) {
       clear(); preload(); const my = run, from = view; view = 'plan'; o.stage.hidden = false;
-      const tc = contain();
       if (from === 'none') {
         const tb = fitBoard();
-        const plain = () => { if (my !== run) return; apply(tc); fab(true); show(true); void frame(top, 0).then(() => at(then, 300)); };
-        if (!tb || reduced()) { plain(); return; }
-        void Promise.all([o.fetchImg(o.base + o.trans.first), o.fetchImg(top)]).then(async ([ok]) => {
+        const plain = () => { if (my !== run) return; apply(contain('plan')); fab(true); show(true); void frame(top, 0).then(() => at(then, 300)); };
+        if (!tb || reduced()) { void boxReady.then(plain); return; }
+        void Promise.all([o.fetchImg(o.base + o.trans.first), o.fetchImg(top), boxReady]).then(async ([ok]) => {
           if (my !== run) return; if (!ok) { plain(); return; }
           apply(tb); await frame(o.base + o.trans.first, 0); if (my !== run) return;
           fab(true); world.classList.add('on');                                                            /* 위에서 본 첫 장면이 보드 길 위에 떠오른다 */
-          at(() => { o.stage.classList.add('veil'); void frame(top, 600); tween(tc, 1100, () => at(then, 100)); }, 550);   /* 무대 가운데로 옮겨 가며 hi 그림으로 */
+          at(() => { o.stage.classList.add('veil'); void frame(top, 600); tween(contain('plan'), 1100, () => at(then, 100)); }, 550);   /* 무대 가운데로 옮겨 가며 hi 그림으로 */
         });
         return;
       }
-      if (from === 'axon') { apply(tc); playVid(rev, () => tc, top, then, () => { void frame(top).then(() => then()); }); return; }
+      const tc = contain('plan');
+      if (from === 'axon') { const fa = contain('axon'); apply(fa); playVid(rev, (p) => lerpCam(fa, tc, ease(p)), top, then, () => { tween(tc, 700); void frame(top).then(() => then()); }); return; }
       apply(tc); void frame(top).then(() => then());
     },
     /* 보드·plan·zoom·axon → axon(해 그림, 무대 가운데) */
     toAxon(src: string, then: () => void) {
       clear(); preload(); const my = run, from = view; view = 'axon'; o.stage.hidden = false;
-      const tc = contain();
+      const tc = contain('axon');
       if (from === 'none') {
         const tb = fitBoard();
         const plain = () => { if (my !== run) return; apply(tc); fab(true); show(true); void frame(src, 0).then(() => at(then, 300)); };
@@ -155,7 +174,7 @@ export function mountSunStage(o: StageOpts) {
         });
         return;
       }
-      if (from === 'plan') { apply(tc); playVid(fwd, () => tc, src, then, () => { void frame(src).then(() => then()); }); return; }
+      if (from === 'plan') { const fp = contain('plan'); apply(fp); playVid(fwd, (p) => lerpCam(fp, tc, ease(p)), src, then, () => { tween(tc, 700); void frame(src).then(() => then()); }); return; }
       if (from === 'zoom') { void frame(src); tween(tc, 400, then); return; }
       apply(tc); void frame(src).then(() => then());
     },
@@ -170,7 +189,7 @@ export function mountSunStage(o: StageOpts) {
     /* zoom → plan: 지금 카메라에서 거꾸로 */
     zoomOut(anchor: (k: number) => number[], top: string, then: () => void) {
       clear(); const my = run; view = 'plan';
-      const from = { ...cam }, tc = contain(), n = (o.trans.aff_frames?.length || 96) - 1, aN = anchor(n), A0 = [from.s * aN[0] + from.tx, from.s * aN[1] + from.ty], a0 = anchor(0), A1 = [tc.s * a0[0] + tc.tx, tc.s * a0[1] + tc.ty];
+      const from = { ...cam }, tc = contain('plan'), n = (o.trans.aff_frames?.length || 96) - 1, aN = anchor(n), A0 = [from.s * aN[0] + from.tx, from.s * aN[1] + from.ty], a0 = anchor(0), A1 = [tc.s * a0[0] + tc.tx, tc.s * a0[1] + tc.ty];
       const camAt = (p: number, j: number): Cam => { const e = ease(p), s = from.s * (tc.s / from.s) ** e, A = [A0[0] + (A1[0] - A0[0]) * e, A0[1] + (A1[1] - A0[1]) * e], u = anchor(n - j); return { s, tx: A[0] - s * u[0], ty: A[1] - s * u[1] }; };   /* 거꾸로 영상의 j 번째 = 앞 영상의 n−j 번째 */
       playVid(rev, camAt, top, then, () => { if (my !== run) return; void frame(top, 500); tween(tc, 800, then); });
     },
@@ -180,7 +199,7 @@ export function mountSunStage(o: StageOpts) {
       const tb = fitBoard(), finish = () => { if (my !== run) return; fab(false); show(false); at(() => { o.stage.hidden = true; then(); }, 450); };
       if (!tb || reduced()) { finish(); return; }
       if (from === 'plan') { o.stage.classList.remove('veil'); tween(tb, 900, finish); return; }
-      const tc = contain(); if (from === 'zoom') apply(tc);
+      const tc = contain('axon'); if (from === 'zoom') apply(tc);
       playVid(rev, (p) => lerpCam(tc, tb, ease(p)), o.base + o.trans.first, finish, () => { o.stage.classList.remove('veil'); tween(tb, 700, finish); });
     },
     kill() { clear(); fab(false); o.stage.classList.remove('veil'); imgs.forEach((i) => i.removeAttribute('src')); [fwd, rev].forEach((v) => { v.removeAttribute('src'); v.load(); }); world.remove(); view = 'none'; },

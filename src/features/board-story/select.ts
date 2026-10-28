@@ -209,16 +209,23 @@ export function mountSelect(o: SelectOptions) {
         + m('shadow', cast?.neighbors, '동', '그림자 드리우는 이웃')
         + m('tree', b.near?.trees, '그루', `반경 ${b.near?.r ?? 50}m 나무`) + '</div>';
     }
-    /* 자리: 화면 좌표로 — 건물(지붕·바닥 꼭짓점)이 차지하는 칸의 오른쪽, 모자라면 왼쪽, 위아래는 지붕 가운데에 맞추고 무대 칸 안으로 */
+    /* 자리: 화면 좌표로 — 건물(지붕·바닥 꼭짓점)이 차지하는 칸 바깥의 빈 쪽(오른쪽 → 왼쪽 → 위 → 아래), 무대 칸 안.
+       어느 쪽에도 안 들어가면 카드를 줄여(큰 화면 배율 → 1배까지) 가장 넓은 쪽에 — 건물 위는 덮지 않는다 */
     const ui = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui')) || 1;   /* 무대 위 다른 천 조각처럼 큰 화면에선 함께 키운다 */
-    info.hidden = false; info.style.transform = `scale(${k * ui})`;
-    const Wr = o.world.getBoundingClientRect(), K = Wr.width / IW, Ar = (o.area || o.world).getBoundingClientRect(), cw = info.offsetWidth * ui, ch = info.offsetHeight * ui, G = 40, M = 10;
+    info.hidden = false; info.style.transform = 'none';
+    const Wr = o.world.getBoundingClientRect(), K = Wr.width / IW, Ar = (o.area || o.world).getBoundingClientRect(), w0 = info.offsetWidth, h0 = info.offsetHeight, G = 32, M = 10;
     const ext = [...(b.tower?.length ? b.tower : b.xy).flatMap((r) => r.map(([x, y]) => project(o.axon, x, y, b.h))), ...b.xy.flatMap((r) => r.map(([x, y]) => project(o.axon, x, y, 0)))];
-    const sx0 = Wr.left + Math.min(...ext.map((p) => p[0])) * K, sx1 = Wr.left + Math.max(...ext.map((p) => p[0])) * K;
-    const roomR = Ar.right - M - (sx1 + G), roomL = sx0 - G - (Ar.left + M);
-    const right = roomR >= cw || (roomL < cw && roomR >= roomL);
-    const cx = Math.max(Ar.left + M, Math.min(Ar.right - M - cw, right ? sx1 + G : sx0 - G - cw));
-    const cy = Math.max(Ar.top + M, Math.min(Ar.bottom - M - ch, Wr.top + ay * K - ch / 2));
+    const sx0 = Wr.left + Math.min(...ext.map((p) => p[0])) * K, sx1 = Wr.left + Math.max(...ext.map((p) => p[0])) * K, sy0 = Wr.top + Math.min(...ext.map((p) => p[1])) * K, sy1 = Wr.top + Math.max(...ext.map((p) => p[1])) * K;
+    const AH = Ar.height - 2 * M, AW = Ar.width - 2 * M;
+    const sides = [   /* [쪽, 들어갈 수 있는 배율] */
+      ['r', Math.min((Ar.right - M - (sx1 + G)) / w0, AH / h0)], ['l', Math.min((sx0 - G - (Ar.left + M)) / w0, AH / h0)],
+      ['t', Math.min((sy0 - G - (Ar.top + M)) / h0, AW / w0)], ['b', Math.min((Ar.bottom - M - (sy1 + G)) / h0, AW / w0)],
+    ] as const;
+    const fit = sides.find((q) => q[1] >= ui), best = fit || sides.reduce((a, q) => (q[1] > a[1] ? q : a)), f = fit ? ui : Math.max(0.85, Math.min(ui, best[1])), side = best[0];
+    info.style.transform = `scale(${k * f})`;
+    const cw = w0 * f, ch = h0 * f, rx = Wr.left + ax * K, ry = Wr.top + ay * K;
+    const cx = Math.max(Ar.left + M, Math.min(Ar.right - M - cw, side === 'r' ? sx1 + G : side === 'l' ? sx0 - G - cw : rx - cw / 2));
+    const cy = Math.max(Ar.top + M, Math.min(Ar.bottom - M - ch, side === 't' ? sy0 - G - ch : side === 'b' ? sy1 + G : ry - ch / 2));
     const u = (cx - Wr.left) / K, v = (cy - Wr.top) / K, w = cw * k, h = ch * k;   /* cw·ch 는 화면 px */
     info.style.left = u.toFixed(1) + 'px'; info.style.top = v.toFixed(1) + 'px';
     /* 실: 지붕 가운데 → 카드 테두리의 가장 가까운 점(카드가 지붕을 덮으면 없음) */
