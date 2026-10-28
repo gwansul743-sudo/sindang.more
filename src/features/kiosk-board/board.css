@@ -75,12 +75,12 @@ html.kb-dark .pixel-terrain,html.kb-dark .roads,html.kb-dark .pixel-props,html.k
 .kb-hole{fill:#6b3a30}
 .kb-thr{stroke:#4a2a22;stroke-width:3;stroke-linecap:round;fill:none}
 .kb-lab{font-family:var(--font-ui);font-weight:700;font-size:15px;letter-spacing:-.025em;fill:var(--kb-wine);text-anchor:middle;dominant-baseline:central;shape-rendering:auto;pointer-events:none}   /* 가게 이름: 이장님 '신당 5길' 이름표와 같은 글꼴·굵기(10-23), 10-28부터 천 이름표 안에 */
-/* 이름표(10-28, board.ts placeLabels): 크림 천 조각 + 안쪽 홈질. 큰 단추는 늘, 작은 단추(.minor)는 올려 두거나(.show)·고르거나·비출 때만. 단추가 등장할 때 같이(.in) */
+/* 이름표(10-28, board.ts placeLabels): 큰 단추는 크림 천 조각 + 안쪽 홈질, 작은 단추(.minor)는 작은 이름 글씨만(외곽선). 단추가 등장할 때 같이(.in) */
 .kb-lg{opacity:0;cursor:pointer;transition:opacity .3s ease .2s}
 .kb-lg.in{opacity:1;pointer-events:auto}
-.kb-lg.minor{pointer-events:none}.kb-lg.minor.in{opacity:0;transition:opacity .15s ease}
-.kb-lg.minor.in.show,.kb-lg.minor.in.sel,.kb-lg.minor.in.focus{opacity:1}
-.kb-lg.in.dim{opacity:.25;transition:none}.kb-lg.minor.in.dim{opacity:0}
+.kb-lg.in.dim{opacity:.25;transition:none}
+.kb-lab-s{font-size:10px;font-weight:600;fill:#6b3a30;paint-order:stroke;stroke:#fbf3e2;stroke-width:3px;stroke-linejoin:round}
+.kb-lg.minor.sel .kb-lab-s,.kb-lg.minor.focus .kb-lab-s{fill:var(--kb-wine);font-weight:800}
 .kb-tag{fill:#fbf3e2;stroke:#c4ae8f;stroke-width:1}
 .kb-tag-st{fill:none;stroke:var(--kb-stitch);stroke-width:1.2;stroke-dasharray:3.5 2.5;opacity:.85}
 .kb-lg.sel .kb-tag,.kb-lg.focus .kb-tag{fill:#f6e3c8;stroke:var(--kb-wine)}

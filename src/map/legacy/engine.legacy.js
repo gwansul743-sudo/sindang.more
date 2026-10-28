@@ -601,7 +601,7 @@ export function bootLegacy(DATA){
     catch(e){ shrinking = false; renderShrinkBtn(); toast('실패: ' + (e.message || e)); } }
   function editStore(s){
     editing = s; form.reset();
-    if(s){ form.name.value=s.name; form.issue.value=s.issue||''; form.status.value=s.status; form.ig.value=s.ig||''; form.video.value=s.video||''; form.category.value=s.category||'etc'; form.featured.checked=!!s.featured; form.interview.value=s.interview||''; form.addr.value=s.addr||''; form.latlng.value=`${s.lat}, ${s.lng}`; select(s,true); }
+    if(s){ form.name.value=s.name; form.issue.value=s.issue||''; form.status.value=s.status; form.ig.value=s.ig||''; form.video.value=s.video||''; form.category.value=s.category||'etc'; form.interview.value=s.interview||''; form.addr.value=s.addr||''; form.latlng.value=`${s.lat}, ${s.lng}`; select(s,true); }
     const urls = s?.photos || (s?.photoUrl ? [s.photoUrl] : []), paths = s?.photoPaths || urls;
     photoItems = urls.map((url, i) => ({ path: paths[i], url })); form.photo.value=''; renderPhotos();
     form.photo.disabled = !storeApi.canUpload(); document.getElementById('photo-note').textContent = storeApi.canUpload() ? '폰·PC 원본 그대로 올리면 저장할 때 자동으로 줄여요. 없으면 기본 이미지로 표시됩니다.' : '이 화면에서는 사진 업로드가 지원되지 않아요.';
@@ -649,7 +649,7 @@ export function bootLegacy(DATA){
     const m = form.latlng.value.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/); if(!m){ toast('위치는 "위도, 경도" 형식으로'); return; }
     const lat=+m[1], lng=+m[2];
     if(lat<BBOX.lat0||lat>BBOX.lat1||lng<BBOX.lon0||lng>BBOX.lon1){ toast('지도 범위 밖 좌표예요'); return; }
-    const input = {name:form.name.value.trim(), issue:form.issue.value.trim(), status:form.status.value, ig:form.ig.value.trim(), video:form.video.value.trim(), category:form.category.value, featured:form.featured.checked, interview:form.interview.value.trim(), addr:form.addr.value.trim(), lat, lng};
+    const input = {name:form.name.value.trim(), issue:form.issue.value.trim(), status:form.status.value, ig:form.ig.value.trim(), video:form.video.value.trim(), category:form.category.value, interview:form.interview.value.trim(), addr:form.addr.value.trim(), lat, lng};
     try{
       const nNew = photoItems.filter(p => p.file).length; if(nNew) toast(`사진 ${nNew}장 올리는 중…`);
       const r = await storeApi.saveStore(editing, input, photoItems);

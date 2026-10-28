@@ -73,7 +73,3 @@ body.chief-hidden .wk-chief,body.chief-hidden .wk-cat{display:none}
 .brand b{cursor:pointer}
 /* 다시 보기로 인트로가 돌아올 때(.back): 0.4s 페이드로 덮는다 — 테마 시트의 #intro 는 visibility 를 .18s 늦게 켜서 툭 튀어나왔다 */
 #intro.back{transition:opacity .4s ease,visibility 0s}
-/* 관리 폼 '전시 모드에서 강조'(10-28, stores.featured) — 폼 input 의 width:100%·padding 을 체크박스만 되돌린다. 낮·밤 공통 */
-form .feat-chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin:2px 0 0}
-form .feat-chk input{width:18px;height:18px;padding:0;margin:0;flex:none;accent-color:#b23a48}
-form .feat-chk small{font-weight:400;font-size:11px;opacity:.75}

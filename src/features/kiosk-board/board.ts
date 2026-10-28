@@ -7,8 +7,8 @@ import { type XY, type Box, bboxOf, distToPoly, inPoly, pathOf, roadsInside, pol
    · 연출(play): ⓪ 화면이 밤색으로 어두워지고(0.4s) ① 검은 화면 위에 빨간 재단선이 그려진 뒤(1.0s) ② 어둠 속에서 보드가 조각 자리에서 떠올라 섬만큼 펴지고 어둠이 걷힌다(1.5s) ③ 블랭킷 스티치·하늘·물결 ④ 길 홈질 ⑤ 집·나무 ⑥ 단추 ⑦ 제목 ⑧ onChief(이장님·말풍선·큰 상자는 엔진이) → 끝나면 rest(): 범례·주민.
    · 켜진 동안 html.kb-on: 섬 위 원래 층은 사라지고(1.1s) 바다는 시안 색. 엔진은 카메라(view)·이장님·주민 그래프(roadPath·land)만 맡는다. */
 
-export interface BoardStore { id: string; name: string; x: number; y: number; category?: string; status?: string; featured?: boolean }
-export interface BoardContent { hideRoads?: HideShape[]; hideMain?: HideShape[]; showRoads?: HideShape[]; route?: number[][]; title?: string; sub?: string; titleAt?: number[]; titleImg?: (string | number)[]; labelAt?: Record<string, number[]>; chiefAt?: number[]; props?: (string | number)[][]; sky?: (string | number)[][]; waves?: number[][] }
+export interface BoardStore { id: string; name: string; x: number; y: number; category?: string; status?: string }
+export interface BoardContent { hideRoads?: HideShape[]; hideMain?: HideShape[]; showRoads?: HideShape[]; route?: number[][]; title?: string; sub?: string; titleAt?: number[]; titleImg?: (string | number)[]; labelAt?: Record<string, number[]>; featured?: string[]; chiefAt?: number[]; props?: (string | number)[][]; sky?: (string | number)[][]; waves?: number[][] }
 export interface BoardOptions {
   svg: SVGSVGElement; before: Element;            // 이 요소 앞에 끼운다(주민 층 앞)
   host: HTMLElement;                              // 범례(HTML)를 붙일 지도 칸
@@ -50,7 +50,7 @@ const ISLAND = (() => { const cx = 887, cy = 452, rx = 560, ry = 300, n = 56, pt
   return pts; })();
 const NEAR = 12, BTN_R = 24, BTN_K = 0.7, TICK_STEP = 13;   /* BTN_K: 단추 배율(10-23 0.55 → 0.4 → 0.55 → 0.7) */
 const MINOR_K = 0.5, BUND_K = 0.78, TOUCH = 0.94, GAP = 1.5;   /* 10-28 위계: 작은 단추(강조 아닌 가게)는 큰 단추의 0.5배, 묶인 큰 단추는 0.78배, 묶음 안 단추 간격(1 = 딱 맞닿음, 작으면 살짝 포개 꿰맨 듯) */
-const MINOR_HIT = 14, LAB_FS = 15, LAB_PX = 8, LAB_PY = 5;   /* 작은 단추 누르는 칸 반지름 · 이름표 글자 크기·안쪽 여백(캔버스 단위) */
+const MINOR_HIT = 14, LAB_FS = 15, LAB_PX = 8, LAB_PY = 5, MINOR_FS = 10;   /* 작은 단추 누르는 칸 반지름 · 이름표 글자 크기·안쪽 여백 · 작은 이름 글씨 크기(캔버스 단위) */
 const SLOW = Math.max(1, Number(new URLSearchParams(location.search).get('patch_slow')) || 1);
 const T0 = 400 + 300;    /* 어둠(0.4s) + 잠깐(0.3s) 뒤에 보드가 펴지기 시작한다. 빨간 재단선 그리기는 10-23 사용자 요청으로 뺐다(전엔 +1.0s) */
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -145,16 +145,18 @@ export function mountBoard(o: BoardOptions): Board {
   }
   if (c.sub) { const t3 = el('text', { class: 'kb-t3', x: tx + 4, y: ty + 33 }, titleG); t3.textContent = c.sub; }   /* 부제는 kiosk-board.json 에 sub 가 있을 때만 (10-23 사용자 요청으로 뺌) */
 
-  /* 단추(가게 — 실제 자리). 위계(10-28): 축제 영상 가게(featured)는 큰 단추 + 천 이름표, 나머지는 작은 단추(이름표는 올려 두거나·고르거나·비출 때만).
+  /* 단추(가게 — 실제 자리). 위계(10-28): kiosk-board.json featured(가게 이름 목록, 전시 1회용 — DB 칸 아님)에 든 가게는 큰 단추 + 천 이름표, 나머지는 작은 단추 + 작은 이름 글씨.
+     이름은 띄어쓰기를 빼고 비교하고, 세 글자 이상이면 한쪽이 다른 쪽을 품어도 같은 가게로 본다('우리들깨' = '우리들깨칼국수').
      · 큰 단추끼리 겹치면 숫자 단추로 합치지 않는다 — 실제 자리들의 가운데로 모아 맞닿게 붙인다(2곳 나란히 · 3곳 세모 · 4곳 이상 둥글게, BUND_K 만큼 작게).
+       모은 묶음끼리 또 닿으면 하나로 합치지 않고 묶음째 밀어 띄운다(동네 모양을 덜 뭉갠다).
        보드는 단추·이름표가 지도와 같이 커져 확대해도 겹침이 풀리지 않으므로 자리는 캔버스 단위로 한 번 정한다(가게가 바뀔 때만 — 업종 필터는 자리를 바꾸지 않는다).
      · 큰 단추 이름표는 빈 자리를 찾아 놓는다(placeLabels): 혼자 선 단추는 위가 먼저, 묶음은 각 단추가 놓인 바깥 방향. 단추에서 떨어지면 빨간 홈질 실로 잇는다.
        손으로 정하려면 kiosk-board.json labelAt: { "가게 이름": [dx, dy] } — 단추 가운데에서 이름표 가운데까지(캔버스 단위).
-     · 작은 단추는 큰 단추·이름표를 피해 살짝 비켜 선다(relaxMinor).
-     · 보드 안 가게 중 featured 가 하나도 없으면(칸이 없는 DB·씨앗) 전부 큰 단추 — 예전 모습 */
+     · 작은 단추는 큰 단추·이름표를 피해 살짝 비켜 서고, 이름 글씨도 빈 자리를 찾는다(위가 먼저, 단추에 붙여서).
+     · featured 목록이 비어 있으면 전부 큰 단추 — 예전 모습 */
   const btnG = el('g', { class: 'kb-buttons' }, board);
   const minorG = el('g', {}, btnG), leadG = el('g', {}, btnG), featG = el('g', {}, btnG), labG = el('g', {}, btnG), minorLabG = el('g', {}, btnG);
-  type Btn = { id: string; name: string; cat: string; feat: boolean; img: boolean; ox: number; oy: number; x: number; y: number; k: number; r: number; bund: boolean;
+  type Btn = { id: string; name: string; cat: string; feat: boolean; img: boolean; ox: number; oy: number; x: number; y: number; k: number; r: number; bund: boolean; bc?: XY;
     pos: SVGGElement; g: SVGGElement; inner: SVGGElement; lab: SVGGElement; lw: number; lh: number; lx: number; ly: number; lead?: SVGLineElement };
   let btns: Btn[] = [], filter: string | null = null, selected: string | null = null;
   const inward = (x: number, y: number): XY => {   /* 섬 밖이면 가장 가까운 가장자리에서 안쪽으로 */
@@ -164,14 +166,17 @@ export function mountBoard(o: BoardOptions): Board {
     const L = Math.hypot(887 - px, 452 - py) || 1; return [px + ((887 - px) / L) * (BTN_R * BTN_K + 12), py + ((452 - py) / L) * (BTN_R * BTN_K + 12)];
   };
   const radius = (b: Btn) => (b.img ? BTN_R * 1.25 : BTN_R + 1) * b.k;   /* 단추 동그라미 반지름(캔버스 단위) — 그림 단추는 그림이 원보다 조금 크다 */
+  const norm = (n: string) => n.replace(/\s+/g, '').toLowerCase();
   const measure = (() => { const cx = document.createElement('canvas').getContext('2d');
-    return (t: string) => { if (!cx) return t.length * LAB_FS; cx.font = `700 ${LAB_FS}px ${getComputedStyle(html).getPropertyValue('--font-ui').trim() || 'sans-serif'}`; return cx.measureText(t).width - t.length * LAB_FS * 0.025; }; })();
+    return (t: string, fs: number) => { if (!cx) return t.length * fs; cx.font = `700 ${fs}px ${getComputedStyle(html).getPropertyValue('--font-ui').trim() || 'sans-serif'}`; return cx.measureText(t).width - t.length * fs * 0.025; }; })();
+  const labW = (t: string, feat: boolean) => (feat ? Math.ceil(measure(t, LAB_FS)) + LAB_PX * 2 : Math.ceil(measure(t, MINOR_FS)) + 4);
   let on = false, composed = false, btnsOn = false;   /* btnsOn: 단추는 이장님 대화가 끝난 뒤(rest)에 보인다(10-23) */
   function setStores(list: BoardStore[]) {
     [minorG, leadG, featG, labG, minorLabG].forEach((e) => { e.innerHTML = ''; }); btns = [];
-    const inside = list.filter((s) => distToPoly(o.cut, s.x, s.y) <= NEAR), anyFeat = inside.some((s) => s.featured);
+    const inside = list.filter((s) => distToPoly(o.cut, s.x, s.y) <= NEAR), favs = (c.featured || []).map(norm).filter(Boolean);
+    const isFav = (n: string) => { const k = norm(n); return favs.some((f) => f === k || (Math.min(f.length, k.length) >= 3 && (k.includes(f) || f.includes(k)))); };
     inside.forEach((s) => {
-      const [x, y] = inward(...R.to(s.x, s.y)), cat = catOf(s), feat = anyFeat ? !!s.featured : true, img = !!BTN_IMG[cat];
+      const [x, y] = inward(...R.to(s.x, s.y)), cat = catOf(s), feat = favs.length ? isFav(s.name) : true, img = !!BTN_IMG[cat];
       const pos = el('g', {}, feat ? featG : minorG);
       const bo = el('g', { class: 'kb-btn' + (feat ? '' : ' minor') + (s.status === 'up' ? ' up' : '') + (on && btnsOn ? ' in' : ''), 'data-cat': cat, 'data-id': s.id }, pos);
       const inner = el('g', {}, bo);   /* 배율은 layout 이 준다(큰·묶음·작은). 바깥(.kb-btn)은 등장 애니메이션 */
@@ -186,17 +191,18 @@ export function mountBoard(o: BoardOptions): Board {
         el('path', { class: 'kb-thr', d: 'M-6 -6 L6 6 M6 -6 L-6 6' }, inner);
       }
       if (!feat) el('circle', { class: 'kb-hit', r: MINOR_HIT / (BTN_K * MINOR_K) }, inner);   /* 작은 단추도 손가락으로 누르기 쉽게(보이지 않는 칸) */
-      /* 이름표: 크림 천 조각 + 안쪽 홈질 + 이름(캔버스 단위, 배율 없음) */
-      const lw = Math.ceil(measure(s.name)) + LAB_PX * 2, lh = LAB_FS + LAB_PY * 2;
+      /* 이름표: 큰 단추는 크림 천 조각 + 안쪽 홈질 + 이름, 작은 단추는 작은 이름 글씨만(외곽선). 캔버스 단위, 배율 없음 */
+      const lw = labW(s.name, feat), lh = feat ? LAB_FS + LAB_PY * 2 : MINOR_FS + 3;
       const lab = el('g', { class: 'kb-lg' + (feat ? '' : ' minor') }, feat ? labG : minorLabG);
-      el('rect', { class: 'kb-tag', x: -lw / 2, y: -lh / 2, width: lw, height: lh, rx: 3 }, lab);
-      el('rect', { class: 'kb-tag-st', x: -lw / 2 + 2.5, y: -lh / 2 + 2.5, width: lw - 5, height: lh - 5, rx: 1.5 }, lab);
-      const t = el('text', { class: 'kb-lab', x: 0, y: 0.5 }, lab); t.textContent = s.name;
+      if (feat) {
+        el('rect', { class: 'kb-tag', x: -lw / 2, y: -lh / 2, width: lw, height: lh, rx: 3 }, lab);
+        el('rect', { class: 'kb-tag-st', x: -lw / 2 + 2.5, y: -lh / 2 + 2.5, width: lw - 5, height: lh - 5, rx: 1.5 }, lab);
+      }
+      const t = el('text', { class: feat ? 'kb-lab' : 'kb-lab kb-lab-s', x: 0, y: 0.5 }, lab); t.textContent = s.name;
       const b: Btn = { id: s.id, name: s.name, cat, feat, img, ox: x, oy: y, x, y, k: BTN_K, r: 0, bund: false, pos, g: bo, inner, lab, lw, lh, lx: 0, ly: 0 };
       if (feat) b.lead = el('line', { class: 'kb-lead' }, leadG);
       bo.addEventListener('click', (e) => { e.stopPropagation(); o.onStore(s.id); });
       lab.addEventListener('click', (e) => { e.stopPropagation(); o.onStore(s.id); });   /* 이름표도 누를 수 있다(전시장 손가락엔 이름표가 더 큰 단추) */
-      if (!feat) { bo.addEventListener('pointerenter', () => lab.classList.add('show')); bo.addEventListener('pointerleave', () => lab.classList.remove('show')); }
       btns.push(b);
     });
     layout(); applyBtnState(); renderLegend();
@@ -205,7 +211,7 @@ export function mountBoard(o: BoardOptions): Board {
   /* ── 자리 정하기 ── */
   const near = (a: Btn, c: Btn, ax: number, ay: number, cx: number, cy: number) => Math.hypot(ax - cx, ay - cy) < a.r + c.r + GAP;
   function arrange(grp: Btn[]) {   /* 묶음 하나: 실제 자리들의 가운데로 모아 맞닿게 */
-    grp.forEach((b) => { b.k = grp.length > 1 ? BTN_K * BUND_K : BTN_K; b.r = radius(b); b.bund = grp.length > 1; b.x = b.ox; b.y = b.oy; });
+    grp.forEach((b) => { b.k = grp.length > 1 ? BTN_K * BUND_K : BTN_K; b.r = radius(b); b.bund = grp.length > 1; b.bc = undefined; b.x = b.ox; b.y = b.oy; });
     if (grp.length < 2) return;
     const n = grp.length, cx = grp.reduce((t, b) => t + b.ox, 0) / n, cy = grp.reduce((t, b) => t + b.oy, 0) / n, r = grp[0].r;
     const chord = 2 * r * TOUCH, rho = n === 2 ? chord / 2 : chord / (2 * Math.sin(Math.PI / n));
@@ -228,13 +234,17 @@ export function mountBoard(o: BoardOptions): Board {
     return out;
   };
   const propBoxes: Box[] = (c.props || []).map(([kind, x, y, h]) => { const w = +h * (PROP_W[kind] ?? 0.84) * 0.8; return { x0: +x - w / 2, y0: +y - +h * 0.85, x1: +x + w / 2, y1: +y }; });
+  /* 실이 서로 엇갈리거나 남의 단추·이름표를 지나가면 어느 이름표가 어느 단추인지 헷갈린다 → 비용을 크게 */
+  const cross = (a: XY, b: XY, p: XY, q: XY) => { const d = (u: XY, v: XY, w: XY) => (v[0] - u[0]) * (w[1] - u[1]) - (v[1] - u[1]) * (w[0] - u[0]); return d(a, b, p) * d(a, b, q) < 0 && d(p, q, a) * d(p, q, b) < 0; };
+  const segDist = (p: XY, a: XY, b: XY) => { const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2)); return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+  const segBox = (a: XY, b: XY, r: Box) => { const c4: XY[] = [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]]; return c4.some((p, i) => cross(a, b, p, c4[(i + 1) % 4])); };
   function placeLabels() {
-    const feat = btns.filter((b) => b.feat), placed: Box[] = [], fixed = fixedBoxes(), manual = c.labelAt || {};
+    const feat = btns.filter((b) => b.feat), placed: Box[] = [], segs: [XY, XY][] = [], fixed = fixedBoxes(), manual = c.labelAt || {};
     const order = [...feat.filter((b) => b.bund), ...feat.filter((b) => !b.bund).sort((p, q) => p.x - q.x)];   /* 묶음(자리가 좁다)부터, 그다음 왼쪽부터 */
     for (const b of order) {
       const m = manual[b.name];
-      if (m) { b.lx = b.x + m[0]; b.ly = b.y + m[1]; placed.push(labBox(b)); continue; }
-      const bc = b.bund ? (() => { const g = feat.filter((q) => q.bund && Math.hypot(q.x - b.x, q.y - b.y) < 4 * b.r); return [g.reduce((t, q) => t + q.x, 0) / g.length, g.reduce((t, q) => t + q.y, 0) / g.length]; })() : null;
+      if (m) { b.lx = b.x + m[0]; b.ly = b.y + m[1]; placed.push(labBox(b)); segs.push([[b.x, b.y], [b.lx, b.ly]]); continue; }
+      const bc = b.bund && b.bc ? b.bc : null;
       const base = bc ? Math.atan2(b.y - bc[1], b.x - bc[0]) : -Math.PI / 2;
       const dirs = bc ? [0, -0.5, 0.5, -1, 1, -1.5, 1.5].map((d) => base + d) : [-90, 90, 0, 180, -45, -135, 45, 135].map((d) => (d * Math.PI) / 180);
       let best: [number, number, number] | null = null;
@@ -243,6 +253,11 @@ export function mountBoard(o: BoardOptions): Board {
         for (const extra of bc ? [10, 20, 32, 48, 66] : [0, 10, 22, 36, 54]) {
           const lx = b.x + ux * (b.r + 3 + ext + extra), ly = b.y + uy * (b.r + 3 + ext + extra), box = labBox(b, lx, ly);
           let cost = di * 30 + extra * 4;
+          const sg: [XY, XY] = [[b.x, b.y], [lx, ly]];
+          for (const [p, q] of segs) if (cross(sg[0], sg[1], p, q)) cost += 900;            /* 실끼리 엇갈림 */
+          for (const [p, q] of segs) if (segBox(p, q, box)) cost += 500;                      /* 남의 실이 이 이름표를 지나감 */
+          for (const r of placed) if (segBox(sg[0], sg[1], r)) cost += 500;                   /* 이 실이 남의 이름표를 지나감 */
+          for (const q of feat) if (q !== b && segDist([q.x, q.y], sg[0], sg[1]) < q.r * 0.8) cost += 400;   /* 이 실이 남의 단추를 지나감 */
           for (const q of feat) cost += overlap(box, boxOfCircle(q.x, q.y, q.r)) * 12;
           for (const p of placed) cost += overlap(box, p) * 12;
           for (const f of fixed) cost += overlap(box, f) * 12;
@@ -252,9 +267,31 @@ export function mountBoard(o: BoardOptions): Board {
           if (!best || cost < best[0]) best = [cost, lx, ly];
         }
       });
-      [, b.lx, b.ly] = best!; placed.push(labBox(b));
+      [, b.lx, b.ly] = best!; placed.push(labBox(b)); segs.push([[b.x, b.y], [b.lx, b.ly]]);
     }
     return placed;
+  }
+  function placeMinorLabels(featRects: Box[]) {   /* 작은 이름 글씨: 단추에 붙여 위·아래·오른쪽·왼쪽 중 덜 겹치는 곳 */
+    const placed: Box[] = [], fixed = fixedBoxes(), manual = c.labelAt || {};
+    for (const b of btns.filter((q) => !q.feat).sort((p, q) => p.x - q.x)) {
+      const m = manual[b.name];
+      if (m) { b.lx = b.x + m[0]; b.ly = b.y + m[1]; placed.push(labBox(b)); continue; }
+      let best: [number, number, number] | null = null;
+      [[0, -1], [0, 1], [1, 0], [-1, 0]].forEach(([ux, uy], di) => {
+        for (const extra of [0, 4, 9]) {
+          const lx = b.x + ux * (b.r + 1.5 + b.lw / 2 + extra), ly = b.y + uy * (b.r + 1.5 + b.lh / 2 + extra), box = labBox(b, lx, ly);
+          let cost = di * 8 + extra * 3;
+          for (const q of btns) if (q !== b) cost += overlap(box, boxOfCircle(q.x, q.y, q.r)) * (q.feat ? 12 : 6);
+          for (const r of featRects) cost += overlap(box, r) * 12;
+          for (const r of placed) cost += overlap(box, r) * 8;
+          for (const f of fixed) cost += overlap(box, f) * 12;
+          for (const p of propBoxes) cost += overlap(box, p) * 0.3;
+          for (const [px, py] of [[box.x0, box.y0], [box.x1, box.y0], [box.x0, box.y1], [box.x1, box.y1]]) if (!inPoly(ISLAND, px, py)) cost += 2500;
+          if (!best || cost < best[0]) best = [cost, lx, ly];
+        }
+      });
+      [, b.lx, b.ly] = best!; placed.push(labBox(b));
+    }
   }
   function relaxMinor(rects: Box[]) {   /* 작은 단추: 큰 단추·서로·이름표에서 비켜 서기(조금씩 밀어내기) */
     const minor = btns.filter((b) => !b.feat), all = btns;
@@ -282,20 +319,23 @@ export function mountBoard(o: BoardOptions): Board {
     const feat = btns.filter((b) => b.feat);
     let groups: Btn[][] = [];
     { const seen = new Set<Btn>(); for (const a of feat) { if (seen.has(a)) continue; const grp = [a]; seen.add(a); for (let i = 0; i < grp.length; i++) for (const q of feat) if (!seen.has(q) && near(grp[i], q, grp[i].ox, grp[i].oy, q.ox, q.oy)) { grp.push(q); seen.add(q); } groups.push(grp); } }
-    for (let pass = 0; pass < 6; pass++) {
-      groups.forEach(arrange);
-      const gi = new Map<Btn, number>(); groups.forEach((g, i) => g.forEach((b) => gi.set(b, i)));
-      const par = groups.map((_, i) => i), root = (i: number): number => (par[i] === i ? i : (par[i] = root(par[i])));
-      let merged = false;
-      for (const a of feat) for (const q of feat) { const i = root(gi.get(a)!), j = root(gi.get(q)!); if (i !== j && near(a, q, a.x, a.y, q.x, q.y)) { par[i] = j; merged = true; } }
-      if (!merged) break;
-      const m = new Map<number, Btn[]>(); groups.forEach((g, i) => { const k = root(i); m.set(k, [...(m.get(k) || []), ...g]); }); groups = [...m.values()];
+    groups.forEach(arrange);
+    const mid = (g: Btn[]): XY => [g.reduce((t, b) => t + b.x, 0) / g.length, g.reduce((t, b) => t + b.y, 0) / g.length];
+    for (let it = 0; it < 120; it++) {   /* 묶음(또는 혼자 선 큰 단추)끼리 닿으면 묶음째 반반 밀어 띄운다 */
+      let moved = false;
+      for (let i = 0; i < groups.length; i++) for (let j = i + 1; j < groups.length; j++) {
+        let need = 0; for (const a of groups[i]) for (const q of groups[j]) need = Math.max(need, a.r + q.r + GAP - Math.hypot(q.x - a.x, q.y - a.y));
+        if (need <= 0) continue;
+        const [ax, ay] = mid(groups[i]), [qx, qy] = mid(groups[j]), d = Math.hypot(qx - ax, qy - ay), ux = d > 0.01 ? (qx - ax) / d : 1, uy = d > 0.01 ? (qy - ay) / d : 0, h = Math.min(need, 6) / 2 + 0.1;
+        groups[i].forEach((b) => { b.x -= ux * h; b.y -= uy * h; }); groups[j].forEach((b) => { b.x += ux * h; b.y += uy * h; }); moved = true;
+      }
+      if (!moved) break;
     }
-    /* ② 작은 단추가 큰 단추에서 비켜 서고 → ③ 큰 단추 이름표 → ④ 작은 단추가 이름표에서도 비켜 선다 → 작은 단추 이름표는 단추 위 */
-    relaxMinor([]); const rects = placeLabels(); relaxMinor(rects);
+    groups.forEach((g) => { if (g.length > 1) { const m = mid(g); g.forEach((b) => { b.bc = m; }); } });
+    /* ② 작은 단추가 큰 단추에서 비켜 서고 → ③ 큰 단추 이름표 → ④ 작은 단추가 이름표에서도 비켜 선다 → ⑤ 작은 이름 글씨 */
+    relaxMinor([]); const rects = placeLabels(); relaxMinor(rects); placeMinorLabels(rects);
     btns.forEach((b) => {
       b.pos.setAttribute('transform', `translate(${b.x.toFixed(1)} ${b.y.toFixed(1)})`); b.inner.setAttribute('transform', `scale(${b.k.toFixed(3)})`);
-      if (!b.feat) { b.lx = b.x; b.ly = b.y - b.r - b.lh / 2 - 3; }
       b.lab.setAttribute('transform', `translate(${b.lx.toFixed(1)} ${b.ly.toFixed(1)})`);
       if (b.lead) {   /* 실: 단추 가장자리에서 이름표 가장자리까지 — 이름표가 단추에 붙어 있으면 숨긴다 */
         const dx = b.lx - b.x, dy = b.ly - b.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
@@ -306,7 +346,7 @@ export function mountBoard(o: BoardOptions): Board {
       }
     });
   }
-  document.fonts?.ready.then(() => { if (btns.length) { btns.forEach((b) => { b.lw = Math.ceil(measure(b.name)) + LAB_PX * 2; const [r1, r2] = b.lab.querySelectorAll('rect'); r1.setAttribute('x', String(-b.lw / 2)); r1.setAttribute('width', String(b.lw)); r2.setAttribute('x', String(-b.lw / 2 + 2.5)); r2.setAttribute('width', String(b.lw - 5)); }); layout(); } });   /* 글꼴이 늦게 오면 이름 폭을 다시 재고 자리도 다시 */
+  document.fonts?.ready.then(() => { if (btns.length) { btns.forEach((b) => { b.lw = labW(b.name, b.feat); const [r1, r2] = b.lab.querySelectorAll('rect'); if (r1 && r2) { r1.setAttribute('x', String(-b.lw / 2)); r1.setAttribute('width', String(b.lw)); r2.setAttribute('x', String(-b.lw / 2 + 2.5)); r2.setAttribute('width', String(b.lw - 5)); } }); layout(); } });   /* 글꼴이 늦게 오면 이름 폭을 다시 재고 자리도 다시 */
   const parts = (b: Btn) => [b.g, b.lab, ...(b.lead ? [b.lead] : [])];
   const applyBtnState = () => {
     btns.forEach((b) => { const off = !!filter && b.cat !== filter, sel = b.id === selected; parts(b).forEach((e) => { e.classList.toggle('dim', off); e.classList.toggle('sel', sel); }); });
