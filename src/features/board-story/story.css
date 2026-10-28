@@ -104,9 +104,9 @@ html.kb-on #map > svg{transition:scale .7s cubic-bezier(.32,.72,0,1),opacity .7s
 .kb-dio.lift:not(.show) .kb-dio-panes{opacity:0}
 .kb-dio.lift.rev .kb-dio-veil{opacity:0;transition:opacity .9s ease}
 .kb-dio.lift.rev .kb-dio-panes{opacity:0;transition:opacity .2s ease}
-.kb-dio-lw{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;opacity:0;pointer-events:none;will-change:transform,opacity}
-.kb-dio-lw img{position:absolute;inset:0;width:100%;height:100%;opacity:0;user-select:none}
-.kb-dio-lw img.on{opacity:1}
+.kb-dio-lw{position:absolute;left:0;top:0;transform-origin:0 0;opacity:0;pointer-events:none;will-change:transform,opacity}   /* 크기는 기준 그림(1920×1440)으로 lift.ts 가 */
+.kb-dio-lw img,.kb-dio-lw video{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;opacity:0;user-select:none}   /* t00·영상(1440×1080)을 기준 크기에 꽉 */
+.kb-dio-lw img.on,.kb-dio-lw video.on{opacity:1}
 /* 들추는 동안 천(리넨·장식·제목·단추·이름표·주민·겹 그림)은 걷히고 길·바탕만 남는다 — 들추는 그림의 길이 그 위에 겹친다 */
 #map .kb-cloth,#map .kb-tint,#map .kb-props,#map .kb-title,#map .kb-buttons,#map .kb-story-layer{transition:opacity .5s ease}
 #map.kb-dio-fab .kb-cloth,#map.kb-dio-fab .kb-tint,#map.kb-dio-fab .kb-props,#map.kb-dio-fab .kb-title,#map.kb-dio-fab .kb-buttons,#map.kb-dio-fab .kb-story-layer,#map.kb-dio-fab .kb-story-top,#map.kb-dio-fab .wk{opacity:0!important}

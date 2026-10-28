@@ -1,5 +1,5 @@
 import type { LayerCtl, LayerCtx, Renderer, StoreSpot } from './layers';
-import { mountLift, type LocalFrame, type TransFrame } from './lift';
+import { mountLift, type LocalFrame, type TransVideo } from './lift';
 import { mountDioWalkers, type DioWalkers } from './dioWalkers';
 
 /* 해 이야기(10-28) — layer.type "diorama". 장의 layer 칸: view "diorama" | "board", date, hour, autoplay, stores, diagram.
@@ -14,7 +14,7 @@ import { mountDioWalkers, type DioWalkers } from './dioWalkers';
    · 보드 ⇄ 디오라마 전환은 lift.ts(천을 들추면: 보드 길에 맞춘 위에서 본 그림 → 기울며 솟는 프레임). 사람이 닫으면 거꾸로 돌아간 뒤 지우고,
      전시 끄기·인트로·다른 이야기로 바뀔 땐 바로 지운다(destroy(instant)). */
 interface Frame { h: number; elev: number; az: number; file: string; night?: boolean }
-interface Manifest { dates: Record<string, string>; frames: Record<string, Frame[]>; size?: number[]; local?: LocalFrame; transition?: { frames?: TransFrame[] }; axon?: { origin: number[]; perX: number[]; perY: number[]; perZ: number[] } }
+interface Manifest { dates: Record<string, string>; frames: Record<string, Frame[]>; size?: number[]; local?: LocalFrame; transition?: Partial<TransVideo>; axon?: { origin: number[]; perX: number[]; perY: number[]; perZ: number[] } }
 interface DaySun { hours: number; of: number; slots: string; start: string }
 interface StoreSun { id: string; name: string; [day: string]: DaySun | string | unknown }
 interface PageL { view?: 'diorama' | 'board'; date?: string; hour?: number; autoplay?: boolean; stores?: string; diagram?: string }
@@ -96,7 +96,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
   ['pointerdown', 'wheel', 'click'].forEach((ev) => stage.addEventListener(ev, (e) => { e.stopPropagation(); if (ev === 'pointerdown') stop(); }, { passive: true }));   /* 지도 끌기·줌으로 새지 않게. 무대를 누르면 재생 멈춤 */
   c.host.appendChild(stage);
   const SW = m.size?.[0] || 1920, SH = m.size?.[1] || 1080;   /* 그림 크기(1920×1440) */
-  const lift = Array.isArray(m.transition?.frames) && m.transition!.frames!.length && m.local ? mountLift({ stage, host: c.host, base, frames: m.transition!.frames!, local: m.local, fetchImg,
+  const tr = m.transition, lift = tr?.video && tr.video_rev && tr.first && tr.aff_t00 && m.local ? mountLift({ stage, host: c.host, base, trans: tr as TransVideo, size: [SW, SH], local: m.local, fetchImg,
     boardAt: (lat, lng) => { const ctm = c.root.getScreenCTM(); if (!ctm) return null; const [x, y] = c.toBoard(lat, lng), q = new DOMPoint(x, y).matrixTransform(ctm), r = c.host.getBoundingClientRect(); return [q.x - r.left, q.y - r.top]; },
     containBox: () => ({ x: panes.offsetLeft, y: panes.offsetTop, w: panes.offsetWidth, h: panes.offsetHeight }) }) : null;
   stage.appendChild(panes);   /* 들추는 그림(lift) 위에 해 그림 — 다 오면 덮는다 */
