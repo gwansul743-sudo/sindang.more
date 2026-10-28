@@ -366,10 +366,10 @@ html.kb-story-focus .kb .kb-props .kb-prop:not(.kb-keep){opacity:.25!important}
 
 .kb-bld-none{margin:10px 0 6px;font-size:14px;font-weight:700;color:var(--kb-wine)}
 
-/* 하늘을 나는 2호선(subway.ts): xray 낮 0.75 · 밤 0.55 밑에 가려진 열차 1. 세계 상자에 꽉, 기울어진 보기만 */
+/* 하늘을 나는 2호선(subway.ts): xray 낮 0.9 · 밤 0.7 밑에 가려진 열차 1. 세계 상자에 꽉, 기울어진 보기만 */
 #map .kb-dio-world > video.kb-sub{opacity:0;transition:opacity .3s ease}
-#map .kb-dio-world > video.kb-sub.x.on{opacity:.75}
-#map .kb-dio-world > video.kb-sub.x.on.n{opacity:.55}
+#map .kb-dio-world > video.kb-sub.x.on{opacity:.9}
+#map .kb-dio-world > video.kb-sub.x.on.n{opacity:.7}
 #map .kb-dio-world > video.kb-sub.v.on{opacity:1}
 .kb-sub-tag{position:absolute;transform:translate(-50%,-160%);padding:.25em .7em;border:1px dashed var(--kb-stitch);border-radius:4px;background:#fbf3e2;color:#6f8a73;font-family:var(--font-ui);font-weight:800;letter-spacing:-.02em;white-space:nowrap;box-shadow:0 2px 3px #2e3b4338;opacity:0;transition:opacity .4s ease;pointer-events:none}
 .kb-sub-tag.on{opacity:1}
@@ -435,3 +435,11 @@ html.kb-story-focus .kb .kb-props .kb-prop:not(.kb-keep){opacity:.25!important}
 .kb-bld-tag .kb-bld-more:hover{background:#e3cfa8}
 #map:not(.kb-story-folded) .kb-bld-tag .kb-bld-more{display:none}
 @media(prefers-reduced-motion:reduce){.kb-story > *{transition:none}}
+
+/* 2호선 굴 속 빛 자국(TASK_19): 굵고 옅은 선 + 가는 선(필터 없음), 굴을 나가면 1.5초에 사라짐 */
+#map .kb-dio-world > svg.kb-sub-trail{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;will-change:auto;shape-rendering:auto;opacity:0;transition:opacity .3s ease}
+#map .kb-dio-world > svg.kb-sub-trail.on{opacity:1}
+#map .kb-dio-world > svg.kb-sub-trail.on.fade{opacity:0;transition:opacity 1.5s ease}
+.kb-sub-trail path{fill:none;stroke:#3cd26e;stroke-linecap:round;stroke-linejoin:round}
+.kb-sub-trail path.g{stroke-opacity:.28}
+.kb-sub-trail path.c{stroke-opacity:.95}
