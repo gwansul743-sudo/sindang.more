@@ -385,7 +385,10 @@ export function bootLegacy(DATA){
         V.centerOn(cx, cy - 12, t.s * 1.6 ** 2, 0, () => { if(my !== kioskSeq || !KIOSK) return; showChief(true); speech.say(CHIEF_LINES); }, true); } }); }); }   /* always: 줌인 도중 지도를 눌러 비행이 끊겨도 이장님은 그 자리에서 나온다(10-26) */
   /* 전시 연출을 그 자리에서 다 멈추고 평소 상태로(카메라·사이드바는 부르는 쪽이 정한다) */
   function stopKiosk(){ viewer.close(); closeCluster(); kioskSeq++; clearTimeout(kioskStartT); stopCycle(); kioskStage = 'off'; syncSkip?.(); speech.hide(); talk.hide(); villagerDone(); showChief(false); board?.hide(); walkersTo('home'); chiefTo(false); sideDone?.(false); }
-  function kioskRest(){ if(!KIOSK || !board || kioskStage !== 'play') return; kioskStage = 'rest'; syncSkip?.(); idle(); board.rest(); const t = kioskTarget(); centerOn(t.x, t.y, t.s, 0); }   /* 이장님 줌인에서 보드 전체로 물러나며 범례·단추 */
+  function kioskRest(){ if(!KIOSK || !board || kioskStage !== 'play') return; kioskStage = 'rest'; syncSkip?.(); idle(); board.rest(); const t = kioskTarget(), k = REST_ZOOM(), [cx, cy] = board.chiefAt(); centerOn(cx + (t.x - cx) / k, cy + (t.y - cy) / k, t.s * k, 0); }
+  /* 이장님 줌인에서 물러나며 범례·단추 — 보드 전체까지 다 물러나지 않고 데스크톱 ×1.25 · 폰 ×1.6(+ 버튼 한 번) 남긴다(10-28 사용자 요청).
+     중심은 이장님을 고정점으로 줌아웃한 자리(보드 전체 화면에서 이장님이 있던 곳에 그대로 보인다). 30초 쉼·자동 순환 한 바퀴 끝은 보드 전체 그대로 */
+  const REST_ZOOM = () => desktop() ? 1.25 : 1.6;
   function kioskSkip(){ if(!KIOSK || !board || introOpen || kioskStage !== 'play') return; speech.hide(); talk.hide(); board.skip(); showChief(true); kioskRest(); }
   /* 건너뛰기(10-23): 연출(play) 동안만 보인다. 전엔 지도를 누르거나 휠만 굴려도 건너뛰어졌다 */
   const skipBtn = document.createElement('button'); skipBtn.type = 'button'; skipBtn.className = 'kb-skip'; skipBtn.textContent = 'Skip ›'; skipBtn.setAttribute('aria-label', '전시 연출 건너뛰기'); map.appendChild(skipBtn);
