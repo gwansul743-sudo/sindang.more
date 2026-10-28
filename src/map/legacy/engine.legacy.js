@@ -13,6 +13,7 @@ import { mountLandmarks, mountDistricts } from '../layers/landmarks';
 import { mountDots } from '../layers/dots';
 import { mountBoard } from '../../features/kiosk-board/board';
 import { withCurtain } from '../../features/kiosk-board/curtain';
+import { afterRepaint } from '../../shared/lib/repaint';
 import { mountSpeech } from '../../features/chief-speech/speech';
 import { mountTalk } from '../../features/chief-talk/talk';
 import { majorRoadPath } from '../layers/roads';
@@ -484,13 +485,23 @@ export function bootLegacy(DATA){
       goHome();
       if(KIOSK){ const my = kioskSeq; clearTimeout(kioskStartT); kioskStartT = setTimeout(() => { if(my === kioskSeq && KIOSK && !introOpen){ showChief(false); closeCard(); kioskView(); } }, 700 + 500); }   /* 카메라 0.7s + 텀 0.5s */
     }, 100); }
-  function openMap(){ if(intro.classList.contains('open')) return; intro.classList.add('open'); clearTimeout(introT); introT=setTimeout(endIntro, +intro.dataset.ms || 1900); }
+  function openMap(){ if(intro.classList.contains('open')) return; intro.classList.remove('back'); intro.classList.add('open'); clearTimeout(introT); introT=setTimeout(endIntro, +intro.dataset.ms || 1900); }
   /* 인트로 다시 보기: 상단바 'MORE' 글자를 누르면(10-28 — 전엔 'INTRO 다시 보기' 버튼 #replay). 전시 연출은 그 자리에서 다 멈추고 평소 지도로 되돌린다(인트로 뒤에서 아무것도 돌지 않게, 10-23).
-     전시 모드 ON/OFF 상태는 그대로 — 인트로가 끝나면 다시 시작 */
-  function playIntro(){ if(introOpen) return; introOpen=true; closeCard(); stopKiosk(); clearTimeout(introT); intro.classList.remove('open'); intro.classList.remove('done');
-    side.classList.remove('closed'); side.classList.add('welcome'); V.fit(); apply();   /* 인트로 아래서 사이드바(소개)를 미리 편다 */
-    document.getElementById('empty').classList.remove('show');
-    resetHome(); }
+     전시 모드 ON/OFF 상태는 그대로 — 인트로가 끝나면 다시 시작.
+     부드럽게(10-28): 인트로를 먼저 덮고(.back — 0.4s 페이드, visibility 지연 없음) 다 덮인 뒤에 그 아래서 보드 끄기·카드 닫기·사이드바·카메라를 한꺼번에 정리한다.
+     전엔 인트로가 나타나는 같은 프레임에 이것들이 몰려 SVG 전체를 다시 그리는 게 보였고(지지직), visibility 가 .18s 늦게 켜져 툭 튀어나왔다 */
+  function playIntro(){ if(introOpen) return; introOpen=true; clearTimeout(introT); stopCycle(); stopHomeCycle(); villagerDone(); speech.hide(); talk.hide(); closeCluster(); viewer.close();
+    const quick = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    intro.classList.remove('open'); intro.classList.add('back'); void intro.offsetWidth;   /* 숨은 채로 표지 애니메이션을 처음으로 되돌린 뒤 */
+    requestAnimationFrame(() => intro.classList.remove('done'));
+    let settled = false;
+    const settle = async () => { if(settled) return; settled = true; if(!introOpen) return;
+      closeCard(); stopKiosk();
+      side.classList.remove('closed'); side.classList.add('welcome'); V.fit(); apply();   /* 인트로 아래서 사이드바(소개)를 미리 편다 */
+      document.getElementById('empty').classList.remove('show');
+      resetHome(); await afterRepaint(quick); };
+    if(quick) settle();
+    else { intro.addEventListener('transitionend', function te(e){ if(e.target !== intro || e.propertyName !== 'opacity') return; intro.removeEventListener('transitionend', te); settle(); }); setTimeout(settle, 520); } }
   const brandBtn = document.querySelector('.brand b');
   brandBtn.setAttribute('role', 'button'); brandBtn.tabIndex = 0; brandBtn.setAttribute('aria-label', '처음 화면(인트로)으로');
   brandBtn.addEventListener('click', playIntro);
