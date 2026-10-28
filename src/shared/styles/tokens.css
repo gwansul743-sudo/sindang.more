@@ -69,3 +69,7 @@ body.chief-hidden .wk-chief,body.chief-hidden .wk-cat{display:none}
 #cluster-pop .cl-thumb{position:relative}
 #cluster-pop .cl-thumb .cl-vid{display:block;position:absolute;inset:auto;left:50%;top:50%;width:21px;height:15px;margin:-7.5px 0 0 -10.5px;shape-rendering:crispEdges;filter:drop-shadow(1px 1px 0 #0b1a2299);will-change:auto;pointer-events:none}   /* 말풍선은 #map 안이라 '#map svg'(지도 판 꽉 채우기)를 이겨야 한다 */
 .cl-vid .b{fill:var(--red)}.cl-vid .t{fill:#fff4d6}
+/* 상단바 'MORE' = 인트로 다시 보기(10-28, engine.legacy.js playIntro) */
+.brand b{cursor:pointer}
+/* 다시 보기로 인트로가 돌아올 때(.back): 0.4s 페이드로 덮는다 — 테마 시트의 #intro 는 visibility 를 .18s 늦게 켜서 툭 튀어나왔다 */
+#intro.back{transition:opacity .4s ease,visibility 0s}

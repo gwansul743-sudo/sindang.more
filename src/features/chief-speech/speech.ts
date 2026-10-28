@@ -11,9 +11,10 @@ export interface SpeechOptions {
   charMs?: number; holdMs?: number;
   onEnd?: () => void;                              // 마지막 줄이 holdMs 동안 보인 뒤(또는 마지막 줄에서 클릭) 한 번. hide() 로 끊기면 안 부름
 }
-/* say 의 선택(10-26): onTap 이 있으면 말풍선 자체가 버튼 — 누르면 다음 줄 대신 onTap. cta 는 말풍선 아래쪽에 붙는 안내 한 줄('이야기 듣기 ›') */
+/* say 의 선택(10-26): onTap 이 있으면 말풍선 자체가 버튼 — 누르면 다음 줄 대신 onTap. cta 는 말풍선 아래쪽에 붙는 안내 한 줄('이야기 듣기 ›').
+   setCta(10-28): 떠 있는 말풍선에 안내 줄만 붙인다(글자를 다시 찍지 않음) — hover 로 뜬 말풍선을 누르면 '이야기 듣기 ›' 가 붙는다 */
 export interface SayOptions { onTap?: () => void; cta?: string }
-export interface Speech { say(lines: string[], opts?: SayOptions): void; hide(): void; place(): void; readonly visible: boolean }
+export interface Speech { say(lines: string[], opts?: SayOptions): void; setCta(label: string): void; hide(): void; place(): void; readonly visible: boolean }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 const markup = (s: string) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
@@ -68,6 +69,7 @@ export function mountSpeech(stage: HTMLElement, o: SpeechOptions): Speech {
     say(ls, opts) { clear(); lines = ls.slice(); i = 0; visible = true; onTap = opts?.onTap ?? null;
       cta.textContent = opts?.cta ?? ''; el.classList.toggle('has-cta', !!opts?.cta); el.classList.toggle('tappable', !!onTap);
       el.classList.add('show'); place(); showLine(); },
+    setCta(label) { if (!visible) return; cta.textContent = label; el.classList.toggle('has-cta', !!label); place(); },
     hide,
     place,
   };

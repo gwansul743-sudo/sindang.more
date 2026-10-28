@@ -39,7 +39,7 @@ const SNIPPET = () => ({
   테마버튼: document.getElementById('theme')?.textContent,
   이장님그림: [...document.querySelectorAll('.wk-chief path')].map(p => p.getAttribute('d') + p.getAttribute('fill')).join('|').length + ':' + [...document.querySelectorAll('.wk-chief path')].map(p => p.getAttribute('d') + p.getAttribute('fill')).join('|').split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7),
   고양이그림: [...document.querySelectorAll('.wk-cat path')].map(p => p.getAttribute('d') + p.getAttribute('fill')).join('|').length + ':' + [...document.querySelectorAll('.wk-cat path')].map(p => p.getAttribute('d') + p.getAttribute('fill')).join('|').split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7),
-  주민그림칸수: [...document.querySelectorAll('.wk:not(.wk-chief):not(.wk-cat) path')].length,
+  /* 주민그림칸수는 뺐다(10-28): 가게 주민을 무작위로 두 명씩 내보내서, 누가 뽑히느냐(머리 모양·가방)에 따라 실행마다 달라진다 */
   viewBox: document.getElementById('svg').getAttribute('viewBox').split(' ').map(v => Math.round(+v)).join(' '),
 });
 
