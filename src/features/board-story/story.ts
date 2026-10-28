@@ -120,6 +120,7 @@ export function mountStory(o: StoryOptions): BoardStory {
     Promise.resolve(fn({ root, spec: d.layer!, topic: d, alive, go: goTo,
       later: (f, ms) => { setTimeout(() => { if (alive()) f(); }, ms); },
       slot: (h) => { if (alive()) panel?.querySelector('.kb-story-slot')!.replaceChildren(...(h ? [h] : [])); },
+      cover: (h) => { if (alive()) setCover(h); },
       hold: (on) => { if (!alive() || held === on) return; held = on; if (on) clearTimeout(idleT); else armIdle(); },
       host: o.host, spots: () => (o.spots ? o.spots() : []), villagers: o.villagers ?? null,
       top: o.top ?? null, obstacles: () => (o.obstacles ? o.obstacles() : []), camera: o.camera ?? null,
@@ -128,7 +129,11 @@ export function mountStory(o: StoryOptions): BoardStory {
       .then((c) => { if (!c) return; if (!alive()) { c.destroy?.(); return; } ctl = c; c.page(page, d.pages[page]); })
       .catch(() => { if (alive()) root.remove(); });   /* 겹 그림이 실패해도 이야기는 그대로 */
   }
-  function clearLayer(keepDim = false) { dropCtl(); [...o.layer.children].forEach((c) => { if (!keepDim || c !== dim) c.remove(); }); if (!keepDim) dim = null; o.top?.replaceChildren(); panel?.querySelector('.kb-story-slot')!.replaceChildren(); }
+  function clearLayer(keepDim = false) { dropCtl(); [...o.layer.children].forEach((c) => { if (!keepDim || c !== dim) c.remove(); }); if (!keepDim) dim = null; o.top?.replaceChildren(); panel?.querySelector('.kb-story-slot')!.replaceChildren(); setCover(null); }
+  function setCover(h: HTMLElement | null) {   /* 본문 대신 잠시(건물 카드) */
+    if (!panel) return; const cov = panel.querySelector('.kb-story-cover') as HTMLElement, pg = panel.querySelector('.kb-story-page') as HTMLElement;
+    cov.replaceChildren(...(h ? [h] : [])); cov.hidden = !h; pg.hidden = !!h;
+  }
   function dropCtl(instant = true) { const c = ctl; ctl = null; held = false; c?.destroy?.(instant); }   /* 주제를 바꿀 땐 어둠은 그대로(깜빡임 없이) */
   function showDim(on: boolean) {
     if (on) {
@@ -150,10 +155,10 @@ export function mountStory(o: StoryOptions): BoardStory {
   function ensurePanel() {
     if (panel) { panel.classList.remove('instant'); return panel; }
     panel = document.createElement('aside'); panel.className = 'kb-story'; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-live', 'polite');
-    panel.innerHTML = '<button type="button" class="kb-story-x" aria-label="이야기 닫기">✕</button><h2 class="kb-story-title"></h2><div class="kb-story-page"></div><div class="kb-story-slot"></div>'
+    panel.innerHTML = '<button type="button" class="kb-story-x" aria-label="이야기 닫기">✕</button><h2 class="kb-story-title"></h2><div class="kb-story-page"></div><div class="kb-story-cover" hidden></div><div class="kb-story-slot"></div>'
       + '<nav class="kb-story-nav"><button type="button" class="kb-story-prev" aria-label="앞 장">‹</button><span class="kb-story-dots"></span><button type="button" class="kb-story-next" aria-label="다음 장">›</button></nav>';
     ['pointerdown', 'wheel', 'click'].forEach((ev) => panel!.addEventListener(ev, (e) => e.stopPropagation(), { passive: true }));   /* 지도 끌기·휠 줌·빈 곳 닫기로 새지 않게(활동 판정은 window capture 라 그대로) */
-    panel.querySelector('.kb-story-x')!.addEventListener('click', () => close());
+    panel.querySelector('.kb-story-x')!.addEventListener('click', () => { if (!ctl?.back?.()) close(); });   /* 고른 건물이 있으면 그것부터 푼다 */
     panel.querySelector('.kb-story-prev')!.addEventListener('click', () => go(-1));
     panel.querySelector('.kb-story-next')!.addEventListener('click', () => go(1));
     o.host.appendChild(panel); void panel.offsetWidth;
@@ -183,7 +188,7 @@ export function mountStory(o: StoryOptions): BoardStory {
     if (!cur || !data) return;
     if (pdf.open) { if (e.key === 'Escape') { e.preventDefault(); pdf.close(); } return; }   /* Esc 는 논문 틀부터, 한 번 더 누르면 이야기 */
     if (e.key !== 'Escape' && e.target instanceof HTMLInputElement) return;   /* 막대(range)에 포커스가 있으면 ← → 는 막대 것 */
-    if (e.key === 'Escape') { e.preventDefault(); close(); } else if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); } else if (e.key === 'ArrowRight') { e.preventDefault(); go(1); }
+    if (e.key === 'Escape') { e.preventDefault(); if (!ctl?.back?.()) close(); } else if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); } else if (e.key === 'ArrowRight') { e.preventDefault(); go(1); }
   };
   let listening = false;
   const IN = ['pointerdown', 'pointermove', 'wheel', 'touchstart'] as const;

@@ -11,6 +11,7 @@ export interface LayerCtx {
   later(fn: () => void, ms: number): void;                 // alive 일 때만 부르는 setTimeout
   load(name: string): Promise<unknown>;                    // content/board-story/ 의 데이터 파일(처음 쓸 때 받음)
   slot(el: HTMLElement | null): void;                      // 상자 본문 아래 칸(범례·조작 막대). 닫히면 story.ts 가 비운다
+  cover(el: HTMLElement | null): void;                     // 상자 본문 자리를 잠시 이것으로(건물 카드). null 이면 본문으로
   hold(on: boolean): void;                                 // true 인 동안 이야기 45초 자동 닫기를 멈춘다(자동 재생 중)
   host: HTMLElement;                                       // #map — HTML 겹(디오라마 무대)을 붙일 칸
   toBoard(lat: number, lng: number): [number, number];     // 실제 위경도 → 보드 캔버스(길과 같은 변환)
@@ -21,7 +22,7 @@ export interface LayerCtx {
   camera: { focus(x: number, y: number, mul: number, dx?: number): void; restore(): void } | null;   // 카메라 잠깐 당기기(보드 캔버스) · 되돌리기
 }
 export interface StoreSpot { id: string; name: string; x: number; y: number; r: number; lab: { x0: number; y0: number; x1: number; y1: number } | null }
-export interface LayerCtl { page(i: number, p: StoryPage): void; destroy?(instant?: boolean): void }   // destroy: SVG 밖(HTML)에 만든 것·타이머 정리. instant 가 아니면 나가는 장면을 보여도 된다
+export interface LayerCtl { page(i: number, p: StoryPage): void; destroy?(instant?: boolean): void; back?(): boolean }   // back: Esc·✕ 를 먼저 받는다(고른 건물 풀기) — true 면 이야기는 그대로   // destroy: SVG 밖(HTML)에 만든 것·타이머 정리. instant 가 아니면 나가는 장면을 보여도 된다
 export type Renderer = (c: LayerCtx) => LayerCtl | null | Promise<LayerCtl | null>;
 
 const NS = 'http://www.w3.org/2000/svg';

@@ -1,6 +1,7 @@
 import type { LayerCtl, LayerCtx, Renderer, StoreSpot } from './layers';
 import { mountLift, type LocalFrame, type TransVideo } from './lift';
 import { mountDioWalkers, type DioWalkers } from './dioWalkers';
+import { mountSelect } from './select';
 
 /* 해 이야기(10-28) — layer.type "diorama". 장의 layer 칸: view "diorama" | "board", date, hour, autoplay, stores, diagram.
    · diorama: 천을 들추면 — 그 위 HTML 무대(#map 안, 상자 왼쪽)에 Blender 렌더(public/board/sun/, manifest.json, 1920×1440)가
@@ -14,10 +15,10 @@ import { mountDioWalkers, type DioWalkers } from './dioWalkers';
    · 보드 ⇄ 디오라마 전환은 lift.ts(천을 들추면: 보드 길에 맞춘 위에서 본 그림 → 기울며 솟는 프레임). 사람이 닫으면 거꾸로 돌아간 뒤 지우고,
      전시 끄기·인트로·다른 이야기로 바뀔 땐 바로 지운다(destroy(instant)). */
 interface Frame { h: number; elev: number; az: number; file: string; night?: boolean }
-interface Manifest { dates: Record<string, string>; frames: Record<string, Frame[]>; size?: number[]; local?: LocalFrame; transition?: Partial<TransVideo>; axon?: { origin: number[]; perX: number[]; perY: number[]; perZ: number[] } }
+interface Manifest { dates: Record<string, string>; frames: Record<string, Frame[]>; size?: number[]; local?: LocalFrame; transition?: Partial<TransVideo>; idmap?: { file: string }; axon?: { origin: number[]; perX: number[]; perY: number[]; perZ: number[] } }
 interface DaySun { hours: number; of: number; slots: string; start: string }
 interface StoreSun { id: string; name: string; [day: string]: DaySun | string | unknown }
-interface PageL { view?: 'diorama' | 'board'; date?: string; hour?: number; autoplay?: boolean; stores?: string; diagram?: string }
+interface PageL { view?: 'diorama' | 'board'; date?: string; hour?: number; autoplay?: boolean; stores?: string; diagram?: string; mode?: string }
 
 const DATES = ['summer', 'equinox', 'today', 'winter'];
 const STEP_MS = 900, LOOP_REST_MS = 1500, OUT_MS = 400;
@@ -103,6 +104,9 @@ export const diorama: Renderer = async (c: LayerCtx) => {
   if (lift && new URLSearchParams(location.search).has('lift_check')) Object.assign(window, { __liftCheck: (lat: number, lng: number) => lift.check(lat, lng), __liftLocal: m.local });   /* 확인용: 보드 길 ↔ t00 맞춤 오차 */
   lift?.preload();
   const P = [mountPane(panes)];
+  /* 건물 고르기(select.ts): 디오라마 장이면 어디서나. 자료(sun-buildings.json)와 idmap 은 처음 가리키거나 '고르기' 장에서 받는다 */
+  const select = m.idmap && m.axon ? mountSelect({ pane: P[0].el, size: [SW, SH], axon: m.axon, idmap: base + m.idmap.file, load: () => c.load('sun-buildings.json') as Promise<{ b: import('./select').Bld[] }>,
+    cover: (el) => c.cover(el), date: () => date, onSelect: () => stop() }) : null;
 
   /* 조작 막대(상자 아래 칸) */
   const ctl = document.createElement('div'); ctl.className = 'kb-dio-ctl';
@@ -155,7 +159,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
     range.max = String(Math.max(0, frames(date).length - 1)); range.value = String(idx);
     play.textContent = timer ? '❚❚' : '▶'; play.setAttribute('aria-label', timer ? '멈춤' : '재생');
   }
-  function setDate(d: string) { const h = frames(date)[idx]?.h ?? 12; date = d; idx = frames(d).indexOf(frameAt(d, h)); preload(frames(d).map((f) => f.file)); paint(); }
+  function setDate(d: string) { const h = frames(date)[idx]?.h ?? 12; date = d; idx = frames(d).indexOf(frameAt(d, h)); preload(frames(d).map((f) => f.file)); paint(); select?.refresh(); }   /* 고른 건물은 그대로, 날짜 값만 다시 */
   function setIdx(i: number) { idx = Math.max(0, Math.min(frames(date).length - 1, i)); paint(); }
   /* 재생: 한 시간씩 저녁까지, 마지막 장면에서 1.5초 쉬었다가 처음부터 */
   const tick = () => { if (!c.alive() || !timer) { stop(); return; } const last = idx >= frames(date).length - 1; setIdx(last ? 0 : idx + 1); timer = window.setTimeout(tick, idx >= frames(date).length - 1 ? STEP_MS + LOOP_REST_MS : STEP_MS); };
@@ -218,10 +222,12 @@ export const diorama: Renderer = async (c: LayerCtx) => {
   }
 
   const api: LayerCtl = {
+    back: () => !!select?.clear(),
     page(_i, p) {
       const L = (p.layer || {}) as PageL;
-      stop(); gaugeG?.remove(); gaugeG = null; camBack();
+      stop(); gaugeG?.remove(); gaugeG = null; camBack(); select?.clear();
       view = L.view === 'board' ? 'board' : 'diorama';
+      if (view === 'diorama' && L.mode === 'select') void select?.ensure();
       if (view === 'board') { showStage(false); c.slot(L.stores ? keyRow : null); void gauges(L.stores); return; }
       if (L.date && m.frames[L.date]) date = L.date;
       idx = frames(date).indexOf(frameAt(date, L.hour ?? frames(date)[idx]?.h ?? 12));
@@ -232,7 +238,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
       if (landed) void people(true);
     },
     destroy(instant) {
-      stop(); preloadRun++; gaugeG?.remove(); view = null; clearInterval(talkT); walkers?.destroy(); walkers = null; if (instant) camHeld = false; else camBack();
+      stop(); preloadRun++; gaugeG?.remove(); view = null; clearInterval(talkT); walkers?.destroy(); walkers = null; select?.destroy(); if (instant) camHeld = false; else camBack();
       const finish = () => { if (alive !== finish) return; alive = null; lift?.kill(); c.host.classList.remove('kb-dio-on', 'kb-dio-fab'); P.forEach((p) => p.release()); stage.remove(); };
       alive = finish;
       if (instant || !shown || !lift) { finish(); return; }
