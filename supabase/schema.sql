@@ -13,6 +13,7 @@ create table if not exists stores (
   photo_paths   text[], -- 사진 여러 장(첫 장이 표지). 10-26 추가. 기존 DB: alter table stores add column if not exists photo_paths text[];
   video_url     text, -- 영상 주소(유튜브·구글 드라이브·mp4). 10-21 추가. 기존 DB: alter table stores add column if not exists video_url text;
   category      text, -- 업종 키(sewing·supermarket·coffee·restaurant·wine·etc). 10-23 추가. 기존 DB: alter table stores add column if not exists category text;
+  featured      boolean not null default false, -- 전시 보드에서 강조(큰 단추 + 이름표). 10-28 추가. 기존 DB: alter table stores add column if not exists featured boolean not null default false;
   interview_md  text,
   issue         text, -- '6호' 표시
   "order"       integer not null default 0,

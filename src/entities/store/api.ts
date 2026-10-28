@@ -14,6 +14,7 @@ type Row = {
   order: number; published: boolean; video_url?: string | null;   // video_url 은 10-21 추가 컬럼(없는 DB 도 읽힌다)
   category?: string | null;    // category 는 10-23 추가 컬럼(업종 키). 없거나 비면 'etc'
   photo_paths?: string[] | null;   // 10-26 추가 컬럼(사진 여러 장, 첫 장이 표지). 없거나 비면 photo_path 한 장
+  featured?: boolean | null;       // 10-28 추가 컬럼(전시 보드 강조). 없으면 false
 };
 
 export type StoreSource = 'db' | 'seed';
@@ -33,7 +34,7 @@ function photoUrl(path: string | null): string | undefined {
 const isStored = (path: string) => !path.startsWith('/') && !path.startsWith('http');   // Storage 경로인지(정적 파일·완전한 URL 이 아닌지) — 지울 때
 function rowToStore(r: Row): Store {
   const paths = r.photo_paths?.length ? r.photo_paths : r.photo_path ? [r.photo_path] : [], photos = paths.map((p) => photoUrl(p)!);
-  return { id: r.id, name: r.name, addr: r.addr ?? '', lat: r.lat, lng: r.lng, ig: r.ig_url ?? '', video: r.video_url ?? '', category: r.category ?? 'etc', photoUrl: photos[0],
+  return { id: r.id, name: r.name, addr: r.addr ?? '', lat: r.lat, lng: r.lng, ig: r.ig_url ?? '', video: r.video_url ?? '', category: r.category ?? 'etc', featured: !!r.featured, photoUrl: photos[0],
     interview: r.interview_md ?? '', issue: r.issue ?? '', order: r.order, status: r.published ? 'pub' : 'up', photoPath: paths[0], photos, photoPaths: paths };
 }
 /* 씨앗·목업은 photoUrl 한 장만 있을 수 있다 → photos 로 맞춘다 */
@@ -52,7 +53,7 @@ export async function listStores(): Promise<Store[]> {
   return mock.map((s) => ({ ...s }));
 }
 
-export type StoreInput = Pick<Store, 'name' | 'addr' | 'lat' | 'lng' | 'ig' | 'video' | 'category' | 'interview' | 'issue' | 'status'>;
+export type StoreInput = Pick<Store, 'name' | 'addr' | 'lat' | 'lng' | 'ig' | 'video' | 'category' | 'featured' | 'interview' | 'issue' | 'status'>;
 
 /* 사진 한 장: 이미 올라가 있는 것(path·url) 또는 새로 고른 파일(file, url 은 미리보기용) */
 export interface PhotoItem { path?: string; url: string; file?: File }
@@ -83,7 +84,7 @@ export async function saveStore(editing: Store | null, input: StoreInput, photos
     order = ((data?.[0] as { order: number } | undefined)?.order ?? 0) + 1;
   }
   const row: Record<string, unknown> = { name: input.name, addr: input.addr || null, lat: input.lat, lng: input.lng, ig_url: input.ig || null, photo_path: paths[0] ?? null, photo_paths: paths,
-    interview_md: input.interview || null, issue: input.issue || null, order, published: input.status === 'pub', video_url: input.video || null, category: input.category || null };
+    interview_md: input.interview || null, issue: input.issue || null, order, published: input.status === 'pub', video_url: input.video || null, category: input.category || null, featured: !!input.featured };
   const write = (r: Record<string, unknown>) => (editing ? db.from('stores').update(r).eq('id', editing.id) : db.from('stores').insert(r));
   let { error } = await write(row);
   const dropped: string[] = [];
@@ -105,6 +106,7 @@ export async function saveStore(editing: Store | null, input: StoreInput, photos
 const LATE_COLUMNS: Record<string, string> = {
   video_url: '저장했지만 영상 주소는 빠졌어요. Supabase SQL 에서 alter table stores add column video_url text; 를 한 번 실행한 뒤 다시 저장하세요.',
   category: '저장됐지만 업종은 빠졌어요. Supabase SQL 에서 alter table stores add column category text; 를 한 번 실행하세요.',
+  featured: '저장됐지만 전시 강조는 빠졌어요. Supabase SQL 에서 alter table stores add column featured boolean not null default false; 를 한 번 실행한 뒤 다시 저장하세요.',
   photo_paths: '저장됐지만 사진은 첫 장(표지)만 남았어요. Supabase SQL 에서 alter table stores add column photo_paths text[]; 를 한 번 실행한 뒤 다시 올려 주세요.',
 };
 

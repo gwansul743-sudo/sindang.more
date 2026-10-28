@@ -18,7 +18,7 @@ export interface EngineData {
   villagers?: { id: string; kind?: string; name: string; store?: string; look?: { style: 'short' | 'bob' | 'hat'; bun?: number; bag?: number; col?: Record<string, string> }; hook: string; pages: string[] }[];   // kind: 'shop'(가게 인터뷰, 표시 없음) | 'form'(시민 구글폼 응답, 머리 위 초록 세모). 대본은 content/characters/villagers/*.json
   chiefTalk?: { name: string; pages: string[][] };   // 이장님 인터뷰 대본 (content/characters/chief-talk.json)
   kioskCut?: { name: string; polygon: [number, number][] };   // 전시 보드 재단선 (content/map/kiosk-cut.json)
-  kioskBoard?: { hideRoads?: (number[] | number[][])[]; hideMain?: (number[] | number[][])[]; showRoads?: (number[] | number[][])[]; route?: number[][]; title?: string; sub?: string; titleAt?: number[]; titleImg?: (string | number)[]; chiefAt?: number[]; props?: (string | number)[][]; sky?: (string | number)[][]; waves?: number[][] };   // 전시 보드(시안 캔버스 단위) (content/map/kiosk-board.json)
+  kioskBoard?: { hideRoads?: (number[] | number[][])[]; hideMain?: (number[] | number[][])[]; showRoads?: (number[] | number[][])[]; route?: number[][]; title?: string; sub?: string; titleAt?: number[]; titleImg?: (string | number)[]; labelAt?: Record<string, number[]>; chiefAt?: number[]; props?: (string | number)[][]; sky?: (string | number)[][]; waves?: number[][] };   // 전시 보드(시안 캔버스 단위) (content/map/kiosk-board.json)
 }
 
 export interface Engine {
