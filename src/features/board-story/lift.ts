@@ -80,6 +80,7 @@ export function mountLift(o: LiftOptions): Lift {
     },
     enter(onLanded) {
       clear(); const my = run; preload();
+      o.stage.classList.remove('rev'); wrap.style.opacity = '';   /* 거꾸로 돌던 중에 다시 들어오면(보드 장 → 바로 다음 장) 그 정리가 취소되므로 여기서 */
       const t0 = performance.now();
       const go = () => {
         if (my !== run) return;
@@ -95,7 +96,7 @@ export function mountLift(o: LiftOptions): Lift {
           anims.push(wrap.animate([{ transform: mtx(tb) }, { transform: mtx(tc) }], { duration: MOVE * SLOW, easing: ease, fill: 'forwards' }));
         }, FADE_IN);
         at(() => { o.stage.classList.add('show'); onLanded(); }, FADE_IN + MOVE);                       /* 해 그림으로 바꿔 끼운다(0.35s) */
-        at(() => { o.stage.classList.remove('lift'); anims.forEach((a) => a.cancel()); anims = []; }, FADE_IN + MOVE + 400);
+        at(() => { o.stage.classList.remove('lift'); wrap.style.transform = mtx(tc); wrap.style.opacity = ''; anims.forEach((a) => a.cancel()); anims = []; }, FADE_IN + MOVE + 400);
       };
       /* t00(과 되도록 전부)을 1.5초까지 기다린다 */
       const wait = () => { if (my !== run) return; if (got.size === srcs.length || performance.now() - t0 > 1500 * SLOW) go(); else raf = requestAnimationFrame(wait); };   /* 1.5초가 지나면 받은 것만으로(t00 도 없으면 go 가 예전 전환으로) */
