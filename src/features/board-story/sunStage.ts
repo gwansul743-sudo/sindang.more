@@ -117,7 +117,7 @@ export function mountSunStage(o: StageOpts) {
   let lastLanding: { before: number[]; after: number[] } | null = null;
 
   return {
-    world, preload, contain, areaBox, frame,
+    world, preload, contain, areaBox, frame, frontImg: () => imgs[front],
     get cam() { return cam; }, get view() { return view; }, get lastLanding() { return lastLanding; },
     setCam(c: Cam) { apply(c); }, tween,
     check(lat: number, lng: number) { const tb = fitBoard(), p = o.boardAt(lat, lng); if (!tb || !p) return null; const L = o.local, [u, v] = project(o.trans.aff_t00, (lng - L.lng0) * L.kx, (lat - L.lat0) * L.ky); return { board: p, t00: [tb.s * u + tb.tx, tb.s * v + tb.ty] }; },

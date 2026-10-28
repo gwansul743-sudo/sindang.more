@@ -4,7 +4,9 @@ import { project, type Aff } from './sunStage';
    · 어느 건물: 해 그림과 같은 카메라의 idmap(그림 px 의 RGB, B == 255 → 번호 = R + 256·G − 1)을 화면 밖 캔버스에 한 번 그려 두고 읽는다.
      plan(위에서 본 신당) = hi/idmap_top(3840×2880 → 기준 1920×1440 으로 이웃값 줄이기), axon = idmap.png(기준 크기). 세계 상자(무대)의 화면 칸으로 되돌려 찾는다.
    · plan: 가리키면 크림색 바닥 윤곽 + 작은 이름표 '용도 · n층 · n년'.
-   · axon: 고르면 고른 건물 윗면(기단 7.6 m + 탑)·바깥 모서리·바닥 윤곽, 이웃 윗면(path 하나), 반경 50 m 점선 타원, 데이터 꼬리표 넷 + 실, 상자에 건물 카드.
+   · axon: 고르면 세 겹 흐림 막(캔버스, 아래) — 고른 건물은 그림 그대로, 이웃(near.ids)과 반경 50 m 안 땅은 흰 막 30 %, 나머지는 65 %(밤엔 밤 파랑).
+     막은 고를 때 한 번 idmap 으로 만든다: 픽셀마다 번호 → 겹, 땅은 axon 정사영을 거꾸로 풀어 건물 가운데까지 거리(50 m 넘어 4 m 동안 부드럽게).
+     섬 밖(바다)은 지금 그림의 알파로 잘라 낸다(destination-in). 고른 건물엔 얇은 테두리(크림 + 와인)만, 데이터 꼬리표 넷 + 실, 상자에 건물 카드.
      SVG 는 세계 상자 안(viewBox = 기준 그림 크기)이라 카메라와 같이 움직이고, 선 굵기·꼬리표 글씨는 화면 크기를 지킨다(카메라가 바뀌면 redraw).
    · 날짜 탭이 바뀌면 값만 다시(refresh). 요소 약 25개 */
 export interface Bld {
@@ -21,6 +23,9 @@ export interface SelectOptions {
   cover(el: HTMLElement | null): void;          // 상자 본문 자리(카드)
   date(): string;                                // 지금 날짜 탭
   scale(): number;                               // 화면 px / 기준 px(카메라 배율)
+  idmapAxon2?: string;                           // 2× axon idmap(흐림 막을 2× 로)
+  frameImg?(): HTMLImageElement | null;          // 지금 그림(섬 밖을 잘라 낼 알파 — 섬 알파를 아직 못 받았을 때만)
+  islandSrc?: string;                            // 섬 알파를 떠 올 그림(hi 해 그림 하나)
 }
 
 const NS = 'http://www.w3.org/2000/svg', TOWER_Z = 7.6, THIS_YEAR = 2026;
@@ -31,19 +36,63 @@ export const shortName = (b: Bld) => [b.info?.use || '건물', b.info?.floors ? 
 
 export function mountSelect(o: SelectOptions) {
   const [IW, IH] = o.size;
+  const mask = document.createElement('canvas'); mask.className = 'kb-dio-mask'; o.world.appendChild(mask);
   const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('class', 'kb-dio-sel'); svg.setAttribute('viewBox', `0 0 ${IW} ${IH}`); svg.setAttribute('aria-hidden', 'true');
   o.world.appendChild(svg);
   const mk = (tag: string, cls: string, parent: Element = svg) => { const e = document.createElementNS(NS, tag); e.setAttribute('class', cls); parent.appendChild(e); return e; };
-  const ring = mk('path', 'sl-ring'), near = mk('path', 'sl-near'), base = mk('path', 'sl-base'), edges = mk('path', 'sl-edge'), tops = mk('path', 'sl-top'), hover = mk('path', 'sl-hover'), leads = mk('path', 'sl-lead');
+  const ring = mk('path', 'sl-ring'), halo = mk('path', 'sl-halo'), line = mk('path', 'sl-line'), hover = mk('path', 'sl-hover'), leads = mk('path', 'sl-lead');
   const tagG = mk('g', 'sl-tags'), nameG = mk('g', 'sl-name'), nameR = mk('rect', '', nameG), nameT = mk('text', '', nameG);
-  let data: Bld[] | null = null, sel: Bld | null = null, mode: Mode = 'axon', dead = false;
-  const maps: Partial<Record<Mode, Uint8ClampedArray>> = {}, loads: Partial<Record<Mode | 'data', Promise<void>>> = {};
+  let data: Bld[] | null = null, sel: Bld | null = null, mode: Mode = 'axon', dead = false, night = false, maskFor = -1, hiMs = 0, useHi = true;
+  const maps: Partial<Record<Mode, Uint8ClampedArray>> = {}, loads: Partial<Record<Mode | 'data' | 'hi', Promise<void>>> = {};
+  let hiMap: Uint8ClampedArray | null = null, isl: Uint8Array | null = null, maskImg: ImageData | null = null;
+  const IW2 = IW, IH2 = IH;   /* 섬 알파는 기준 크기, 0–255 그대로 곱해 가장자리를 부드럽게 */
 
   function loadMap(m: Mode) {
     return (loads[m] ||= new Promise<void>((ok) => {
       const im = new Image(); im.onload = () => { const cv = document.createElement('canvas'); cv.width = IW; cv.height = IH; const cx = cv.getContext('2d', { willReadFrequently: true })!;
         cx.imageSmoothingEnabled = false; cx.drawImage(im, 0, 0, IW, IH); maps[m] = cx.getImageData(0, 0, IW, IH).data; ok(); };   /* 2× 지도는 이웃값으로 줄인다(번호가 섞이지 않게) */
       im.onerror = () => ok(); im.src = m === 'plan' ? o.idmapPlan : o.idmapAxon; }));
+  }
+  /* 2× axon idmap(흐림 막용) — 고를 때 영상이 도는 동안 받는다 */
+  const readImg = (src: string, w: number, h: number) => new Promise<Uint8ClampedArray | null>((ok) => { const im = new Image(); im.onload = () => { const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const cx = cv.getContext('2d', { willReadFrequently: true })!; cx.drawImage(im, 0, 0, w, h); ok(cx.getImageData(0, 0, w, h).data); }; im.onerror = () => ok(null); im.src = src; });
+  const ensureHi = () => (loads.hi ||= Promise.all([
+    o.idmapAxon2 ? readImg(o.idmapAxon2, IW * 2, IH * 2).then((d) => { hiMap = d; }) : null,
+    o.islandSrc ? readImg(o.islandSrc, IW2, IH2).then((d) => { if (!d) return; isl = new Uint8Array(IW2 * IH2); for (let k = 0; k < isl.length; k++) isl[k] = d[k * 4 + 3]; }) : null,   /* 그림 알파 → 섬(땅·옆벽·건물) / 바다, 가장자리는 중간값 */
+  ]).then(() => undefined));
+  const DUSK = 0x002d2004;   /* #04202d 를 0xAABBGGRR 순서로 */
+  /* 세 겹 흐림 막: 고를 때 한 번. 2× 로 만들어 보고 120 ms 를 넘으면 다음부터 1× */
+  function buildMask(b: Bld) {
+    const t0 = performance.now(), hi = useHi && !!hiMap, R = hi ? 2 : 1, W = IW * R, H = IH * R, ids = hi ? hiMap! : maps.axon; if (!ids) return;
+    const near = new Uint8Array((data?.length || 0) + 2); b.near.ids.forEach((q) => { near[q] = 1; });
+    const A = o.axon, det = A.perX[0] * A.perY[1] - A.perY[0] * A.perX[1], ia = A.perY[1] / det, ib = -A.perY[0] / det, ic = -A.perX[1] / det, id = A.perX[0] / det;   /* 기준 px → 지역 m (z = 0) */
+    const r0 = b.near.r, r1 = r0 + 4, cx0 = b.c[0], cy0 = b.c[1], NEAR = 77, FAR = 166;   /* 0.30 · 0.65 × 255 */
+    const img = new ImageData(W, H), out = new Uint32Array(img.data.buffer), src = new Uint32Array(ids.buffer, ids.byteOffset, W * H), RGB = night ? DUSK : 0x00ffffff;
+    const r0s = r0 * r0, r1s = r1 * r1, A_NEAR = (NEAR << 24) | RGB, A_FAR = (FAR << 24) | RGB, step = 1 / R, sh = R === 2 ? 1 : 0;   /* 섬 알파 한 칸 = 기준 1 px = 막 R px */
+    for (let v = 0; v < H; v++) {
+      const dv = (v + 0.5) * step - A.origin[1], row = v * W, irow = (v >> sh) * IW2;
+      let x = ia * (0.5 * step - A.origin[0]) + ib * dv - cx0, y = ic * (0.5 * step - A.origin[0]) + id * dv - cy0;   /* 한 줄 안에서 u 가 1 늘 때 x·y 는 일정하게 는다 */
+      const dx = ia * step, dy = ic * step;
+      for (let u = 0; u < W; u++, x += dx, y += dy) {
+        const px = src[row + u];   /* 리틀엔디안 RGBA → 0xAABBGGRR */
+        if (px >>> 24 && ((px >>> 16) & 255) === 255) { const q = (px & 255) + 256 * ((px >>> 8) & 255) - 1; out[row + u] = q === b.i ? 0 : near[q] ? A_NEAR : A_FAR; continue; }
+        const ial = isl ? isl[irow + (u >> sh)] : 255; if (!ial) continue;   /* 바다: 막 없음(0) */
+        const d2 = x * x + y * y, a = d2 <= r0s ? NEAR : d2 >= r1s ? FAR : NEAR + ((FAR - NEAR) * (Math.sqrt(d2) - r0)) / 4;
+        out[row + u] = ial === 255 ? (d2 <= r0s ? A_NEAR : d2 >= r1s ? A_FAR : ((a & 255) << 24) | RGB) : ((((a * ial) / 255) & 255) << 24) | RGB;   /* 섬 가장자리는 알파를 곱해 부드럽게 */
+      }
+    }
+    mask.width = W; mask.height = H; const cx = mask.getContext('2d')!; cx.putImageData(img, 0, 0); maskImg = img;
+    if (!isl) { const f = o.frameImg?.(); if (f?.complete && f.naturalWidth) { cx.globalCompositeOperation = 'destination-in'; cx.drawImage(f, 0, 0, W, H); cx.globalCompositeOperation = 'source-over'; maskImg = null; } }   /* 섬 알파가 아직 없으면 그림 알파로(느림) */
+    mask.classList.toggle('night', night); maskFor = b.i;
+    const ms = performance.now() - t0; if (hi) { hiMs = ms; if (ms > 120) useHi = false; }
+    (window as unknown as { __maskMs?: number[] }).__maskMs = [...((window as unknown as { __maskMs?: number[] }).__maskMs || []), Math.round(ms * 10) / 10 * (hi ? 1 : -1)];   /* 확인용: + 는 2×, − 는 1× */
+  }
+  function tint() {   /* 낮 = 흰 막, 밤 = 밤 파랑 막 — 알파는 그대로 두고 색만 다시 써 넣는다 */
+    mask.classList.toggle('night', night);
+    if (!mask.width) return;
+    if (!maskImg) { const cx = mask.getContext('2d')!; cx.globalCompositeOperation = 'source-in'; cx.fillStyle = night ? '#04202d' : '#ffffff'; cx.fillRect(0, 0, mask.width, mask.height); cx.globalCompositeOperation = 'source-over'; return; }
+    const out = new Uint32Array(maskImg.data.buffer), RGB = night ? DUSK : 0x00ffffff; for (let k = 0; k < out.length; k++) if (out[k]) out[k] = (out[k] & 0xff000000) | RGB;
+    mask.getContext('2d')!.putImageData(maskImg, 0, 0);
   }
   const ensure = (m: Mode) => Promise.all([loads.data ||= o.load().then((d) => { data = d.b; }), loadMap(m)]).then(() => undefined);
   const aff = () => (mode === 'plan' ? o.plan : o.axon);
@@ -66,11 +115,11 @@ export function mountSelect(o: SelectOptions) {
 
   function draw() {
     tagG.replaceChildren();
-    if (!sel || !data || mode !== 'axon') { [ring, near, base, edges, tops, leads].forEach((e) => e.setAttribute('d', '')); svg.classList.remove('on'); return; }
+    if (!sel || !data || mode !== 'axon') { [ring, halo, line, leads].forEach((e) => e.setAttribute('d', '')); svg.classList.remove('on'); mask.classList.remove('on'); return; }
     const b = sel, d = day(), k = 1 / Math.max(0.05, o.scale());   /* 화면 1px = 기준 k px */
-    tops.setAttribute('d', topOf(b)); base.setAttribute('d', poly(b.xy, 0));
-    edges.setAttribute('d', b.tower?.length ? verts(b.xy, 0, TOWER_Z) + verts(b.tower, TOWER_Z, b.h) : verts(b.xy, 0, b.h));
-    near.setAttribute('d', b.near.ids.map((q) => data![q]).filter(Boolean).map((q) => topOf(q)).join(''));
+    if (maskFor !== b.i) buildMask(b); mask.classList.add('on');
+    const outline = topOf(b) + (b.tower?.length ? verts(b.xy, 0, TOWER_Z) + verts(b.tower, TOWER_Z, b.h) : verts(b.xy, 0, b.h));   /* 그림은 그대로, 얇은 테두리만 */
+    halo.setAttribute('d', outline); line.setAttribute('d', outline);
     ring.setAttribute('d', Array.from({ length: 64 }, (_, j) => { const a = (j / 64) * Math.PI * 2, [u, v] = project(o.axon, b.c[0] + Math.cos(a) * b.near.r, b.c[1] + Math.sin(a) * b.near.r, 0); return `${j ? 'L' : 'M'}${u.toFixed(1)} ${v.toFixed(1)}`; }).join('') + 'Z');
     /* 꼬리표: 건물 윗면 가운데에서 그림 가운데의 반대쪽으로, 화면 13px 글씨 */
     const [ax, ay] = project(o.axon, b.c[0], b.c[1], b.h), s = b.sun[d], cast = b.cast[d];
@@ -93,12 +142,15 @@ export function mountSelect(o: SelectOptions) {
   /* 상자 카드 */
   function card(b: Bld, d: string) {
     const el = document.createElement('div'); el.className = 'kb-bld';
-    const I = b.info, yr = I?.year ? `${I.year}년 (${THIS_YEAR - I.year}년 된 건물)` : '—';
+    const I = b.info, yr = I?.year ? `${I.year}년 (${THIS_YEAR - I.year}년 된 건물)` : '—', cast = b.cast[d];
     const row = (k: string, v: string) => `<dt>${k}</dt><dd>${esc(v)}</dd>`;
     const bars = (['summer', 'today', 'winter'] as const).map((k) => { const s = b.sun[k]; if (!s) return ''; const lab = k === 'summer' ? '하지' : k === 'today' ? '오늘' : '동지';
       return `<li${k === d ? ' class="cur"' : ''}><span>${lab}</span><i><b style="width:${((s.street / (s.of || 1)) * 100).toFixed(0)}%"></b></i><em>길 ${s.street} / ${s.of}시간 · 옥상 ${s.roof}</em></li>`; }).join('');
-    const cast = b.cast[d], N = b.near;
+    const N = b.near;
+    const dn = d === 'summer' ? '하지에' : d === 'winter' ? '동지에' : '오늘', st0 = b.sun[d];
+    const lead = `이 건물 앞길은 ${dn} 햇볕이 ${st0 ? st0.street : '—'}시간 들고, ` + (cast && cast.neighbors ? `이웃 ${cast.neighbors}동에 그림자를 드리워요.` : '이웃에게 그림자를 거의 드리우지 않아요.');
     el.innerHTML = `<button type="button" class="kb-bld-back">‹ 이야기로</button>
+      <p class="kb-bld-lead">${esc(lead)}</p>
       <h3>${esc(I?.use || '건물')}<small>신당동</small></h3>
       <dl>${row('구조', I?.struct || '—')}${row('층수', I?.floors ? `지상 ${I.floors}층` + (I.basement ? ` / 지하 ${I.basement}층` : '') : '—')}${row('높이', n1(I?.height || b.h, 'm'))}${row('사용승인', yr)}
       ${row('건축면적', area(I?.bldg_area))}${row('대지면적', area(I?.site_area))}${row('건폐율', n1(I?.bcr, '%'))}${row('용적률', n1(I?.far, '%'))}</dl>
@@ -114,7 +166,7 @@ export function mountSelect(o: SelectOptions) {
   function hoverAt(cx: number, cy: number) {
     if (dead) return -1;
     const i = idAt(cx, cy), b = i >= 0 ? data?.[i] : null;
-    hover.setAttribute('d', b && b !== sel ? topOf(b) : '');
+    hover.setAttribute('d', b && b !== sel ? (mode === 'axon' ? topOf(b) + (b.tower?.length ? verts(b.xy, 0, TOWER_Z) + verts(b.tower, TOWER_Z, b.h) : verts(b.xy, 0, b.h)) : topOf(b)) : '');   /* axon 은 테두리만(막을 하나 더 만들지 않는다) */
     if (mode === 'plan' && b) {
       const k = 1 / Math.max(0.05, o.scale()), [u, v] = project(o.plan, b.c[0], b.c[1], 0), t = shortName(b), FS = 12 * k, w = t.length * FS * 0.9 + 14 * k, h = 22 * k;
       nameR.setAttribute('x', (u - w / 2).toFixed(1)); nameR.setAttribute('y', (v - h - 14 * k).toFixed(1)); nameR.setAttribute('width', w.toFixed(1)); nameR.setAttribute('height', h.toFixed(1)); nameR.setAttribute('rx', (3 * k).toFixed(1));
@@ -123,15 +175,16 @@ export function mountSelect(o: SelectOptions) {
     return i;
   }
   function select(i: number) { if (!data?.[i]) return false; sel = data[i]; hover.setAttribute('d', ''); nameG.classList.remove('on'); draw(); o.cover(card(sel, day())); return true; }
-  function clear() { if (!sel) return false; sel = null; draw(); o.cover(null); return true; }
+  function clear() { if (!sel) return false; sel = null; maskFor = -1; draw(); o.cover(null); return true; }
   return {
-    ensure, idAt, hoverAt, select, clear,
+    ensure, ensureHi, idAt, hoverAt, select, clear, get maskMs() { return hiMs; },
+    setNight(n: boolean) { if (n === night) return; night = n; tint(); },
     setMode(m: Mode) { mode = m; hover.setAttribute('d', ''); nameG.classList.remove('on'); draw(); },
     get mode() { return mode; }, get selected() { return sel; }, building: (i: number) => data?.[i] ?? null,
     refresh() { if (sel) { draw(); o.cover(card(sel, day())); } },   /* 날짜가 바뀌었을 때 */
     redraw() { if (sel) draw(); if (nameG.classList.contains('on')) nameG.classList.remove('on'); },   /* 카메라가 바뀌었을 때(꼬리표 크기) */
     enter() { svg.classList.remove('enter'); void svg.getBoundingClientRect(); svg.classList.add('enter'); },   /* 내려앉은 뒤 차례로 그려지기 */
-    destroy() { dead = true; svg.remove(); delete maps.plan; delete maps.axon; data = null; },
+    destroy() { dead = true; svg.remove(); mask.remove(); delete maps.plan; delete maps.axon; hiMap = null; data = null; },
   };
 }
 export type Select = ReturnType<typeof mountSelect>;

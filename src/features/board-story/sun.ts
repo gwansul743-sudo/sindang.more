@@ -75,7 +75,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
     s.style.boxShadow = Array.from({ length: 28 }, () => `${(rnd() * 100).toFixed(1)}vw ${(rnd() * 55).toFixed(1)}vh 0 ${rnd() < 0.2 ? 1 : 0}px #fbf3e2`).join(','); stage.appendChild(s); });
   const area = document.createElement('div'); area.className = 'kb-dio-panes'; stage.appendChild(area);
   const crumbs = document.createElement('nav'); crumbs.className = 'kb-dio-crumbs'; crumbs.setAttribute('aria-label', '길잡이'); crumbs.hidden = true;
-  crumbs.innerHTML = '<button type="button" data-l="0">보드</button><i>›</i><button type="button" data-l="1">위에서 본 신당</button><i class="z">›</i><b class="z">건물</b>';
+  crumbs.innerHTML = '<button type="button" data-l="0">지도</button><i>›</i><button type="button" data-l="1">위에서 본 신당</button><i class="z">›</i><b class="z">건물</b>';
   const upBtn = document.createElement('button'); upBtn.type = 'button'; upBtn.className = 'kb-dio-up'; upBtn.textContent = '‹ 위에서 보기'; upBtn.hidden = true;
   c.host.appendChild(stage);
   const st = mountSunStage({ stage, host: c.host, area, base, size: [SW, SH], trans: tr as TransVideo, local: m.local, fetchImg,
@@ -90,7 +90,8 @@ export const diorama: Renderer = async (c: LayerCtx) => {
 
   /* 건물 고르기 */
   const select = hiOk ? mountSelect({ world: st.world, size: [SW, SH], plan: planAff, axon: m.axon!, idmapPlan: base + m.hi!.idmap_top, idmapAxon: base + m.idmap!.file,
-    load: () => c.load('sun-buildings.json') as Promise<{ b: Bld[] }>, cover: (el) => c.cover(el), date: () => (level === 2 ? 'today' : date), scale: () => st.cam.s }) : null;
+    load: () => c.load('sun-buildings.json') as Promise<{ b: Bld[] }>, cover: (el) => c.cover(el), date: () => (level === 2 ? 'today' : date), scale: () => st.cam.s,
+    idmapAxon2: base + m.hi!.idmap_axon, frameImg: () => st.frontImg(), islandSrc: base + (m.hi!.today[0] || '') }) : null;
   if (select) { void fetchImg(base + m.hi!.top); void select.ensure('plan'); }   /* 위에서 본 그림 + 그 idmap 을 먼저 */
   if (new URLSearchParams(location.search).has('lift_check')) Object.assign(window, { __liftCheck: (lat: number, lng: number) => st.check(lat, lng), __liftLocal: m.local,
     __sun: () => ({ view: st.view, cam: st.cam, landing: st.lastLanding, level, contain: st.contain(), sel: select?.selected?.i ?? -1 }) });   /* 확인용 */
@@ -108,7 +109,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
   row.append(play, range);
   const read = document.createElement('div'); read.className = 'kb-dio-read';
   ctl.append(tabs, row, read);
-  const hint = document.createElement('p'); hint.className = 'kb-dio-hint'; hint.textContent = '건물에 마우스를 올리면 이름이, 누르면 그 건물로 다가가요.';
+  const hint = document.createElement('p'); hint.className = 'kb-dio-hint'; hint.textContent = '건물 하나를 골라 보세요. 그 건물이 받는 햇볕과, 이웃에게 드리우는 그림자를 보여 드려요.';
   const keyRow = document.createElement('div'); keyRow.className = 'kb-sun-key';   /* 보드 장(해 눈금)의 범례 한 줄 */
   keyRow.innerHTML = `<i style="background:${SUN}"></i>해가 드는 10분 <i style="background:${SHADE}"></i>그늘`;
   const keyDate = document.createElement('b'); keyRow.prepend(keyDate);
@@ -126,7 +127,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
     if (!walkers) {
       const data = (await c.load('sun-roads.json')) as Parameters<typeof mountDioWalkers>[0]['data'];
       if (!c.alive() || walkers) return;
-      walkers = mountDioWalkers({ pane: st.world, axon: { perZ: [0, 0], ...m.axon } as Parameters<typeof mountDioWalkers>[0]["axon"], local: m.local, size: [SW, SH], data, who: c.villagers, cell: () => Math.min(3, Math.max(1, Math.round(1.9 * st.cam.s))) / st.cam.s, scale: () => st.cam.s,
+      walkers = mountDioWalkers({ pane: st.world, axon: { perZ: [0, 0], ...m.axon } as Parameters<typeof mountDioWalkers>[0]["axon"], local: m.local, size: [SW, SH], data, who: c.villagers, cell: () => Math.min(2, Math.max(1, Math.round(1.9 * st.cam.s))) / st.cam.s, scale: () => st.cam.s,
         onTalk: () => { stop(); pauseLive(); c.hold(true); clearInterval(talkT); talkT = window.setInterval(() => { if (!c.alive() || !c.villagers!.talking()) { clearInterval(talkT); if (c.alive()) { c.hold(false); if (level === 2) resumeLive(); } } }, 400); } });
     }
     walkers.start(); walkers.page({ h: '', body: '' }, isNight());
@@ -142,7 +143,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
       if (show && (st.view === 'axon' || st.view === 'zoom')) void st.frame(base + f.file);
       read.innerHTML = f.night ? `<b>${hourLabel(f.h)} · 해 진 뒤</b> · 밤` : `<b>${hourLabel(f.h)}</b> · 해 높이 ${Math.round(f.elev)}°`;
     }
-    stage.classList.toggle('night', !!f?.night && (st.view === 'axon' || st.view === 'zoom')); walkers?.page({ h: '', body: '' }, !!f?.night);
+    stage.classList.toggle('night', !!f?.night && (st.view === 'axon' || st.view === 'zoom')); walkers?.page({ h: '', body: '' }, !!f?.night); select?.setNight(!!f?.night);
     tabEls.forEach((b, i) => { const on = dates[i] === date; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); });
     tabs.hidden = level === 2; play.hidden = level === 2;
     range.max = String(Math.max(0, frames(date).length - 1)); range.value = String(idx);
@@ -181,10 +182,10 @@ export const diorama: Renderer = async (c: LayerCtx) => {
     const s = Math.max(tc.s, Math.min(tc.s * ZMAX, 0.6 * Math.min(a.w / bw, a.h / bh))), u = project(m.axon!, b.c[0], b.c[1], b.h / 2);
     return { s, tx: a.x + a.w / 2 - s * u[0], ty: a.y + a.h / 2 - s * u[1] };
   }
-  /* 1 → 2: 고른 건물로 */
+  /* 1 → 2: 고른 건물로(2× idmap 은 영상이 도는 동안 받는다 — 흐림 막을 그 해상도로) */
   async function pick(i: number) {
     if (!select || level !== 1 || st.view !== 'plan') return;
-    await select.ensure('axon'); const b = select.building(i); if (!b || !c.alive() || level !== 1) return;
+    await select.ensure('axon'); void select.ensureHi(); const b = select.building(i); if (!b || !c.alive() || level !== 1) return;
     select.hoverAt(-1e5, -1e5); stage.classList.remove('kb-pick');
     date = 'today'; setLevel(2); idx = frameAt('today', pageL.hour ?? 14);
     const src = frameSrc(); paint(false); slotFor();

@@ -242,12 +242,10 @@ html.kb-rest #map.kb-story-ptr svg{cursor:pointer}
 /* 건물 고르기(select.ts): 그림 칸 위 SVG(viewBox = 그림 크기, contain 과 똑같이). 선 굵기는 화면 px 그대로(non-scaling) */
 #map .kb-dio-world svg.kb-dio-sel{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;will-change:auto;shape-rendering:auto;opacity:1}
 .kb-dio-sel path{vector-effect:non-scaling-stroke;stroke-linejoin:round}
-.kb-dio-sel .sl-hover{fill:#fbf3e2;fill-opacity:.35;stroke:#fbf3e2;stroke-width:1.5}
-.kb-dio-sel .sl-ring{fill:#7d203014;stroke:var(--kb-wine);stroke-width:1.6;stroke-dasharray:7 5}
-.kb-dio-sel .sl-near{fill:#7d2030;fill-opacity:.15;stroke:#7d2030;stroke-opacity:.55;stroke-width:1}
-.kb-dio-sel .sl-base{fill:none;stroke:var(--kb-wine);stroke-width:1.2;stroke-dasharray:4 3;opacity:.8}
-.kb-dio-sel .sl-edge{fill:none;stroke:var(--kb-wine);stroke-width:2}
-.kb-dio-sel .sl-top{fill:#7d2030;fill-opacity:.35;stroke:var(--kb-wine);stroke-width:2}
+.kb-dio-sel .sl-hover{fill:none;stroke:#fbf3e2;stroke-width:1.5;opacity:.9}
+.kb-dio-sel .sl-ring{fill:none;stroke:#fbf3e2;stroke-width:1.2;stroke-dasharray:6 5;opacity:.75}
+.kb-dio-sel .sl-halo{fill:none;stroke:#fbf3e2;stroke-width:3}
+.kb-dio-sel .sl-line{fill:none;stroke:var(--kb-wine);stroke-width:1}
 .kb-dio-sel .sl-lead{fill:none;stroke:var(--kb-thread);stroke-width:1.4;stroke-dasharray:5 3}
 .kb-dio-sel .sl-tag rect{fill:#fbf3e2;stroke:#c4ae8f;stroke-width:2}
 .kb-dio-sel .sl-tag rect.st{fill:none;stroke:var(--kb-stitch);stroke-width:1.5;stroke-dasharray:6 4}
@@ -327,8 +325,14 @@ html.kb-story-focus .wk *,html.kb-story-focus .kb .kb-buttons *{pointer-events:n
 .kb-dio-sel .sl-name.on{opacity:1}
 .kb-dio-sel .sl-name rect{fill:#fbf3e2;stroke:var(--kb-wine);vector-effect:non-scaling-stroke;stroke-width:1.2}
 .kb-dio-sel .sl-name text{font-family:var(--font-ui);font-weight:800;fill:var(--kb-wine);text-anchor:middle;dominant-baseline:central;letter-spacing:-.02em}
-.kb-dio-sel.enter .sl-ring,.kb-dio-sel.enter .sl-near,.kb-dio-sel.enter .sl-base,.kb-dio-sel.enter .sl-edge,.kb-dio-sel.enter .sl-top,.kb-dio-sel.enter .sl-lead,.kb-dio-sel.enter .sl-tag{animation:kb-sel-in .35s ease both}
-.kb-dio-sel.enter .sl-ring{animation-delay:0s}.kb-dio-sel.enter .sl-near{animation-delay:.12s}.kb-dio-sel.enter .sl-base,.kb-dio-sel.enter .sl-edge,.kb-dio-sel.enter .sl-top{animation-delay:.24s}
+.kb-dio-sel.enter .sl-ring,.kb-dio-sel.enter .sl-halo,.kb-dio-sel.enter .sl-line,.kb-dio-sel.enter .sl-lead,.kb-dio-sel.enter .sl-tag{animation:kb-sel-in .35s ease both}
+.kb-dio-sel.enter .sl-ring{animation-delay:.12s}.kb-dio-sel.enter .sl-halo,.kb-dio-sel.enter .sl-line{animation-delay:.24s}
 .kb-dio-sel.enter .sl-lead{animation-delay:.36s}.kb-dio-sel.enter .sl-tag{animation-delay:calc(.48s + var(--i) * .12s)}
 @keyframes kb-sel-in{from{opacity:0}to{opacity:1}}
 @media(prefers-reduced-motion:reduce){.kb-dio-sel.enter *{animation:none!important}}
+
+/* 세 겹 흐림 막(select.ts): 고른 건물 맑게, 이웃·반경 땅 30 %, 나머지 65 %(밤엔 밤 파랑, 조금 옅게). 고를 때 0.25초 */
+#map .kb-dio-world canvas.kb-dio-mask{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .25s ease;pointer-events:none}
+#map .kb-dio-world canvas.kb-dio-mask.on{opacity:1}
+#map .kb-dio-world canvas.kb-dio-mask.on.night{opacity:.92}
+.kb-bld-lead{margin:4px 0 8px;font-size:17px;font-weight:800;line-height:1.45;color:var(--kb-wine);letter-spacing:-.03em;word-break:keep-all}
