@@ -302,18 +302,25 @@ export function bootLegacy(DATA){
   /* 이장님이 말하는 동안(전시 연출·말풍선·큰 상자)엔 주민에게 말을 걸 수 없다(10-23) */
   /* 이장님이 전시 연출 중이거나 큰 상자로 말하는 동안엔 주민에게 말을 걸 수 없다. 이장님 작은 말풍선은 막지 않는다 — 새로 뜬 주민 말풍선이 그것을 닫는다(10-26) */
   const chiefBusy = () => (KIOSK && kioskStage === 'play') || talk.visible;
-  function villagerHook(w, script, touch){ if(villager?.w === w && (vSpeech.visible || vTalk.visible)) return true;   /* 이미 이 주민이 말하는 중 */
+  /* how: 'hover'(마우스 올림 — 안내 줄 없는 말풍선) | 'click'(마우스로 누름) | 'touch'(손가락) — 누르면 '이야기 듣기 ›' 가 붙은 말풍선(10-28: 줌아웃이라 hover 말풍선이 안 뜰 때도, 폰에서 가게 카드가 떠 있을 때도 먼저 이것).
+     이미 hover 로 이 주민 말풍선이 떠 있으면 다시 찍지 않고 안내 줄만 붙인다. vFull: 지금 말풍선에 안내 줄이 있나 — 있을 때 이 주민을 또 누르면 큰 상자 */
+  let vFull = false;
+  function villagerHook(w, script, how = 'hover'){ const full = how !== 'hover';
+    if(villager?.w === w && vTalk.visible) return true;   /* 이미 이 주민과 대화 중 */
+    if(villager?.w === w && vSpeech.visible){ if(full && !vFull){ vFull = true; vSpeech.setCta('이야기 듣기 ›'); hookTimer(w, TOUCH_HOOK_MS, how === 'touch'); } return true; }
     if(chiefBusy() || vTalk.visible) return false;
-    speech.hide(); takeVillager(w, script); vSpeech.say([script.hook], { onTap: () => villagerOpen(w, script), cta: touch ? '이야기 듣기 ›' : undefined });   /* 말풍선을 눌러도 큰 상자(10-26) */
-    vHookT = setTimeout(() => { if(villager?.w === w && !vTalk.visible){ villagerDone(); if(touch && KIOSK) idle(); } }, script.hook.length * 34 + (touch ? TOUCH_HOOK_MS : HOOK_MS));
-    if(touch) focusVillager(w);
-    return true; }   /* 다 찍힌 뒤 HOOK_MS(터치는 TOUCH_HOOK_MS) 동안 남는다(한 글자 34ms 타자) */
+    speech.hide(); takeVillager(w, script); vFull = full; vSpeech.say([script.hook], { onTap: () => villagerOpen(w, script), cta: full ? '이야기 듣기 ›' : undefined });   /* 말풍선을 눌러도 큰 상자(10-26) */
+    hookTimer(w, script.hook.length * 34 + (full ? TOUCH_HOOK_MS : HOOK_MS), how === 'touch');
+    if(how === 'touch') focusVillager(w);
+    return true; }   /* 다 찍힌 뒤 HOOK_MS(누른 것은 TOUCH_HOOK_MS) 동안 남는다(한 글자 34ms 타자) */
+  function hookTimer(w, ms, touch){ clearTimeout(vHookT); vHookT = setTimeout(() => { if(villager?.w === w && !vTalk.visible){ villagerDone(); if(touch && KIOSK) idle(); } }, ms); }
   /* 터치 첫 탭에 그 주민을 비춘다(10-26): 자동 순환을 멈추고, 폰에서 가게 카드(바텀시트)가 떠 있으면 닫고(아래를 덮는다), 사람이 잘 보이는 배율로 —
      전시 보드는 + 버튼 3번(TAP_ZOOMS — 폰에서 사람 키가 21 → 42px 로 커지는 첫 배율), 평소 지도는 4.6. 더 당겨 보고 있었으면 그대로 */
   const TAP_ZOOMS = 3;
-  function focusVillager(w){ stopCycle(); if(current && !desktop()) closeCard();
+  /* 10-28: 폰에서 가게 카드가 떠 있어도 닫지 않는다 — 카드는 '이야기 듣기' 로 큰 상자를 열 때 닫힌다(villagerOpen). 그 동안 사람은 카드(바텀시트) 위쪽에 */
+  function focusVillager(w){ stopCycle();
     const s0 = Math.max(scale(), KIOSK && board ? kioskTarget().s * 1.6 ** TAP_ZOOMS : 4.6);
-    centerOn(w.x + w.ox, w.y + w.oy, s0, 0); }   /* 다 찍힌 뒤 HOOK_MS 동안 남는다(한 글자 34ms 타자) */
+    centerOn(w.x + w.ox, w.y + w.oy, s0, current && !desktop() ? V.ph * 0.24 : 0); }   /* 다 찍힌 뒤 HOOK_MS 동안 남는다(한 글자 34ms 타자) */
   /* 주민과 대화(10-23): 자동 순환을 멈추고 그 주민을 비춘다 — 큰 상자를 열고, 그 주민의 가게(대본 store = 가게 이름) 카드를 사이드바에 펴고,
      사이드바가 다 펴진 뒤 카메라가 주민 쪽으로 줌인(전시 보드에선 자동 순환과 같은 배율). 주민은 대화 동안 그 자리에 서 있다(hold) */
   /* 모바일(10-23): 대화 중엔 가게 카드(바텀시트)를 띄우지 않는다 — 대화 상자와 겹쳤다. 이름표 옆 '가게 카드 ›' 로 대화를 닫고 바로 열거나, 대화가 끝나면 열린다(vEndCard) */
@@ -329,8 +336,8 @@ export function bootLegacy(DATA){
       if(st && wide){ if(KIOSK && board){ board.select(st.id); board.focus(null); } select(st, false, true); }
       const s0 = KIOSK && board ? focusZoom() : Math.max(scale(), 4.6);
       centerOn(w.x + w.ox, w.y + w.oy, s0, wide ? V.ph * 0.1 : V.ph * 0.14); };   /* 아래 큰 상자를 피해 사람을 조금 위에 */
-    if(st && wide) withSide(false, go); else go(); }
-  function villagerDone(){ endPeek(); clearTimeout(vHookT); vSpeech.hide(); if(vTalk.visible) vTalk.hide(); villager?.w.release(); villager = null; }
+    if(st && wide) withSide(false, go); else if(!wide && current) closeCard(go); else go(); }   /* 폰: 떠 있던 가게 카드(바텀시트)는 닫고 대화(10-28) — 대화 상자가 카드 위에 쌓였다 */
+  function villagerDone(){ endPeek(); vFull = false; clearTimeout(vHookT); vSpeech.hide(); if(vTalk.visible) vTalk.hide(); villager?.w.release(); villager = null; }
   /* 큰 상자로 대화하는 중에 다른 주민을 누르면(10-28): 바로 넘어가지 않고 그 사람 머리 위에 작은 말풍선(hook)만 — hover 와 같은 말풍선, 큰 상자는 그대로.
      그 사람은 말풍선이 떠 있는 동안 서 있고, 그 동안 한 번 더 누르거나 말풍선을 누르면 그 사람과 큰 대화로 넘어간다. 지도 빈 곳을 누르거나 시간이 지나면 닫힌다 */
   let vPeek = null, vPeekT = null;   /* { w, script } 대화 중에 말풍선을 띄운 다른 주민 */
@@ -350,8 +357,9 @@ export function bootLegacy(DATA){
     w.g.addEventListener('click', e => { e.stopPropagation(); if(V.moved) return;
       const type = downType || e.pointerType || (matchMedia('(hover: none)').matches ? 'touch' : 'mouse'); downType = '';
       if(vTalk.visible && villager?.w !== w){ if(vPeek?.w === w) villagerOpen(w, script); else villagerPeek(w, script); return; }   /* 다른 주민과 대화 중: 첫 번째는 작은 말풍선, 그 말풍선이 떠 있을 때 한 번 더 누르면 이 사람과 대화(10-28) */
-      const firstTouch = type !== 'mouse' && !(villager?.w === w && (vSpeech.visible || vTalk.visible));
-      if(firstTouch && !vTalk.visible) villagerHook(w, script, true); else if(!(villager?.w === w && vTalk.visible)) villagerOpen(w, script); });
+      if(villager?.w === w && vTalk.visible) return;   /* 이미 이 주민과 대화 중 */
+      if(villager?.w === w && vSpeech.visible && vFull) villagerOpen(w, script);   /* '이야기 듣기' 말풍선이 떠 있을 때 한 번 더: 큰 상자 */
+      else villagerHook(w, script, type === 'mouse' ? 'click' : 'touch'); });   /* 첫 누르기는 마우스·손가락 모두 '이야기 듣기' 말풍선부터(10-28) — hover 말풍선이 떠 있었으면 거기에 안내 줄만 붙는다 */
   }
   /* 보드 전체(시안 캔버스 1774×887)를 담는 카메라 */
   const kioskTarget = () => { const v = board.view(); return { x: v.x, y: v.y, s: desktop() ? Math.min(V.pw / v.w, V.ph / v.h) : V.pw / (v.iw * 1.08) }; };   /* 데스크톱: 캔버스 전체(하늘까지) · 폰: 섬 폭에 맞춤 */
