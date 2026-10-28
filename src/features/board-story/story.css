@@ -70,6 +70,7 @@ html.kb-rest #map.kb-story-ptr svg{cursor:pointer}
 .kb-age-none{fill:none;stroke:#6b3a30;stroke-width:.6;stroke-opacity:.3;transition:opacity .6s ease}
 .kb-age-d.dim,.kb-age-none.dim{opacity:.15}
 /* 범례 띠(상자 아래쪽) */
+.kb-story-slot{flex:none}   /* 상자가 낮아지면 본문(.kb-story-page)이 스크롤되고 아래 칸은 줄어들지 않는다 */
 .kb-story-slot:empty{display:none}
 .kb-age-legend{display:grid;grid-template-columns:repeat(5,1fr);gap:5px 6px;margin:12px 0 0;padding:9px 0 0;border-top:1.6px dashed #9b3d4980;list-style:none;transition:opacity .6s ease}
 .kb-age-legend.off{opacity:.4}
@@ -149,3 +150,25 @@ html.kb-on #map > svg{transition:scale .7s cubic-bezier(.32,.72,0,1),opacity .7s
 .kb-dio-wk.on{opacity:1}
 .kb-dio-hit{pointer-events:visible;cursor:pointer}
 .kb-dio-wk.night{filter:drop-shadow(0 0 .6px #fbf3e2) drop-shadow(0 0 .6px #fbf3e2)}
+
+/* 구름 — 그늘길(cloudRest.ts shade): 그늘 정도 네 묶음 × 시각 두 벌(path 8개). 시각이 바뀌면 opacity 만 */
+.kb-shade{opacity:0;transition:opacity .6s ease;pointer-events:none}
+.kb-shade.on{opacity:1}
+.kb-shade path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.kb-shade-t{opacity:0;transition:opacity .6s ease}
+.kb-shade-t.cur{opacity:.92}
+.kb-shade-key{display:flex;align-items:center;gap:4px;margin-top:12px;padding-top:9px;border-top:1.6px dashed #9b3d4980;font-size:11px;font-weight:600;letter-spacing:-.3px}
+.kb-shade-key i{display:inline-block;width:22px;height:7px;border-radius:4px}
+.kb-shade-key span:first-child{margin-right:4px}.kb-shade-key span:last-child{margin-left:4px}
+/* 막대그래프(체감 35℃ 넘는 날) — 상자 안, 막대는 아래에서 자란다(scaleY 한 번) */
+.kb-chart{margin:12px 0 0;padding-top:9px;border-top:1.6px dashed #9b3d4980}
+.kb-chart figcaption{font-size:11px;font-weight:700;letter-spacing:-.3px;color:var(--kb-stitch);margin-bottom:2px}
+.kb-bars{display:flex;align-items:flex-end;gap:5px;height:118px}
+.kb-bar-c{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center}
+.kb-bar-c b{font:700 10px var(--font-ui);color:#6b3a30;margin-bottom:2px}
+.kb-bar-c i{display:block;width:72%;border-radius:2px 2px 0 0;background:#c4ae8f;transform-origin:50% 100%}
+.kb-bar-c span{font:600 9.5px var(--font-ui);color:#9a7a60;margin-top:3px;white-space:nowrap}
+.kb-bar-c.hi b{color:var(--kb-wine)}.kb-bar-c.hi i{background:var(--kb-wine)}
+.kb-chart.grow .kb-bar-c i{animation:kb-bar-in .6s cubic-bezier(.32,.72,0,1) both}
+@keyframes kb-bar-in{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@media(prefers-reduced-motion:reduce){.kb-shade,.kb-shade-t{transition:none}.kb-chart.grow .kb-bar-c i{animation:none}}

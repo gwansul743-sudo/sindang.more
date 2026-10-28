@@ -1,0 +1,1 @@
+{"note": "Days per year with daily max apparent temperature >= 35 C (feel35) and air temperature >= 33 C (hot33). Open-Meteo historical weather (ERA5 reanalysis), 37.565N 127.021E.", "years": [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025], "feel35": [35, 16, 34, 17, 9, 22, 19, 30, 48, 45], "hot33": [4, 2, 23, 9, 1, 9, 2, 6, 13, 25]}

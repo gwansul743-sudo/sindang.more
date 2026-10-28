@@ -81,4 +81,7 @@ const buildingsAge: Renderer = async (c) => {
 /* 해 디오라마는 코드가 커서 해 이야기를 열 때 받는다(첫 화면 무게, CLAUDE.md §8) */
 const diorama: Renderer = async (c) => (await import('./sun')).diorama(c);
 
-export const RENDERERS: Record<string, Renderer> = { constellation, 'buildings-age': buildingsAge, diorama };
+/* 구름(그늘길)·나무(쉼)도 이야기를 열 때 받는다 */
+const shade: Renderer = async (c) => (await import('./cloudRest')).shade(c);
+
+export const RENDERERS: Record<string, Renderer> = { constellation, 'buildings-age': buildingsAge, diorama, shade };
