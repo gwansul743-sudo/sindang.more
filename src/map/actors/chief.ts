@@ -1,4 +1,4 @@
-/* 이장님 — 정해진 자리에 서 있다가, 포인터가 다가오면 폴짝 뛰고 손을 흔든 뒤 꾸벅 인사. 머리 위에 빨간 세모(NPC 표시), 발밑에 이름표(랜드마크 이름표와 같은 모양).
+/* 이장님 — 정해진 자리에 서 있다가, 포인터가 다가오면 폴짝 뛰고 손을 흔든 뒤 꾸벅 인사. 머리 위에 빨간 세모(NPC 표시). 발밑 이름표는 chief.json 에 name 이 있을 때만(10-28 '신당 5길' 이름표를 뺐다).
    자리와 도안·색·표시·이름은 content/characters/chief.json. */
 import { el } from '../svg';
 import { SW, FEET, SHADOW, mountFrames, type FrameSet, type Palette } from '../sprites/compose';
