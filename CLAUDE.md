@@ -133,7 +133,7 @@ interviews  id, source(form|shop), answers(json), summary_md, store_id?, created
 - 주민 대본 `content/characters/villagers/*.json`: id·name·store(가게 이름과 똑같이)·hook·pages(3~8장), 선택 `look`(`act.json` 참고 — style short|bob|hat, bun·bag, col 은 `palette.json` 키). `store` 는 실DB 가게 이름과 똑같이(예: '나은데이 필라테스'). 지금 5명(바액트·신당야학·표주·두런두런·나은데이).
 - hover(터치는 첫 탭): 머리 위 hook 말풍선. 판정은 그려진 몸 칸(`scene.ts` overBody)을 매 프레임 `HoverProbe` 가 본다. 새 말풍선이 옛 것을 닫고, 큰 대화 상자·전시 연출 중엔 안 뜬다. 전시 보드에선 보드 전체에서 + 버튼(×1.6)을 데스크톱 1번·좁은 창 2번 누른 배율부터(`hoverZooms`).
 - 누르면(터치는 두 번째 탭, 누르는 칸 44px) 큰 대화 상자(이름표 '가게 · 이름', Skip »). 그 가게 카드를 펴고 주민 쪽으로 줌인, 자동 순환 멈춤, 주민은 멈춰 섬(`walker.hold`). 폰은 카드 대신 이름표 옆 '가게 카드 ›'.
-- 빨간 세모 표시는 `kind: "form"`(시민 인터뷰) 주민에게만.
+- 머리 위 세모 표시는 `kind: "form"`(시민 인터뷰) 주민에게만 — **초록**(10-28, `chief.json` mark.formColors). 이장님 세모는 빨강 그대로.
 
 **구글폼 → 시민 인터뷰 주민** (서버·크론 없음):
 ```

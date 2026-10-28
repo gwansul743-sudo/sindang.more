@@ -350,7 +350,7 @@ export function bootLegacy(DATA){
   function dropVillager(w){ if(villager?.w === w) villagerDone(); else if(vPeek?.w === w) endPeek(true); }
   function bindVillager(w, script){
     w.makeClickable();
-    if(script.kind === 'form') w.showMark(DATA.characters.chief.mark);   /* 시민이 인터뷰를 남겨 생긴 주민만 빨간 세모. 가게 인터뷰 주민(shop)은 표시 없음 */
+    if(script.kind === 'form'){ const M = DATA.characters.chief.mark; w.showMark({ ...M, colors: M.formColors || M.colors }); }   /* 시민이 인터뷰를 남겨 생긴 주민만 세모 — 이장님(빨강)과 달리 초록(10-28, chief.json mark.formColors). 가게 인터뷰 주민(shop)은 표시 없음 */
     w.hover.onHover = P => hoverNear() && topAt(w.g, P) && villagerHook(w, script);   /* 마우스: 몸 판정 칸 위에 있으면(walker tick → HoverProbe) — pointerenter 대신(10-26) */
     /* 터치 판정(10-23): click 의 pointerType 은 iOS 사파리 등에서 비어 와 첫 탭에 바로 대화가 열렸다 → 닿는 순간(pointerdown)의 종류를 기억해 쓴다. 그것도 없으면 hover 없는 기기를 터치로 */
     let downType = '';
@@ -693,7 +693,7 @@ export function bootLegacy(DATA){
     shopScripts.slice().sort(() => Math.random() - 0.5).slice(0, SHOP_SLOTS).forEach(v => shopEnter(v, false));   /* 처음 둘은 길 위 아무 데서나 */
     if(shopScripts.length > SHOP_SLOTS) setInterval(shopSwap, SHOP_SWAP_MS);
     /* 시민 인터뷰 주민(10-23): 구글폼 응답 → Apps Script(tools/apps-script/form_to_supabase.gs) → Supabase characters(approved) + interviews(answers).
-       앱이 답으로 대본을 만들고(features/villagers/formScript — 폼을 낸 사람은 모두, 답이 적으면 맺음말로 채움) 빨간 세모 주민으로 띄운다. 동시에 FORM_SLOTS 명까지,
+       앱이 답으로 대본을 만들고(features/villagers/formScript — 폼을 낸 사람은 모두, 답이 적으면 맺음말로 채움) 초록 세모 주민으로 띄운다. 동시에 FORM_SLOTS 명까지,
        새 사람이 오면 가장 먼저 온 사람부터 퇴장(FIFO, 인터뷰는 DB 에 남는다). 표가 바뀌면 실시간으로, 아니어도 20초마다 맞춘다.
        새 주민은 화면 밖 길에서 걸어 들어온다. status 를 hidden 으로 바꾸면 다음 맞춤 때 사라진다. ?formdemo=N 은 DB 대신 견본 응답 N건(content/characters/form-samples.json) */
     const FORM_SLOTS = 6, formOn = new Map();   /* 캐릭터 id → 주민 */
