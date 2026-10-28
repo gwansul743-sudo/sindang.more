@@ -252,7 +252,17 @@ export function mountBoard(o: BoardOptions): Board {
       ul.appendChild(li); });
     layoutLegend();
   }
-  function setFilter(cat: string | null) { const was = filter; filter = cat; if (was !== cat) regroup(); else applyBtnState(); ul.querySelectorAll('li').forEach((li) => li.classList.toggle('active', (li as HTMLElement).dataset.cat === filter)); }
+  /* 업종 고르기(10-28): 빠지는 단추는 모션 없이 바로 흐려지거나 사라지고(.dim·.gone), 새로 보이게 된 단추·숫자 단추만 '톡' 생긴다(.pop, 왼쪽부터 차례로).
+     전엔 숫자 단추를 다시 만들 때·묶음에서 풀린 단추가 다시 나타날 때 처음 등장용 kb-slam 이 다시 돌아, 빠지는 쪽이 움직이는 것처럼 보였다 */
+  const fullShown = () => { const s = new Set<string>(); btns.forEach((b) => { if (!b.cl && !(filter && b.cat !== filter)) s.add(b.id); }); clusters.forEach((c) => s.add(c.ids.slice().sort().join('|'))); return s; };
+  function setFilter(cat: string | null) { const was = filter;
+    if (was !== cat) { const before = fullShown(); filter = cat; regroup();
+      const fresh = [...btns.filter((b) => !b.cl && !(filter && b.cat !== filter) && !before.has(b.id)).map((b) => ({ g: b.g, x: b.x })),
+        ...clusters.filter((c) => !before.has(c.ids.slice().sort().join('|'))).map((c) => ({ g: c.g, x: c.x }))].sort((a, b) => a.x - b.x);
+      btns.forEach((b) => b.g.classList.remove('pop')); clusters.forEach((c) => { c.g.classList.remove('pop'); c.g.classList.toggle('still', before.has(c.ids.slice().sort().join('|'))); });   /* 전후로 같은 숫자 단추는 새로 만들어도 움직이지 않게 */
+      fresh.forEach((f, i) => { if (!f.g.classList.contains('in')) return; void f.g.getBBox(); f.g.style.animationDelay = `${Math.min(i * 35, 350)}ms`; f.g.classList.add('pop'); });
+    } else applyBtnState();
+    ul.querySelectorAll('li').forEach((li) => li.classList.toggle('active', (li as HTMLElement).dataset.cat === filter)); }
 
   /* 리넨: 타일 사진을 캔버스에 깔아 큰 그림 하나로(<pattern> 은 줌아웃에서 줄무늬) */
   let linenReady = false;
@@ -273,7 +283,7 @@ export function mountBoard(o: BoardOptions): Board {
   const at = (fn: () => void, t: number) => timers.push(window.setTimeout(fn, t * SLOW));
   const clear = () => { timers.forEach(clearTimeout); timers = []; cancelAnimationFrame(raf); };
   const showAll = (yes: boolean) => { ticks.forEach((t) => t.el.classList.toggle('show', yes)); propEls.forEach((p) => p.classList.toggle('in', yes)); titleG.classList.toggle('in', yes); skyEls.forEach((s) => s.classList.toggle('in', yes)); waveEls.forEach((w) => w.classList.toggle('in', yes)); composed = yes; };
-  const reset = () => { clear(); btnsOn = false; btns.forEach((b) => b.g.classList.remove('in')); clusters.forEach((c) => c.g.classList.remove('in')); g.classList.remove('on', 'cutting', 'arrived', 'roads-on', 'lift'); dark.classList.remove('on'); showAll(false); html.classList.remove('kb-on', 'kb-dark', 'kb-rest', 'kb-gone'); legend.classList.remove('show'); setFilter(null); selected = null; applyBtnState(); };
+  const reset = () => { clear(); btnsOn = false; btns.forEach((b) => b.g.classList.remove('in')); clusters.forEach((c) => c.g.classList.remove('in')); g.classList.remove('on', 'cutting', 'arrived', 'roads-on', 'lift'); dark.classList.remove('on'); showAll(false); html.classList.remove('kb-on', 'kb-dark', 'kb-rest', 'kb-gone'); legend.classList.remove('show'); setFilter(null); [...btns.map((b) => b.g), ...clusters.map((c) => c.g)].forEach((e) => { e.classList.remove('pop'); e.style.animationDelay = ''; }); selected = null; applyBtnState(); };   /* pop 이 남으면 다음 등장(rest)이 kb-slam 대신 kb-pop 이 된다 */
   const skip = () => { ++run; clear(); on = true; loadLinen(); g.classList.add('mounted', 'on', 'arrived', 'roads-on'); g.classList.remove('cutting', 'lift'); dark.classList.remove('on'); html.classList.add('kb-on'); html.classList.remove('kb-dark'); open(); showAll(true); const my = run; at(() => { if (my === run) html.classList.add('kb-gone'); }, 1200); };   /* 옛 층이 사라진(1.1s) 뒤 아예 뺀다(kb-gone) */
 
   return {
