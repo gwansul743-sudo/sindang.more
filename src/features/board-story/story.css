@@ -352,3 +352,12 @@ html.kb-story-focus .wk *,html.kb-story-focus .kb .kb-buttons *{pointer-events:n
 /* 집중 보기(TASK_14): 섬 위 장식(집·나무·벤치·가로등·재봉틀·팻말)은 25 % — 열린 주제의 그림(.kb-keep)은 그대로, 하늘 그림은 그대로 */
 html.kb-on .kb .kb-props .kb-prop{transition:opacity .4s ease}
 html.kb-story-focus .kb .kb-props .kb-prop:not(.kb-keep){opacity:.25!important}
+
+.kb-bld-none{margin:10px 0 6px;font-size:14px;font-weight:700;color:var(--kb-wine)}
+
+/* 하늘을 나는 2호선(subway.ts): xray 0.55 밑에 가려진 열차 1. 세계 상자에 꽉, 기울어진 보기만 */
+#map .kb-dio-world > video.kb-sub{opacity:0;transition:opacity .3s ease}
+#map .kb-dio-world > video.kb-sub.x.on{opacity:.55}
+#map .kb-dio-world > video.kb-sub.v.on{opacity:1}
+.kb-sub-tag{position:absolute;transform:translate(-50%,-160%);padding:.25em .7em;border:1px dashed var(--kb-stitch);border-radius:4px;background:#fbf3e2;color:#6f8a73;font-family:var(--font-ui);font-weight:800;letter-spacing:-.02em;white-space:nowrap;box-shadow:0 2px 3px #2e3b4338;opacity:0;transition:opacity .4s ease;pointer-events:none}
+.kb-sub-tag.on{opacity:1}

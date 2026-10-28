@@ -10,12 +10,14 @@ import { project, type Aff } from './sunStage';
      SVG 는 세계 상자 안(viewBox = 기준 그림 크기)이라 카메라와 같이 움직이고, 선 굵기·꼬리표 글씨는 화면 크기를 지킨다(카메라가 바뀌면 redraw).
    · 날짜 탭이 바뀌면 값만 다시(refresh). 요소 약 25개 */
 export interface Bld {
-  i: number; c: number[]; h: number; xy: number[][][]; tower?: number[][][]; svf: number | null;
+  i: number; c: number[]; h: number; xy: number[][][]; tower?: number[][][]; svf: number | null; removed?: boolean; src?: string;   // removed: 모형에 없는 옛 건물(고를 수 없음) · src: 새 단지 출처
   info: { use: string | null; struct: string | null; year: number | null; floors: number; basement: number; height: number; bldg_area: number; gfa: number; site_area: number; bcr: number; far: number; dong: string } | null;
-  sun: Record<string, { roof: number; street: number; best_wall: number; of: number }>;
-  cast: Record<string, { neighbors: number; hours: number; top: number[] }>;
-  near: { r: number; ids: number[]; count: number; median_year: number | null; median_floors: number | null; trees: number; road_shade_aug15: number | null; walk_to_rest_min: number | null };
+  sun: Record<string, { roof: number; street: number; best_wall: number; of: number }> | null;      // 새 단지(925–933)는 분석 자료가 없다(null)
+  cast: Record<string, { neighbors: number; hours: number; top: number[] }> | null;
+  near: { r: number; ids: number[]; count: number; median_year: number | null; median_floors: number | null; trees: number; road_shade_aug15: number | null; walk_to_rest_min: number | null } | null;
 }
+/* 가운데(c)가 없는 건물(새 단지)은 바닥 꼭짓점 평균으로 */
+export const centre = (b: Bld) => (b.c ||= (() => { const p = b.xy.flat(); return [p.reduce((a, q) => a + q[0], 0) / p.length, p.reduce((a, q) => a + q[1], 0) / p.length]; })());
 export type Mode = 'plan' | 'axon';
 export interface SelectOptions {
   world: HTMLElement; size: number[]; plan: Aff; axon: Aff; idmapPlan: string; idmapAxon: string;
@@ -64,11 +66,11 @@ export function mountSelect(o: SelectOptions) {
   /* 세 겹 흐림 막: 고를 때 한 번. 2× 로 만들어 보고 120 ms 를 넘으면 다음부터 1× */
   function buildMask(b: Bld) {
     const t0 = performance.now(), hi = useHi && !!hiMap, R = hi ? 2 : 1, W = IW * R, H = IH * R, ids = hi ? hiMap! : maps.axon; if (!ids) return;
-    const near = new Uint8Array((data?.length || 0) + 2); b.near.ids.forEach((q) => { near[q] = 1; });
+    const near = new Uint8Array((data?.length || 0) + 2); (b.near?.ids || []).forEach((q) => { near[q] = 1; });
     const A = o.axon, det = A.perX[0] * A.perY[1] - A.perY[0] * A.perX[1], ia = A.perY[1] / det, ib = -A.perY[0] / det, ic = -A.perX[1] / det, id = A.perX[0] / det;   /* 기준 px → 지역 m (z = 0) */
-    const r0 = b.near.r, r1 = r0 + 4, cx0 = b.c[0], cy0 = b.c[1], NEAR = 77, FAR = 166;   /* 0.30 · 0.65 × 255 */
+    const r0 = b.near ? b.near.r : -10, r1 = r0 + 4, cx0 = b.c[0], cy0 = b.c[1], NEAR = 77, FAR = 166;   /* 0.30 · 0.65 × 255. 이웃 자료가 없으면(새 단지) 가까운 겹 없이 */
     const img = new ImageData(W, H), out = new Uint32Array(img.data.buffer), src = new Uint32Array(ids.buffer, ids.byteOffset, W * H), RGB = night ? DUSK : 0x00ffffff;
-    const r0s = r0 * r0, r1s = r1 * r1, A_NEAR = (NEAR << 24) | RGB, A_FAR = (FAR << 24) | RGB, step = 1 / R, sh = R === 2 ? 1 : 0;   /* 섬 알파 한 칸 = 기준 1 px = 막 R px */
+    const r0s = r0 < 0 ? -1 : r0 * r0, r1s = r0 < 0 ? -1 : r1 * r1, A_NEAR = (NEAR << 24) | RGB, A_FAR = (FAR << 24) | RGB, step = 1 / R, sh = R === 2 ? 1 : 0;   /* 섬 알파 한 칸 = 기준 1 px = 막 R px */
     for (let v = 0; v < H; v++) {
       const dv = (v + 0.5) * step - A.origin[1], row = v * W, irow = (v >> sh) * IW2;
       let x = ia * (0.5 * step - A.origin[0]) + ib * dv - cx0, y = ic * (0.5 * step - A.origin[0]) + id * dv - cy0;   /* 한 줄 안에서 u 가 1 늘 때 x·y 는 일정하게 는다 */
@@ -94,7 +96,7 @@ export function mountSelect(o: SelectOptions) {
     const out = new Uint32Array(maskImg.data.buffer), RGB = night ? DUSK : 0x00ffffff; for (let k = 0; k < out.length; k++) if (out[k]) out[k] = (out[k] & 0xff000000) | RGB;
     mask.getContext('2d')!.putImageData(maskImg, 0, 0);
   }
-  const ensure = (m: Mode) => Promise.all([loads.data ||= o.load().then((d) => { data = d.b; }), loadMap(m)]).then(() => undefined);
+  const ensure = (m: Mode) => Promise.all([loads.data ||= o.load().then((d) => { data = d.b; data.forEach((b) => { if (!b.removed) centre(b); }); }), loadMap(m)]).then(() => undefined);
   const aff = () => (mode === 'plan' ? o.plan : o.axon);
   /* 화면 자리 → 기준 px → 건물 번호(세계 상자의 화면 칸으로 되돌린다) */
   function idAt(cx: number, cy: number) {
@@ -120,10 +122,10 @@ export function mountSelect(o: SelectOptions) {
     if (maskFor !== b.i) buildMask(b); mask.classList.add('on');
     const outline = topOf(b) + (b.tower?.length ? verts(b.xy, 0, TOWER_Z) + verts(b.tower, TOWER_Z, b.h) : verts(b.xy, 0, b.h));   /* 그림은 그대로, 얇은 테두리만 */
     halo.setAttribute('d', outline); line.setAttribute('d', outline);
-    ring.setAttribute('d', Array.from({ length: 64 }, (_, j) => { const a = (j / 64) * Math.PI * 2, [u, v] = project(o.axon, b.c[0] + Math.cos(a) * b.near.r, b.c[1] + Math.sin(a) * b.near.r, 0); return `${j ? 'L' : 'M'}${u.toFixed(1)} ${v.toFixed(1)}`; }).join('') + 'Z');
+    ring.setAttribute('d', b.near ? Array.from({ length: 64 }, (_, j) => { const a = (j / 64) * Math.PI * 2, [u, v] = project(o.axon, b.c[0] + Math.cos(a) * b.near!.r, b.c[1] + Math.sin(a) * b.near!.r, 0); return `${j ? 'L' : 'M'}${u.toFixed(1)} ${v.toFixed(1)}`; }).join('') + 'Z' : '');
     /* 꼬리표: 건물 윗면 가운데에서 그림 가운데의 반대쪽으로, 화면 13px 글씨 */
-    const [ax, ay] = project(o.axon, b.c[0], b.c[1], b.h), s = b.sun[d], cast = b.cast[d];
-    const tags = [s ? `옥상 일조 ${s.roof}시간` : null, b.svf != null ? `앞길 하늘 ${Math.round(b.svf * 100)}%` : null, cast ? `이웃 ${cast.neighbors}동에 그림자` : null, `반경 ${b.near.r}m 나무 ${b.near.trees}그루`].filter(Boolean) as string[];
+    const [ax, ay] = project(o.axon, b.c[0], b.c[1], b.h), s = b.sun?.[d], cast = b.cast?.[d];
+    const tags = [s ? `옥상 일조 ${s.roof}시간` : null, b.svf != null ? `앞길 하늘 ${Math.round(b.svf * 100)}%` : null, cast ? `이웃 ${cast.neighbors}동에 그림자` : null, b.near ? `반경 ${b.near.r}m 나무 ${b.near.trees}그루` : null].filter(Boolean) as string[];   /* 자료가 없는 것(새 단지)은 빼고 */
     const FS = 13 * k, TH = 24 * k, GAP = 7 * k, OFF = 34 * k, right = ax < IW / 2;
     /* 건물 + 반경 원이 화면에 차지하는 칸 바깥에 놓는다(건물 위를 덮지 않게) */
     const ext = [...(b.tower?.length ? b.tower : b.xy).flatMap((r) => r.map(([x, y]) => project(o.axon, x, y, b.h))), ...b.xy.flatMap((r) => r.map(([x, y]) => project(o.axon, x, y, 0)))];
@@ -142,23 +144,28 @@ export function mountSelect(o: SelectOptions) {
   /* 상자 카드 */
   function card(b: Bld, d: string) {
     const el = document.createElement('div'); el.className = 'kb-bld';
-    const I = b.info, yr = I?.year ? `${I.year}년 (${THIS_YEAR - I.year}년 된 건물)` : '—', cast = b.cast[d];
+    const I = b.info, yr = I?.year ? `${I.year}년 (${THIS_YEAR - I.year}년 된 건물)` : '—', cast = b.cast?.[d];
     const row = (k: string, v: string) => `<dt>${k}</dt><dd>${esc(v)}</dd>`;
-    const bars = (['summer', 'today', 'winter'] as const).map((k) => { const s = b.sun[k]; if (!s) return ''; const lab = k === 'summer' ? '하지' : k === 'today' ? '오늘' : '동지';
+    const bars = (['summer', 'today', 'winter'] as const).map((k) => { const s = b.sun?.[k]; if (!s) return ''; const lab = k === 'summer' ? '하지' : k === 'today' ? '오늘' : '동지';
       return `<li${k === d ? ' class="cur"' : ''}><span>${lab}</span><i><b style="width:${((s.street / (s.of || 1)) * 100).toFixed(0)}%"></b></i><em>길 ${s.street} / ${s.of}시간 · 옥상 ${s.roof}</em></li>`; }).join('');
-    const N = b.near;
-    const dn = d === 'summer' ? '하지에' : d === 'winter' ? '동지에' : '오늘', st0 = b.sun[d];
+    const N = b.near ?? { r: 50, ids: [], count: 0, median_year: null, median_floors: null, trees: 0, road_shade_aug15: null, walk_to_rest_min: null };   /* 자료가 있는 건물만 이 줄에 온다(새 단지는 위에서 따로) */
+    const dn = d === 'summer' ? '하지에' : d === 'winter' ? '동지에' : '오늘', st0 = b.sun?.[d];
     const lead = `이 건물 앞길은 ${dn} 햇볕이 ${st0 ? st0.street : '—'}시간 들고, ` + (cast && cast.neighbors ? `이웃 ${cast.neighbors}동에 그림자를 드리워요.` : '이웃에게 그림자를 거의 드리우지 않아요.');
-    el.innerHTML = `<button type="button" class="kb-bld-back">‹ 이야기로</button>
-      <p class="kb-bld-lead">${esc(lead)}</p>
-      <h3>${esc(I?.use || '건물')}<small>신당동</small></h3>
+    const basic = `<h3>${esc(I?.use || '건물')}<small>신당동</small></h3>
       <dl>${row('구조', I?.struct || '—')}${row('층수', I?.floors ? `지상 ${I.floors}층` + (I.basement ? ` / 지하 ${I.basement}층` : '') : '—')}${row('높이', n1(I?.height || b.h, 'm'))}${row('사용승인', yr)}
-      ${row('건축면적', area(I?.bldg_area))}${row('대지면적', area(I?.site_area))}${row('건폐율', n1(I?.bcr, '%'))}${row('용적률', n1(I?.far, '%'))}</dl>
-      <h4>햇볕 <small>(길 높이에서 해가 드는 시간 / 해가 떠 있는 시간)</small></h4><ul class="kb-bld-sun">${bars}</ul>
-      <h4>하늘과 열</h4><p>앞길에서 하늘이 <b>${b.svf != null ? Math.round(b.svf * 100) + '%' : '—'}</b> 보여요. 하늘이 많이 보일수록 밤에 열이 잘 빠져요.</p>
-      <h4>이웃과 함께 <small>(반경 ${N.r}m)</small></h4>
-      <ul class="kb-bld-near"><li>그림자를 드리우는 이웃 <b>${cast ? cast.neighbors + '동 · ' + cast.hours + '시간' : '—'}</b></li><li>이웃 건물 <b>${N.count}동</b> · 가운데 연도 <b>${N.median_year ?? '—'}</b> · 가운데 층수 <b>${N.median_floors ?? '—'}</b></li>
-      <li>나무 <b>${N.trees}그루</b> · 8월 오후 길 그늘 <b>${N.road_shade_aug15 != null ? Math.round(N.road_shade_aug15 * 100) + '%' : '—'}</b></li><li>가장 가까운 쉼터까지 걸어서 <b>${N.walk_to_rest_min != null ? N.walk_to_rest_min + '분' : '—'}</b></li></ul>`;
+      ${row('건축면적', area(I?.bldg_area))}${row('대지면적', area(I?.site_area))}${row('건폐율', n1(I?.bcr, '%'))}${row('용적률', n1(I?.far, '%'))}</dl>`;
+    if (!b.sun) {   /* 새 단지(925–933): 기본 정보 + 한 줄 + 출처 */
+      el.innerHTML = `<button type="button" class="kb-bld-back">‹ 이야기로</button>${basic}<p class="kb-bld-none">새로 지어진 단지라 햇볕 분석 자료가 아직 없어요.</p>` + (b.src ? `<small class="kb-story-src">${esc(b.src)}</small>` : '');
+    } else {
+      el.innerHTML = `<button type="button" class="kb-bld-back">‹ 이야기로</button>
+        <p class="kb-bld-lead">${esc(lead)}</p>
+        ${basic}
+        <h4>햇볕 <small>(길 높이에서 해가 드는 시간 / 해가 떠 있는 시간)</small></h4><ul class="kb-bld-sun">${bars}</ul>
+        <h4>하늘과 열</h4><p>앞길에서 하늘이 <b>${b.svf != null ? Math.round(b.svf * 100) + '%' : '—'}</b> 보여요. 하늘이 많이 보일수록 밤에 열이 잘 빠져요.</p>
+        <h4>이웃과 함께 <small>(반경 ${N.r}m)</small></h4>
+        <ul class="kb-bld-near"><li>그림자를 드리우는 이웃 <b>${cast ? cast.neighbors + '동 · ' + cast.hours + '시간' : '—'}</b></li><li>이웃 건물 <b>${N.count}동</b> · 가운데 연도 <b>${N.median_year ?? '—'}</b> · 가운데 층수 <b>${N.median_floors ?? '—'}</b></li>
+        <li>나무 <b>${N.trees}그루</b> · 8월 오후 길 그늘 <b>${N.road_shade_aug15 != null ? Math.round(N.road_shade_aug15 * 100) + '%' : '—'}</b></li><li>가장 가까운 쉼터까지 걸어서 <b>${N.walk_to_rest_min != null ? N.walk_to_rest_min + '분' : '—'}</b></li></ul>`;
+    }
     el.querySelector('.kb-bld-back')!.addEventListener('click', (e) => { e.stopPropagation(); clear(); });
     return el;
   }

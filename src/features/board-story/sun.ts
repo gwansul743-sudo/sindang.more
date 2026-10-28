@@ -1,7 +1,8 @@
 import type { LayerCtl, LayerCtx, Renderer, StoreSpot } from './layers';
 import { mountSunStage, project, type Aff, type Cam, type LocalFrame, type TransVideo } from './sunStage';
 import { mountDioWalkers, type DioWalkers } from './dioWalkers';
-import { mountSelect, type Bld } from './select';
+import { mountSelect, centre, type Bld } from './select';
+import { mountSubway, type SubwaySpec } from './subway';
 
 /* 해 이야기(10-28) — layer.type "diorama". 장의 layer 칸: view "diorama" | "board", date, hour, autoplay, stores, diagram, mode.
    · 세 단계(TASK_12, 감독 최종 흐름) — mode "select" 인 장:
@@ -16,12 +17,12 @@ import { mountSelect, type Bld } from './select';
    · 무대·전환은 sunStage.ts, 고르기는 select.ts, 디오라마 속 주민은 dioWalkers.ts. 닫히면(destroy) 모두 DOM 에서 지운다. 그림 내용(픽셀)에 기대지 않는다. */
 interface Frame { h: number; elev: number; az: number; file: string; night?: boolean }
 interface Manifest { dates: Record<string, string>; frames: Record<string, Frame[]>; size?: number[]; local?: LocalFrame; transition?: Partial<TransVideo>; idmap?: { file: string }; axon?: Aff;
-  hi?: { top: string; idmap_top: string; idmap_axon: string; today: string[] } }
+  hi?: { top: string; idmap_top: string; idmap_axon: string; today: string[] }; subway?: SubwaySpec; island?: { latlng: number[][] } }
 interface DaySun { hours: number; of: number; slots: string; start: string }
 interface StoreSun { id: string; name: string; [day: string]: DaySun | string | unknown }
 interface PageL { view?: 'diorama' | 'board'; date?: string; hour?: number; autoplay?: boolean; stores?: string; diagram?: string; mode?: string }
 
-const DATES = ['summer', 'today', 'winter'];   /* 춘분은 건물 자료가 없어 뺐다(TASK_12) */
+const DATES = ['summer', 'equinox', 'today', 'winter'];   /* 춘분 그림은 있다(TASK_13) — 건물 카드만 춘분 수치가 없어 '오늘' 값으로 */
 const STEP_MS = 900, LIVE_MS = 1200, LOOP_REST_MS = 1500, ZMAX = 3;
 const SUN = '#f0a850', SHADE = '#9a7a60';                 /* 해 눈금: 해 = 밤 하늘 노을 노랑(night.ts), 그늘 = 범례 안내 글자 회갈색(board.css .kb-note) */
 const NS = 'http://www.w3.org/2000/svg';
@@ -93,8 +94,10 @@ export const diorama: Renderer = async (c: LayerCtx) => {
     load: () => c.load('sun-buildings.json') as Promise<{ b: Bld[] }>, cover: (el) => c.cover(el), date: () => (level === 2 ? 'today' : date), scale: () => st.cam.s,
     idmapAxon2: base + m.hi!.idmap_axon, frameImg: () => st.frontImg(), islandSrc: base + (m.hi!.today[0] || '') }) : null;
   if (select) { void fetchImg(base + m.hi!.top); void select.ensure('plan'); }   /* 위에서 본 그림 + 그 idmap 을 먼저 */
+  /* 하늘을 나는 2호선(subway.ts): 기울어진 보기에 내려앉은 뒤에만 */
+  const subway = m.subway && m.axon ? mountSubway({ world: st.world, base, spec: m.subway, axon: m.axon, local: m.local, island: m.island?.latlng, night: () => isNight(), scale: () => st.cam.s }) : null;
   if (new URLSearchParams(location.search).has('lift_check')) Object.assign(window, { __liftCheck: (lat: number, lng: number) => st.check(lat, lng), __liftLocal: m.local,
-    __sun: () => ({ view: st.view, cam: st.cam, landing: st.lastLanding, level, contain: st.contain(), sel: select?.selected?.i ?? -1 }) });   /* 확인용 */
+    __sun: () => ({ view: st.view, cam: st.cam, landing: st.lastLanding, level, contain: st.contain(), sel: select?.selected?.i ?? -1, train: subway?.playing ?? false }) });   /* 확인용 */
 
   /* 조작 막대(상자 아래 칸) */
   const ctl = document.createElement('div'); ctl.className = 'kb-dio-ctl';
@@ -173,10 +176,10 @@ export const diorama: Renderer = async (c: LayerCtx) => {
     if (pageL.diagram === 'setback' && level !== 2) { const fig = document.createElement('figure'); fig.className = 'kb-setback-fig'; fig.appendChild(setbackSVG()); const box = document.createElement('div'); box.append(fig, ctl); c.slot(box); return; }
     c.slot(ctl);
   }
-  const anchorOf = (b: Bld) => (k: number) => project(tr!.aff_frames![k] || m.axon!, b.c[0], b.c[1], b.h / 2);
+  const anchorOf = (b: Bld) => { const c0 = centre(b); return (k: number) => project(tr!.aff_frames![k] || m.axon!, c0[0], c0[1], b.h / 2); };
   /* 건물로 다가갈 끝 카메라: 건물 + 반경 50 m 가 무대의 60 % 를 채우게(1–3배), 건물 가운데가 무대 가운데에 */
   function zoomCam(b: Bld): Cam {
-    const a = st.areaBox(), tc = st.contain(), pts = Array.from({ length: 32 }, (_, j) => { const t = (j / 32) * Math.PI * 2; return project(m.axon!, b.c[0] + Math.cos(t) * b.near.r, b.c[1] + Math.sin(t) * b.near.r, 0); });
+    const R0 = b.near?.r ?? 50, c0 = centre(b), a = st.areaBox(), tc = st.contain(), pts = Array.from({ length: 32 }, (_, j) => { const t = (j / 32) * Math.PI * 2; return project(m.axon!, c0[0] + Math.cos(t) * R0, c0[1] + Math.sin(t) * R0, 0); });
     pts.push(project(m.axon!, b.c[0], b.c[1], b.h));
     const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]), bw = Math.max(...xs) - Math.min(...xs), bh = Math.max(...ys) - Math.min(...ys);
     const s = Math.max(tc.s, Math.min(tc.s * ZMAX, 0.6 * Math.min(a.w / bw, a.h / bh))), u = project(m.axon!, b.c[0], b.c[1], b.h / 2);
@@ -190,26 +193,29 @@ export const diorama: Renderer = async (c: LayerCtx) => {
     date = 'today'; setLevel(2); idx = frameAt('today', pageL.hour ?? 14);
     const src = frameSrc(); paint(false); slotFor();
     if (!hiQueued) { hiQueued = true; preload(hiList().map((f) => f.file)); }
-    st.zoomIn(anchorOf(b), zoomCam(b), src, () => { if (!c.alive() || level !== 2) return; select.setMode('axon'); select.select(i); select.enter(); paint(); void people(true); startLive(); });
+    subway?.stop();
+    st.zoomIn(anchorOf(b), zoomCam(b), src, () => { if (!c.alive() || level !== 2) return; select.setMode('axon'); select.select(i); select.enter(); paint(); void people(true); startLive(); subway?.arm(); });
   }
   /* 2 → 1: 위에서 본 신당으로 */
   function zoomOut() {
     const b = select?.selected; stopLive(); walkers?.stop(); select?.clear(); select?.setMode('plan');
     setLevel(1); slotFor(); stage.classList.remove('night');
     const done = () => { if (c.alive() && level === 1) select?.setMode('plan'); };
+    subway?.stop();
     if (b) st.zoomOut(anchorOf(b), base + m.hi!.top, done); else st.toPlan(base + m.hi!.top, done);
   }
   function enterView() {
     if (flow && hiOk) {   /* plan(level 1) — 이미 zoom 이면 그대로 */
       if (st.view === 'zoom' && level === 2) { setLevel(2); slotFor(); paint(); return; }
       walkers?.stop(); stage.classList.remove('night'); select?.clear(); select?.setMode('plan');
-      setLevel(1); slotFor(); st.toPlan(base + m.hi!.top, () => undefined); return;
+      subway?.stop(); setLevel(1); slotFor(); st.toPlan(base + m.hi!.top, () => undefined); return;
     }
     stopLive(); select?.clear(); select?.setMode('axon');
     const wasZoom = level === 2; setLevel(0);
     if (wasZoom) idx = frameAt(date, pageL.hour ?? 12);   /* 다가간 보기에서 오면 hi 목록 → 1× 목록으로 자리 다시 */
     slotFor(); paint(false);
-    st.toAxon(frameSrc(), () => { if (!c.alive() || view !== 'diorama') return; paint(); void people(true); if (pageL.autoplay) start(); });
+    subway?.stop();
+    st.toAxon(frameSrc(), () => { if (!c.alive() || view !== 'diorama') return; paint(); void people(true); subway?.arm(); if (pageL.autoplay) start(); });
   }
 
   /* 무대 위 포인터: 가리키기 · 누르기 · 끌기(level 2 옮기기) · 휠(level 2 확대) */
@@ -287,12 +293,12 @@ export const diorama: Renderer = async (c: LayerCtx) => {
       const L = (p.layer || {}) as PageL; pageL = L;
       stop(); gaugeG?.remove(); gaugeG = null; camBack();
       view = L.view === 'board' ? 'board' : 'diorama'; flow = view === 'diorama' && L.mode === 'select' && hiOk;
-      if (view === 'board') { stopLive(); walkers?.stop(); select?.clear(); setLevel(0); stage.classList.remove('live', 'night'); st.toBoard(() => undefined); slotFor(); void gauges(L.stores); return; }
+      if (view === 'board') { subway?.stop(); stopLive(); walkers?.stop(); select?.clear(); setLevel(0); stage.classList.remove('live', 'night'); st.toBoard(() => undefined); slotFor(); void gauges(L.stores); return; }
       if (!flow) { if (L.date && m.frames[L.date]) date = L.date; else if (!m.frames[date]) date = dates[0]; if (level !== 2) idx = frameAt(date, L.hour ?? frames(date)[idx]?.h ?? 12); preload(frames(date).map((f) => f.file)); }
       enterView();
     },
     destroy(instant) {
-      stop(); stopLive(); preloadRun++; gaugeG?.remove(); view = null; clearInterval(talkT); walkers?.destroy(); walkers = null; select?.destroy(); if (instant) camHeld = false; else camBack();
+      stop(); stopLive(); preloadRun++; gaugeG?.remove(); view = null; clearInterval(talkT); walkers?.destroy(); walkers = null; select?.destroy(); subway?.destroy(); if (instant) camHeld = false; else camBack();
       const finish = () => { if (alive !== finish) return; alive = null; st.kill(); c.host.classList.remove('kb-dio-on', 'kb-dio-fab'); stage.remove(); };
       alive = finish;
       if (instant || st.view === 'none') { finish(); return; }
