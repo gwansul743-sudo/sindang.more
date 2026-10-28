@@ -391,7 +391,9 @@ export function bootLegacy(DATA){
     onClose: () => idle() }) : null;
   function kioskView(){ if(!board || introOpen) return; const my = ++kioskSeq; clearTimeout(kioskStartT); kioskStage = 'play'; syncSkip?.();
     villagerDone(); speech.hide(); closeCluster();   /* 켜기 전에 hover 로 떠 있던 주민·이장님 말풍선은 닫는다(10-26) — 주민 hook 은 3초 남짓 남아 연출 위에 떠 있었다 */
-    withSide(true, () => { if(my !== kioskSeq || !KIOSK) return; const t2 = kioskTarget(); centerOn(t2.x, t2.y, t2.s, 0); walkersTo('kiosk'); chiefTo(true);
+    withSide(true, () => { if(my !== kioskSeq || !KIOSK) return; walkersTo('kiosk'); chiefTo(true);
+      if(kioskStage !== 'play') return;   /* 사이드바가 접히는 사이(약 0.3초) Skip 을 눌렀으면(kioskSkip → rest) 주민·이장님 자리만 옮기고 카메라·연출은 다시 틀지 않는다(10-28 — 전엔 연출이 처음부터 다시 돌았다) */
+      const t2 = kioskTarget(); centerOn(t2.x, t2.y, t2.s, 0);
       /* ⑧ 이장님: 먼저 이장님 쪽으로 두 단계(×1.6²) 줌인하고, 도착하면 등장·말풍선 → 큰 상자(10-23). 대화가 끝나면 kioskRest 가 보드 전체로 물러난다 */
       board.play({ onChief: () => { if(my !== kioskSeq || !KIOSK) return; const [cx, cy] = board.chiefAt(), t = kioskTarget();
         V.centerOn(cx, cy - 12, t.s * 1.6 ** 2, 0, () => { if(my !== kioskSeq || !KIOSK) return; showChief(true); speech.say(CHIEF_LINES); }, true); } }); }); }   /* always: 줌인 도중 지도를 눌러 비행이 끊겨도 이장님은 그 자리에서 나온다(10-26) */
