@@ -129,7 +129,7 @@ interviews  id, source(form|shop), answers(json), summary_md, store_id?, created
 - 낮/밤 전환은 커튼으로 덮고 바꾼다(`theme-toggle/switchTheme`) — 폰에서 시트 교체 중간 프레임이 지지직거려서.
 
 **캐릭터·주민 대화**
-- 가게 인터뷰 주민은 대본 중 **무작위 2명만** 나와 있고 40초마다 먼저 나온 사람이 퇴장·새 사람이 화면 밖에서 걸어 들어온다(10-28, `engine.legacy.js` SHOP_SLOTS·SHOP_SWAP_MS, 말 거는 중엔 안 내보냄). 대본 없는 지나가는 사람은 없다 — 나머지는 구글폼 시민 인터뷰 주민. 파츠 조합, 격자 17×18. 이장님 + 고양이(`cat.json`).
+- 걷는 주민은 **모두 7명까지**(10-28, `engine.legacy.js` WALK_MAX·FORM_SLOTS·shopFit): 구글폼 시민 인터뷰 주민이 먼저 최대 5명, 남은 자리를 가게 인터뷰 주민(대본 중 무작위)으로 채운다 — 폼 0명 → 가게 최대 7, 폼 4 → 가게 3, 폼 10 → 폼 5 + 가게 2. 가게 주민은 40초마다 먼저 나온 사람이 퇴장·안 나온 사람이 화면 밖에서 걸어 들어온다(SHOP_SWAP_MS, 말 거는 중엔 안 내보냄). 대본 없는 지나가는 사람은 없다. 파츠 조합, 격자 17×18. 이장님 + 고양이(`cat.json`).
 - 주민 대본 `content/characters/villagers/*.json`: id·name·store(가게 이름과 똑같이)·hook·pages(3~8장), 선택 `look`(`act.json` 참고 — style short|bob|hat, bun·bag, col 은 `palette.json` 키). `store` 는 실DB 가게 이름과 똑같이(예: '나은데이 필라테스'). 지금 5명(바액트·신당야학·표주·두런두런·나은데이).
 - hover(터치는 첫 탭): 머리 위 hook 말풍선. 판정은 그려진 몸 칸(`scene.ts` overBody)을 매 프레임 `HoverProbe` 가 본다. 새 말풍선이 옛 것을 닫고, 큰 대화 상자·전시 연출 중엔 안 뜬다. 전시 보드에선 보드 전체에서 + 버튼(×1.6)을 데스크톱 1번·좁은 창 2번 누른 배율부터(`hoverZooms`).
 - 누르면(터치는 두 번째 탭, 누르는 칸 44px) 큰 대화 상자(이름표 '가게 · 이름', Skip »). 그 가게 카드를 펴고 주민 쪽으로 줌인, 자동 순환 멈춤, 주민은 멈춰 섬(`walker.hold`). 폰은 카드 대신 이름표 옆 '가게 카드 ›'.
@@ -138,7 +138,7 @@ interviews  id, source(form|shop), answers(json), summary_md, store_id?, created
 **구글폼 → 시민 인터뷰 주민** (서버·크론 없음):
 ```
 폼 제출 → 응답 시트 → Apps Script(tools/apps-script/form_to_supabase.gs) → 공개해도 되는 열만 interviews{source:'form'} + characters{approved}
-  → 앱(entities/villager/api.ts) 실시간 + 20초 폴링 → features/villagers/formScript.ts 대본 생성 → 주민 스폰(동시 6명, FIFO)
+  → 앱(entities/villager/api.ts) 실시간 + 20초 폴링 → features/villagers/formScript.ts 대본 생성 → 주민 스폰(동시 5명, FIFO — 남는 자리는 가게 주민)
 ```
 - 승인 없이 바로 띄움(AUTO_PUBLISH). 내리기 = `characters.status = hidden`. 손본 대본은 `interviews.summary_md` 에 JSON(hook·pages·name).
 - 대본 규칙·익명 처리(상호 안 보냄, 이름표는 업종 '밥집 사장님')·폼 열 이름 찾기는 `formScript.ts`·`.gs` 머리 주석. `?formdemo=N` 으로 DB 없이 미리 보기.
