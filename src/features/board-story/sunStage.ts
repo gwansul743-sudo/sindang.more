@@ -13,6 +13,8 @@
    · 영상이 800ms 안에 재생되지 않으면(못 받음·오류·막힘) 카메라만 움직이며 그림을 겹쳐 바꾸는 쪽으로 — 멈추지 않는다. 동작 줄이기도 같음.
    · 맞춤(TASK_16): 내려앉은 보기는 4:3 그림 전체가 아니라 섬이 보이는 칸(그림 알파 > 8 의 상자, 그림마다 한 번)을 무대 칸에 2.5 % 여백으로 맞춘다.
      plan 은 top_today13, axon(·zoom 의 1–3배 기준)은 hi 해 그림 한 장. plan ⇄ axon 영상 동안엔 두 맞춤 사이를 카메라로 잇는다. 보드 자리(t00)는 그대로.
+   · 크기가 바뀌면(전체 화면·창 크기·TV, ResizeObserver) 전환이 끝나 가만히 있을 때 다시 맞춘다: plan·axon 은 새 맞춤으로,
+     zoom 은 무대 가운데 점을 지키며 맞춤 배율 비율만큼. 칸이 0 크기일 때 잰 맞춤은 쓰지 않는다(마지막 정상 맞춤으로).
    · ?patch_slow=N 이면 N배 느리게. */
 export interface Aff { origin: number[]; perX: number[]; perY: number[]; perZ?: number[] }
 export interface LocalFrame { lat0: number; lng0: number; kx: number; ky: number }
@@ -49,10 +51,13 @@ export function mountSunStage(o: StageOpts) {
 
   function preload() { if (loading) return; loading = true; void o.fetchImg(o.base + o.trans.first); [fwd, rev].forEach((v) => { v.src = v.dataset.src!; v.load(); }); }
   /* 무대 칸(상자 왼쪽, #map 기준 px)에 맞춤: 섬 상자(없으면 그림 전체)를 2.5 % 여백으로. kind 를 안 주면 지금 보기의 것 */
+  const good: Partial<Record<'plan' | 'axon', Cam>> = {};
   function contain(kind?: 'plan' | 'axon'): Cam {
-    const b = boxes[kind || (view === 'plan' ? 'plan' : 'axon')] || [0, 0, W, H], bw = b[2] - b[0], bh = b[3] - b[1];
-    const a = o.area.getBoundingClientRect(), r = o.stage.getBoundingClientRect(), k = Math.min((a.width * 0.95) / bw, (a.height * 0.95) / bh);
-    return { s: k, tx: a.left - r.left + a.width / 2 - k * (b[0] + bw / 2), ty: a.top - r.top + a.height / 2 - k * (b[1] + bh / 2) };
+    const K = kind || (view === 'plan' ? 'plan' : 'axon'), b = boxes[K] || [0, 0, W, H], bw = b[2] - b[0], bh = b[3] - b[1];
+    const a = o.area.getBoundingClientRect(), r = o.stage.getBoundingClientRect();
+    if (a.width < 40 || a.height < 40) return good[K] || cam;   /* 숨겨진·0 크기 칸에서 잰 맞춤은 쓰지 않는다 */
+    const k = Math.min((a.width * 0.95) / bw, (a.height * 0.95) / bh);
+    return (good[K] = { s: k, tx: a.left - r.left + a.width / 2 - k * (b[0] + bw / 2), ty: a.top - r.top + a.height / 2 - k * (b[1] + bh / 2) });
   }
   const areaBox = () => { const a = o.area.getBoundingClientRect(), r = o.stage.getBoundingClientRect(); return { x: a.left - r.left, y: a.top - r.top, w: a.width, h: a.height }; };
   /* 기준 px → 무대 px: 축마다 1차식 — 보드 길에 맞춘 카메라(배율은 두 축 평균. 두 정사영의 축 배율 차는 0.1% 미만) */
@@ -118,6 +123,30 @@ export function mountSunStage(o: StageOpts) {
   const fab = (on: boolean) => o.host.classList.toggle('kb-dio-fab', on);   /* 천(리넨·장식·단추…)을 걷기 */
   const show = (on: boolean) => { o.stage.classList.toggle('veil', on); world.classList.toggle('on', on); };
   let lastLanding: { before: number[]; after: number[] } | null = null;
+  /* 전환이 끝났는지: 각 전환의 끝 콜백을 감싸 그 run 을 적어 둔다 */
+  let idleRun = -1;
+  const settle = (then: () => void) => { const my = run; return () => { if (my === run) { idleRun = run; noteArea(); } then(); }; };
+  /* 크기 바뀜 → 가만히 있을 때 다시 맞춤(움직이는 중이면 조금 뒤에 다시 본다) */
+  let rsT = 0;
+  function refit() {
+    clearTimeout(rsT);
+    if (view === 'none') return;
+    if (idleRun !== run) { rsT = window.setTimeout(refit, 250); return; }
+    const K = view === 'plan' ? 'plan' : 'axon', a = o.area.getBoundingClientRect(); if (a.width < 40 || a.height < 40) return;
+    const nf = contain(K);
+    if (view !== 'zoom' || !lastArea) { apply(nf); noteArea(); return; }
+    /* zoom: 옛 칸의 맞춤 배율과 새 맞춤 배율의 비율만큼, 옛 가운데가 보던 세계 점을 새 가운데로 */
+    const b = boxes.axon || [0, 0, W, H], bw = b[2] - b[0], bh = b[3] - b[1], oldS = Math.min((lastArea[2] * 0.95) / bw, (lastArea[3] * 0.95) / bh);
+    const r = o.stage.getBoundingClientRect(), ax = a.left - r.left + a.width / 2, ay = a.top - r.top + a.height / 2, ow = [lastArea[0] + lastArea[2] / 2, lastArea[1] + lastArea[3] / 2];
+    const wx = (ow[0] - cam.tx) / cam.s, wy = (ow[1] - cam.ty) / cam.s, s = cam.s * (nf.s / oldS);
+    apply({ s, tx: ax - s * wx, ty: ay - s * wy }); noteArea();
+  }
+  function noteArea() { const a = o.area.getBoundingClientRect(), r = o.stage.getBoundingClientRect(); if (a.width >= 40 && a.height >= 40) lastArea = [a.left - r.left, a.top - r.top, a.width, a.height];
+  }
+  let lastArea: number[] | null = null;
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { const a = o.area.getBoundingClientRect(), r = o.stage.getBoundingClientRect(); const cur = [a.left - r.left, a.top - r.top, a.width, a.height];
+    if (lastArea && cur.every((v, i) => Math.abs(v - lastArea![i]) < 0.5)) return; if (view !== 'none' && lastArea) refit(); else if (a.width >= 40) lastArea = cur; }) : null;
+  ro?.observe(o.area);
   /* 섬 상자(기준 px): 그림 알파를 작게 그려 > 8 인 칸 */
   const boxes: Partial<Record<'plan' | 'axon', number[]>> = {};
   let boxReady: Promise<unknown> = Promise.resolve();
@@ -132,7 +161,7 @@ export function mountSunStage(o: StageOpts) {
   }
 
   return {
-    world, preload, contain, areaBox, frame, frontImg: () => imgs[front],
+    world, preload, contain, areaBox, frame, frontImg: () => imgs[front], get settled() { return idleRun === run; },
     /* 섬 상자를 셀 그림(위에서 본 · 기울어진) — 열 때 한 번 */
     setFit(src: { plan?: string; axon?: string }) {
       boxReady = Promise.all((['plan', 'axon'] as const).map((k) => (src[k] ? alphaBox(src[k]!).then((b) => { if (b) boxes[k] = b; }) : null)));
@@ -141,8 +170,8 @@ export function mountSunStage(o: StageOpts) {
     setCam(c: Cam) { apply(c); }, tween,
     check(lat: number, lng: number) { const tb = fitBoard(), p = o.boardAt(lat, lng); if (!tb || !p) return null; const L = o.local, [u, v] = project(o.trans.aff_t00, (lng - L.lng0) * L.kx, (lat - L.lat0) * L.ky); return { board: p, t00: [tb.s * u + tb.tx, tb.s * v + tb.ty] }; },
     /* 보드·axon → plan(위에서 본 신당) */
-    toPlan(top: string, then: () => void) {
-      clear(); preload(); const my = run, from = view; view = 'plan'; o.stage.hidden = false;
+    toPlan(top: string, then0: () => void) {
+      clear(); const then = settle(then0); preload(); const my = run, from = view; view = 'plan'; o.stage.hidden = false;
       if (from === 'none') {
         const tb = fitBoard();
         const plain = () => { if (my !== run) return; apply(contain('plan')); fab(true); show(true); void frame(top, 0).then(() => at(then, 300)); };
@@ -160,8 +189,8 @@ export function mountSunStage(o: StageOpts) {
       apply(tc); void frame(top).then(() => then());
     },
     /* 보드·plan·zoom·axon → axon(해 그림, 무대 가운데) */
-    toAxon(src: string, then: () => void) {
-      clear(); preload(); const my = run, from = view; view = 'axon'; o.stage.hidden = false;
+    toAxon(src: string, then0: () => void) {
+      clear(); const then = settle(then0); preload(); const my = run, from = view; view = 'axon'; o.stage.hidden = false;
       const tc = contain('axon');
       if (from === 'none') {
         const tb = fitBoard();
@@ -179,16 +208,16 @@ export function mountSunStage(o: StageOpts) {
       apply(tc); void frame(src).then(() => then());
     },
     /* plan → zoom: anchor(k) = 프레임 k 에서 건물 가운데(기준 px), Z = 끝 카메라 */
-    zoomIn(anchor: (k: number) => number[], Z: Cam, src: string, then: () => void) {
-      clear(); const my = run; view = 'zoom';
+    zoomIn(anchor: (k: number) => number[], Z: Cam, src: string, then0: () => void) {
+      clear(); const then = settle(then0); const my = run; view = 'zoom';
       const from = { ...cam }, n = (o.trans.aff_frames?.length || 96) - 1, a0 = anchor(0), A0 = [from.s * a0[0] + from.tx, from.s * a0[1] + from.ty], aN = anchor(n), A1 = [Z.s * aN[0] + Z.tx, Z.s * aN[1] + Z.ty];
       const camAt = (p: number, k: number): Cam => { const e = ease(p), s = from.s * (Z.s / from.s) ** e, A = [A0[0] + (A1[0] - A0[0]) * e, A0[1] + (A1[1] - A0[1]) * e], u = anchor(k); return { s, tx: A[0] - s * u[0], ty: A[1] - s * u[1] }; };
       playVid(fwd, camAt, src, () => { const u = anchor(n); lastLanding = { before: A1, after: [Z.s * u[0] + Z.tx, Z.s * u[1] + Z.ty] }; then(); },
         () => { if (my !== run) return; void frame(src, 500); tween(Z, 800, then); });
     },
     /* zoom → plan: 지금 카메라에서 거꾸로 */
-    zoomOut(anchor: (k: number) => number[], top: string, then: () => void) {
-      clear(); const my = run; view = 'plan';
+    zoomOut(anchor: (k: number) => number[], top: string, then0: () => void) {
+      clear(); const then = settle(then0); const my = run; view = 'plan';
       const from = { ...cam }, tc = contain('plan'), n = (o.trans.aff_frames?.length || 96) - 1, aN = anchor(n), A0 = [from.s * aN[0] + from.tx, from.s * aN[1] + from.ty], a0 = anchor(0), A1 = [tc.s * a0[0] + tc.tx, tc.s * a0[1] + tc.ty];
       const camAt = (p: number, j: number): Cam => { const e = ease(p), s = from.s * (tc.s / from.s) ** e, A = [A0[0] + (A1[0] - A0[0]) * e, A0[1] + (A1[1] - A0[1]) * e], u = anchor(n - j); return { s, tx: A[0] - s * u[0], ty: A[1] - s * u[1] }; };   /* 거꾸로 영상의 j 번째 = 앞 영상의 n−j 번째 */
       playVid(rev, camAt, top, then, () => { if (my !== run) return; void frame(top, 500); tween(tc, 800, then); });
@@ -202,7 +231,7 @@ export function mountSunStage(o: StageOpts) {
       const tc = contain('axon'); if (from === 'zoom') apply(tc);
       playVid(rev, (p) => lerpCam(tc, tb, ease(p)), o.base + o.trans.first, finish, () => { o.stage.classList.remove('veil'); tween(tb, 700, finish); });
     },
-    kill() { clear(); fab(false); o.stage.classList.remove('veil'); imgs.forEach((i) => i.removeAttribute('src')); [fwd, rev].forEach((v) => { v.removeAttribute('src'); v.load(); }); world.remove(); view = 'none'; },
+    kill() { clear(); ro?.disconnect(); clearTimeout(rsT); fab(false); o.stage.classList.remove('veil'); imgs.forEach((i) => i.removeAttribute('src')); [fwd, rev].forEach((v) => { v.removeAttribute('src'); v.load(); }); world.remove(); view = 'none'; },
   };
 }
 export type SunStage = ReturnType<typeof mountSunStage>;

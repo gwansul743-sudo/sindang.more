@@ -10,6 +10,8 @@ import { mountSubway, type SubwaySpec } from './subway';
      1 → 2 건물(zoom): 영상(위 → 기울어진 보기)을 틀며 고른 건물로 다가가 hi/today_HH 에 내려앉고, 건물·이웃·반경 50 m·꼬리표·카드가 차례로.
        시간은 저절로 흐른다(1.2초에 한 시간, 8→21시, 마지막에서 1.5초 쉬고 처음부터). 막대로 직접, 끄는 동안 멈춤.
        끌기 = 옮기기, 휠 = 확대(1–3배, 커서 기준), 다른 건물 누르기 = 그 건물로(0.3초에 가운데로, 영상 없음).
+     level 1(위에서 본 신당)도 같은 조작(TASK_16): 끌기 = 옮기기, 휠 = 확대(맞춤의 1–4배, 커서 기준), 5 px 넘게 끈 것은 누르기가 아니다.
+       옮기거나 키운 채로 고르면 지금 카메라에서 바로 기울며 다가간다(튀지 않는다).
      한 단계 위로: ✕ · Esc · 길잡이(보드 › 위에서 본 신당 › 건물) · '‹ 위에서 보기' · 45초 무입력(story.ts).
      햇볕 지도(TASK_15): 내려앉고 1.2초 뒤 저절로 켜진다(끄면 이야기가 열려 있는 동안 기억). 켜진 동안 시간 흐름은 멈추고(하루 전체 결과라서)
        막대 대신 '하루 동안 해가 드는 시간 · 10월 30일', 왼쪽 아래 범례, 가리키면 '이 자리 하루 n시간'. 밤 시각이어도 그대로 보인다.
@@ -26,7 +28,7 @@ interface StoreSun { id: string; name: string; [day: string]: DaySun | string | 
 interface PageL { view?: 'diorama' | 'board'; date?: string; hour?: number; autoplay?: boolean; stores?: string; diagram?: string; mode?: string }
 
 const DATES = ['summer', 'equinox', 'today', 'winter'];   /* 춘분 그림은 있다(TASK_13) — 건물 카드만 춘분 수치가 없어 '오늘' 값으로 */
-const STEP_MS = 900, LIVE_MS = 1200, LOOP_REST_MS = 1500, ZMAX = 3, HEAT_MS = 1200;
+const STEP_MS = 900, LIVE_MS = 1200, LOOP_REST_MS = 1500, ZMAX = 3, ZMAX_PLAN = 4, HEAT_MS = 1200;
 const SUN = '#f0a850', SHADE = '#9a7a60';                 /* 해 눈금: 해 = 밤 하늘 노을 노랑(night.ts), 그늘 = 범례 안내 글자 회갈색(board.css .kb-note) */
 const NS = 'http://www.w3.org/2000/svg';
 /* 일조 사선 단면(10-28, 「건축법 시행령」 제86조): 높이 10 m 까지는 북쪽 땅 경계에서 1.5 m, 그 위는 높이의 1/2 이상 떨어진다.
@@ -246,9 +248,10 @@ export const diorama: Renderer = async (c: LayerCtx) => {
   /* 무대 위 포인터: 가리키기 · 누르기 · 끌기(level 2 옮기기) · 휠(level 2 확대) */
   let down: { x: number; y: number; cam: Cam; moved: boolean } | null = null, hraf = 0;
   const onUI = (e: Event) => !!(e.target as Element).closest?.('.kb-dio-crumbs,.kb-dio-up,.kb-dio-hit,.kb-dio-heatbtn,.kb-dio-heatkey');
-  stage.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (onUI(e)) return; stop(); down = { x: e.clientX, y: e.clientY, cam: { ...st.cam }, moved: false }; if (level === 2) { try { stage.setPointerCapture(e.pointerId); } catch { /* 없음 */ } } });
+  const navigable = () => st.settled && ((level === 2 && st.view === 'zoom') || (level === 1 && st.view === 'plan'));   /* 끌기·휠: 다가간 보기와 위에서 본 신당, 전환이 끝난 뒤 */
+  stage.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (onUI(e)) return; stop(); down = { x: e.clientX, y: e.clientY, cam: { ...st.cam }, moved: false }; if (navigable()) { try { stage.setPointerCapture(e.pointerId); } catch { /* 없음 */ } } });
   stage.addEventListener('pointermove', (e) => {
-    if (down && level === 2 && st.view === 'zoom' && (down.moved || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5)) { down.moved = true; st.setCam(clampCam({ ...down.cam, tx: down.cam.tx + e.clientX - down.x, ty: down.cam.ty + e.clientY - down.y })); return; }
+    if (down && navigable() && (down.moved || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5)) { down.moved = true; select?.hoverAt(-1e5, -1e5); st.setCam(clampCam({ ...down.cam, tx: down.cam.tx + e.clientX - down.x, ty: down.cam.ty + e.clientY - down.y })); return; }
     if (!select || e.pointerType === 'touch' || onUI(e) || (st.view !== 'plan' && st.view !== 'zoom' && st.view !== 'axon')) return;
     cancelAnimationFrame(hraf); const { clientX: x, clientY: y } = e;
     hraf = requestAnimationFrame(() => { const i = select.hoverAt(x, y); stage.classList.toggle('kb-pick', i >= 0); heatRead(x, y); });
@@ -269,8 +272,8 @@ export const diorama: Renderer = async (c: LayerCtx) => {
     const r = stage.getBoundingClientRect(); heatTag.textContent = `이 자리 하루 ${v.toFixed(1)}시간`;
     heatTag.style.left = (x - r.left).toFixed(0) + 'px'; heatTag.style.top = (y - r.top).toFixed(0) + 'px'; heatTag.classList.add('on');
   }
-  stage.addEventListener('wheel', (e) => { e.stopPropagation(); if (level !== 2 || st.view !== 'zoom') return; e.preventDefault();
-    const r = stage.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, cm = st.cam, tc = st.contain(), s = Math.min(tc.s * ZMAX, Math.max(tc.s, cm.s * Math.exp(-e.deltaY * 0.0015)));
+  stage.addEventListener('wheel', (e) => { e.stopPropagation(); if (!navigable()) return; e.preventDefault();
+    const r = stage.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, cm = st.cam, tc = st.contain(), s = Math.min(tc.s * (level === 1 ? ZMAX_PLAN : ZMAX), Math.max(tc.s, cm.s * Math.exp(-e.deltaY * 0.0015)));
     st.setCam(clampCam({ s, tx: px - ((px - cm.tx) * s) / cm.s, ty: py - ((py - cm.ty) * s) / cm.s })); }, { passive: false });
   stage.addEventListener('click', (e) => e.stopPropagation());
   /* 그림 칸을 벗어나지 않게: 무대 가운데가 늘 그림 안에 */
