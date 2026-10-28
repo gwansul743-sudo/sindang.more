@@ -1,6 +1,7 @@
 import './story.css';
 import { mountSpeech } from '../chief-speech/speech';
 import { RENDERERS, type LayerCtl, type StoreSpot } from './layers';
+import type { DioVillagers } from './dioWalkers';
 import { mountPdf } from './pdf';
 
 /* 전시 보드 이야기 상자(10-28) — 전시 모드(rest)에서 하늘·소품 그림(해·구름·별·나무·재봉틀)을 누르면 그 주제의 이야기가 열린다.
@@ -30,6 +31,7 @@ export interface StoryOptions {
   onClose?: () => void;
   toBoard?: (lat: number, lng: number) => [number, number];   // 실제 위경도 → 보드 캔버스(건물 겹 그림)
   spots?: () => StoreSpot[];                                 // 보드 가게 단추 자리(해 눈금)
+  villagers?: DioVillagers;                                  // 보드 주민 명단·말 걸기(해 디오라마)
 }
 export interface BoardStory { readonly open: boolean; close(instant?: boolean): void }
 
@@ -116,7 +118,7 @@ export function mountStory(o: StoryOptions): BoardStory {
       later: (f, ms) => { setTimeout(() => { if (alive()) f(); }, ms); },
       slot: (h) => { if (alive()) panel?.querySelector('.kb-story-slot')!.replaceChildren(...(h ? [h] : [])); },
       hold: (on) => { if (!alive() || held === on) return; held = on; if (on) clearTimeout(idleT); else armIdle(); },
-      host: o.host, spots: () => (o.spots ? o.spots() : []),
+      host: o.host, spots: () => (o.spots ? o.spots() : []), villagers: o.villagers ?? null,
       load: async (name) => { const f = LOAD[`../../../content/board-story/${name}`]; if (!f) throw new Error('없는 데이터 ' + name); return f(); },
       toBoard: (lat, lng) => o.toBoard ? o.toBoard(lat, lng) : [0, 0] }))
       .then((c) => { if (!c) return; if (!alive()) { c.destroy?.(); return; } ctl = c; c.page(page, d.pages[page]); })

@@ -82,7 +82,7 @@ html.kb-rest #map.kb-story-ptr svg{cursor:pointer}
 /* 해 디오라마(sun.ts): 천을 들추면 — 보드(svg)는 살짝 작아지며 흐려지고, 상자 왼쪽 무대에 렌더 그림이 떠오른다. 움직임은 transform·opacity 만 */
 html.kb-on #map > svg{transition:scale .7s cubic-bezier(.32,.72,0,1),opacity .7s ease}   /* 전시 모드에서만 — 평소 지도는 그대로 */
 #map.kb-dio-on > svg{scale:.96;opacity:.55}
-.kb-dio{position:absolute;z-index:3;inset:0;pointer-events:none}
+.kb-dio{position:absolute;z-index:2;inset:0;pointer-events:none}   /* 말풍선(.speech, 3)이 무대 위에 뜨게 */
 .kb-dio[hidden]{display:none}
 .kb-dio.show:not(.rev){pointer-events:auto}
 .kb-dio-veil{position:absolute;inset:0;background:color-mix(in srgb,var(--kb-sea) 85%,transparent);opacity:0;transition:opacity .4s ease}
@@ -143,3 +143,9 @@ html.kb-on #map > svg{transition:scale .7s cubic-bezier(.32,.72,0,1),opacity .7s
 .kb-sun-key b{margin-right:6px;color:var(--kb-wine)}
 .kb-sun-key i{display:inline-block;width:14px;height:6px;border-radius:1px;margin-left:6px}
 @media(prefers-reduced-motion:reduce){.kb-sun-g{animation:none}}
+
+/* 디오라마 속 주민(dioWalkers.ts): 그림 칸 위 SVG 한 장, 사람은 g 7개까지. 밤엔 테두리를 조금 밝게 */
+.kb-dio-wk{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;opacity:0;transition:opacity .4s ease;shape-rendering:crispEdges}
+.kb-dio-wk.on{opacity:1}
+.kb-dio-hit{pointer-events:visible;cursor:pointer}
+.kb-dio-wk.night{filter:drop-shadow(0 0 .6px #fbf3e2) drop-shadow(0 0 .6px #fbf3e2)}

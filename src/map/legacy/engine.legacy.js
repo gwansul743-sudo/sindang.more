@@ -342,6 +342,9 @@ export function bootLegacy(DATA){
       const s0 = KIOSK && board ? focusZoom() : Math.max(scale(), 4.6);
       centerOn(w.x + w.ox, w.y + w.oy, s0, wide ? V.ph * 0.1 : V.ph * 0.14); };   /* 아래 큰 상자를 피해 사람을 조금 위에 */
     if(st && wide) withSide(false, go); else if(!wide && current) closeCard(go); else go(); }   /* 폰: 떠 있던 가게 카드(바텀시트)는 닫고 대화(10-28) — 대화 상자가 카드 위에 쌓였다 */
+  /* 해 디오라마 속 주민과 대화(10-28): 큰 상자만 — 가게 카드·카메라는 그대로(보드는 디오라마 아래에 있다) */
+  function villagerTalk(w, script){ if(chiefBusy()) return; endPeek(); speech.hide(); takeVillager(w, script); vSpeech.hide(); stopCycle(); vEndCard = null;
+    vTalk.start({ name: script.store && !script.name.startsWith(script.store) ? `${script.store} · ${script.name}` : script.name, pages: script.pages.map(p => [p]) }); }
   function villagerDone(){ endPeek(); vFull = false; clearTimeout(vHookT); vSpeech.hide(); if(vTalk.visible) vTalk.hide(); villager?.w.release(); villager = null; }
   /* 큰 상자로 대화하는 중에 다른 주민을 누르면(10-28): 바로 넘어가지 않고 그 사람 머리 위에 작은 말풍선(hook)만 — hover 와 같은 말풍선, 큰 상자는 그대로.
      그 사람은 말풍선이 떠 있는 동안 서 있고, 그 동안 한 번 더 누르거나 말풍선을 누르면 그 사람과 큰 대화로 넘어간다. 지도 빈 곳을 누르거나 시간이 지나면 닫힌다 */
@@ -353,7 +356,7 @@ export function bootLegacy(DATA){
   /* 주민이 장면에서 빠질 때(교대·폼 내리기): 그 사람과의 대화·말풍선을 닫는다 */
   function dropVillager(w){ if(villager?.w === w) villagerDone(); else if(vPeek?.w === w) endPeek(true); }
   function bindVillager(w, script){
-    w.makeClickable();
+    w.makeClickable(); w.vScript = script;   /* 해 디오라마 속 주민 명단(story villagers.roster)이 대본을 찾는다 */
     if(script.kind === 'form'){ const M = DATA.characters.chief.mark; w.showMark({ ...M, colors: M.formColors || M.colors }); }   /* 시민이 인터뷰를 남겨 생긴 주민만 세모 — 이장님(빨강)과 달리 초록(10-28, chief.json mark.formColors). 가게 인터뷰 주민(shop)은 표시 없음 */
     w.hover.onHover = P => hoverNear() && topAt(w.g, P) && villagerHook(w, script);   /* 마우스: 몸 판정 칸 위에 있으면(walker tick → HoverProbe) — pointerenter 대신(10-26) */
     /* 터치 판정(10-23): click 의 pointerType 은 iOS 사파리 등에서 비어 와 첫 탭에 바로 대화가 열렸다 → 닿는 순간(pointerdown)의 종류를 기억해 쓴다. 그것도 없으면 hover 없는 기기를 터치로 */
@@ -388,7 +391,9 @@ export function bootLegacy(DATA){
     busy: () => cycling || !!current || viewer.visible || talk.visible || speech.visible || vTalk.visible || vSpeech.visible || !!clusterAt,
     quiet: () => talk.visible || vTalk.visible, moved: () => V.moved, toBoard: (lat, lng) => board.toBoard(...proj(lat, lng)), spots: () => board.storeSpots(),
     onOpen: () => { idle(); closeCluster(); viewer.close(); speech.hide(); villagerDone(); if(current) closeCard(); board.focus(null); },
-    onClose: () => idle() }) : null;
+    onClose: () => idle(),
+    villagers: { roster: () => walkers.filter(w => w.vScript).sort((a, b) => (b.vScript.kind === 'form') - (a.vScript.kind === 'form')).map(w => ({ id: w.vScript.id, g: w.g, body: w.body, script: w.vScript })),   /* 시민 인터뷰 주민 먼저 */
+      hook: (p, script) => villagerHook(p, script), talk: (p, script) => villagerTalk(p, script), talking: () => vTalk.visible, done: () => villagerDone() } }) : null;
   function kioskView(){ if(!board || introOpen) return; const my = ++kioskSeq; clearTimeout(kioskStartT); kioskStage = 'play'; syncSkip?.();
     villagerDone(); speech.hide(); closeCluster();   /* 켜기 전에 hover 로 떠 있던 주민·이장님 말풍선은 닫는다(10-26) — 주민 hook 은 3초 남짓 남아 연출 위에 떠 있었다 */
     withSide(true, () => { if(my !== kioskSeq || !KIOSK) return; walkersTo('kiosk'); chiefTo(true);

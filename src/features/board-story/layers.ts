@@ -1,4 +1,5 @@
 import type { StoryLayerSpec, StoryPage, StoryTopic } from './story';
+import type { DioVillagers } from './dioWalkers';
 
 /* 이야기 겹 그림(10-28) — 이야기가 열린 동안만 .kb-story-layer(보드 캔버스 좌표) 안에 그린다. 닫히면 story.ts 가 통째로 DOM 에서 지운다.
    렌더러 = (ctx) → { page(i, p) }: 열 때 한 번 불리고, 장이 바뀔 때마다 page() 로 상태만 바꾼다. 움직임은 opacity·scale 만(CSS). */
@@ -14,6 +15,7 @@ export interface LayerCtx {
   host: HTMLElement;                                       // #map — HTML 겹(디오라마 무대)을 붙일 칸
   toBoard(lat: number, lng: number): [number, number];     // 실제 위경도 → 보드 캔버스(길과 같은 변환)
   spots(): StoreSpot[];                                    // 보드 가게 단추 자리(캔버스) + 이름표 칸
+  villagers: DioVillagers | null;                          // 보드에서 걷는 주민(해 디오라마 속을 같이 걷는다)
 }
 export interface StoreSpot { id: string; name: string; x: number; y: number; r: number; lab: { x0: number; y0: number; x1: number; y1: number } | null }
 export interface LayerCtl { page(i: number, p: StoryPage): void; destroy?(instant?: boolean): void }   // destroy: SVG 밖(HTML)에 만든 것·타이머 정리. instant 가 아니면 나가는 장면을 보여도 된다

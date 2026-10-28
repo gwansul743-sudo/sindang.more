@@ -1,5 +1,6 @@
 import type { LayerCtl, LayerCtx, Renderer, StoreSpot } from './layers';
 import { mountLift, type LocalFrame, type TransFrame } from './lift';
+import { mountDioWalkers, type DioWalkers } from './dioWalkers';
 
 /* 해 이야기(10-28) — layer.type "diorama". 장의 layer 칸: view "diorama" | "board", date, hour, autoplay, compare, night, stores.
    · diorama: 천을 들추면 — 보드는 살짝 작아지며 흐려지고(#map.kb-dio-on, scale·opacity) 그 위 HTML 무대(#map 안, 상자 왼쪽)에
@@ -12,7 +13,7 @@ import { mountLift, type LocalFrame, type TransFrame } from './lift';
    · 보드 ⇄ 디오라마 전환은 lift.ts(천을 들추면: 보드 길에 맞춘 위에서 본 그림 → 기울며 솟는 프레임). 사람이 닫으면 거꾸로 돌아간 뒤 지우고,
      전시 끄기·인트로·다른 이야기로 바뀔 땐 바로 지운다(destroy(instant)). */
 interface Frame { h: number; elev: number; az: number; file: string }
-interface Manifest { dates: Record<string, string>; frames: Record<string, Frame[]>; night?: string; local?: LocalFrame; transition?: { frames: TransFrame[] } }
+interface Manifest { dates: Record<string, string>; frames: Record<string, Frame[]>; night?: string; local?: LocalFrame; transition?: { frames: TransFrame[] }; axon?: { origin: number[]; perX: number[]; perY: number[]; perZ: number[] } }
 interface DaySun { hours: number; of: number; slots: string; start: string }
 interface StoreSun { id: string; name: string; [day: string]: DaySun | string | unknown }
 interface PageL { view?: 'diorama' | 'board'; date?: string; hour?: number; autoplay?: boolean; compare?: string; night?: boolean; stores?: string }
@@ -94,6 +95,19 @@ export const diorama: Renderer = async (c: LayerCtx) => {
 
   let date = dates.includes('today') ? 'today' : dates[0], cmp: string | null = null, idx = 0, night = false, view: 'diorama' | 'board' | null = null;
   let timer = 0, gaugeG: SVGGElement | null = null, preloadRun = 0, shown = false, landed = false, onLand: (() => void) | null = null;
+  /* 디오라마 속 주민(dioWalkers.ts): 다 들춘 뒤 한 장짜리 장에서만. 길 데이터는 처음 걸을 때 받는다 */
+  let walkers: DioWalkers | null = null, talkT = 0;
+  const walkersOk = () => !!(c.villagers && m.axon && m.local);
+  async function people(on: boolean) {
+    if (!on || !walkersOk()) { walkers?.stop(); return; }
+    if (!walkers) {
+      const data = (await c.load('sun-roads.json')) as Parameters<typeof mountDioWalkers>[0]['data'];
+      if (!c.alive() || walkers) return;
+      walkers = mountDioWalkers({ pane: P[0].el, axon: m.axon!, local: m.local!, data, who: c.villagers!, onTalk: () => {   /* 큰 대화 상자: 재생 멈춤 · 이야기 45초 자동 닫기도 멈춤 */
+        stop(); c.hold(true); clearInterval(talkT); talkT = window.setInterval(() => { if (!c.alive() || !c.villagers!.talking()) { clearInterval(talkT); if (c.alive()) c.hold(false); } }, 400); } });
+    }
+    if (shown && landed && view === 'diorama' && !cmp) { walkers.start(); walkers.page({ h: '', body: '' }, night); }
+  }
   const frames = (d: string) => m.frames[d] || [];
   const frameAt = (d: string, h: number) => { const fs = frames(d); let best = 0; fs.forEach((f, i) => { if (Math.abs(f.h - h) < Math.abs(fs[best].h - h)) best = i; }); return fs[best]; };
 
@@ -126,10 +140,10 @@ export const diorama: Renderer = async (c: LayerCtx) => {
     if (on) {
       if (shown) { if (landed) then?.(); else onLand = then || null; return; }
       shown = true; landed = false; onLand = then || null; stage.hidden = false; void stage.offsetWidth;
-      const land = () => { if (!c.alive()) return; landed = true; const f = onLand; onLand = null; f?.(); };
+      const land = () => { if (!c.alive()) return; landed = true; const f = onLand; onLand = null; f?.(); void people(true); };
       if (lift) lift.enter(land); else { c.host.classList.add('kb-dio-on'); stage.classList.add('show'); window.setTimeout(land, 700); }
     } else {
-      if (!shown) return; shown = false; landed = false; onLand = null;
+      if (!shown) return; shown = false; landed = false; onLand = null; walkers?.stop();   /* 나가기 시작하면 주민부터 */
       const done = () => { if (c.alive() && view !== 'diorama') stage.hidden = true; };
       if (lift) lift.leave(done); else { c.host.classList.remove('kb-dio-on'); stage.classList.remove('show'); window.setTimeout(done, OUT_MS); }
     }
@@ -174,9 +188,10 @@ export const diorama: Renderer = async (c: LayerCtx) => {
       idx = frames(date).indexOf(frameAt(date, L.hour ?? frames(date)[idx]?.h ?? 12));
       if (!night) preload([...frames(date), ...(cmp ? frames(cmp) : [])].map((f) => f.file));
       c.slot(ctl); paint(); showStage(true, () => { if (L.autoplay) start(); });   /* 재생은 전환이 끝난 뒤(들추는 동안 그림이 넘어가지 않게) */
+      if (landed) void people(!cmp);   /* 장이 바뀌어도 무대가 떠 있으면: 비교 장에선 숨기고 한 장짜리면 다시 */
     },
     destroy(instant) {
-      stop(); preloadRun++; gaugeG?.remove(); view = null;
+      stop(); preloadRun++; gaugeG?.remove(); view = null; clearInterval(talkT); walkers?.destroy(); walkers = null;
       const finish = () => { if (alive !== finish) return; alive = null; lift?.kill(); c.host.classList.remove('kb-dio-on', 'kb-dio-fab'); P.forEach((p) => p.release()); stage.remove(); };
       alive = finish;
       if (instant || !shown || !lift) { finish(); return; }
