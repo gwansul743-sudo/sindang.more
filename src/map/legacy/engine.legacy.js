@@ -267,9 +267,10 @@ export function bootLegacy(DATA){
     sideDone = done; stage.addEventListener('transitionend', onEnd); }
   let chiefActor = null, catActor = null, chiefHome = null;   /* 이장님 배우 (WALKERS 에서 채움) — 말풍선이 머리 위를 따라간다. chiefHome: 평소 자리 */
   const talk = mountTalk(stage, { onEnd: () => kioskRest() });   /* 큰 말풍선(인터뷰). 작은 말풍선의 인사가 끝나면 시작. 마지막 장이 닫히면 범례·주민 */
-  const speech = mountSpeech(stage, {
-    anchor: () => { if(!chiefActor || chiefActor.g.getAttribute('display') === 'none') return null; const r = chiefActor.g.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { x: r.left + r.width / 2 - st.left, y: r.top - st.top }; },
-    bounds: () => { const m = map.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { left: m.left - st.left, top: m.top - st.top, width: m.width, height: m.height }; },
+  /* 말풍선은 #map 안(10-28): 범례·확대 버튼·카드·관리 창 같은 UI 를 덮지 않고 그 아래로 지나간다(speech.css z-index) */
+  const speech = mountSpeech(map, {
+    anchor: () => { if(!chiefActor || chiefActor.g.getAttribute('display') === 'none') return null; const r = chiefActor.g.getBoundingClientRect(), st = map.getBoundingClientRect(); return { x: r.left + r.width / 2 - st.left, y: r.top - st.top }; },
+    bounds: () => { const m = map.getBoundingClientRect(); return { left: 0, top: 0, width: m.width, height: m.height }; },
     onEnd: () => { if(KIOSK && !introOpen && kioskStage === 'play' && DATA.chiefTalk) talk.start(DATA.chiefTalk); },
   });
   const CHIEF_LINES = ['오호! 처음 보는 얼굴이구먼!\n**신당 5길**에 어서와!!', '잠깐 이야기 좀 듣고 갈 텐가?'];
@@ -297,9 +298,9 @@ export function bootLegacy(DATA){
   const TOUCH_HOOK_MS = 8000;
   let villager = null, vHookT = null;   /* { w, script } 지금 말을 거는 주민 */
   const vTalk = mountTalk(stage, { onEnd: () => { const st = vEndCard; vEndCard = null; villagerDone(); if(st) openStoreCard(st); if(KIOSK) idle(); } });   /* 모바일: 대화가 끝나면 그 가게 카드 */   /* 대화가 끝나면 무입력 30초를 다시 센다 → 자동 순환 이어짐 */
-  const vSpeech = mountSpeech(stage, {
-    anchor: () => { const g = (vPeek || villager)?.w.g; if(!g || g.getAttribute('display') === 'none') return null; const r = g.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { x: r.left + r.width / 2 - st.left, y: r.top - st.top }; },
-    bounds: () => { const m = map.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { left: m.left - st.left, top: m.top - st.top, width: m.width, height: m.height }; },
+  const vSpeech = mountSpeech(map, {
+    anchor: () => { const g = (vPeek || villager)?.w.g; if(!g || g.getAttribute('display') === 'none') return null; const r = g.getBoundingClientRect(), st = map.getBoundingClientRect(); return { x: r.left + r.width / 2 - st.left, y: r.top - st.top }; },
+    bounds: () => { const m = map.getBoundingClientRect(); return { left: 0, top: 0, width: m.width, height: m.height }; },
   });
   const takeVillager = (w, script) => { clearTimeout(vHookT); if(villager && villager.w !== w){ villager.w.release(); vTalk.hide(); } villager = { w, script }; w.hold(); };
   /* 이장님이 말하는 동안(전시 연출·말풍선·큰 상자)엔 주민에게 말을 걸 수 없다(10-23) */
