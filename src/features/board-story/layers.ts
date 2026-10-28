@@ -16,6 +16,9 @@ export interface LayerCtx {
   toBoard(lat: number, lng: number): [number, number];     // 실제 위경도 → 보드 캔버스(길과 같은 변환)
   spots(): StoreSpot[];                                    // 보드 가게 단추 자리(캔버스) + 이름표 칸
   villagers: DioVillagers | null;                          // 보드에서 걷는 주민(해 디오라마 속을 같이 걷는다)
+  top: SVGGElement | null;                                 // 단추·이름표 위 층(닫히면 story.ts 가 비운다)
+  obstacles(): { x0: number; y0: number; x1: number; y1: number }[];   // 장식 칸(캔버스)
+  camera: { focus(x: number, y: number, mul: number, dx?: number): void; restore(): void } | null;   // 카메라 잠깐 당기기(보드 캔버스) · 되돌리기
 }
 export interface StoreSpot { id: string; name: string; x: number; y: number; r: number; lab: { x0: number; y0: number; x1: number; y1: number } | null }
 export interface LayerCtl { page(i: number, p: StoryPage): void; destroy?(instant?: boolean): void }   // destroy: SVG 밖(HTML)에 만든 것·타이머 정리. instant 가 아니면 나가는 장면을 보여도 된다

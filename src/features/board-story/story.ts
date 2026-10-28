@@ -32,6 +32,9 @@ export interface StoryOptions {
   toBoard?: (lat: number, lng: number) => [number, number];   // 실제 위경도 → 보드 캔버스(건물 겹 그림)
   spots?: () => StoreSpot[];                                 // 보드 가게 단추 자리(해 눈금)
   villagers?: DioVillagers;                                  // 보드 주민 명단·말 걸기(해 디오라마)
+  top?: SVGGElement;                                         // 단추·이름표 위 층(해 눈금)
+  obstacles?: () => { x0: number; y0: number; x1: number; y1: number }[];   // 장식 칸(캔버스)
+  camera?: { focus(x: number, y: number, mul: number, dx?: number): void; restore(): void };   // 카메라 잠깐 당기기·되돌리기(보드 캔버스 좌표)
 }
 export interface BoardStory { readonly open: boolean; close(instant?: boolean): void }
 
@@ -119,12 +122,13 @@ export function mountStory(o: StoryOptions): BoardStory {
       slot: (h) => { if (alive()) panel?.querySelector('.kb-story-slot')!.replaceChildren(...(h ? [h] : [])); },
       hold: (on) => { if (!alive() || held === on) return; held = on; if (on) clearTimeout(idleT); else armIdle(); },
       host: o.host, spots: () => (o.spots ? o.spots() : []), villagers: o.villagers ?? null,
+      top: o.top ?? null, obstacles: () => (o.obstacles ? o.obstacles() : []), camera: o.camera ?? null,
       load: async (name) => { const f = LOAD[`../../../content/board-story/${name}`]; if (!f) throw new Error('없는 데이터 ' + name); return f(); },
       toBoard: (lat, lng) => o.toBoard ? o.toBoard(lat, lng) : [0, 0] }))
       .then((c) => { if (!c) return; if (!alive()) { c.destroy?.(); return; } ctl = c; c.page(page, d.pages[page]); })
       .catch(() => { if (alive()) root.remove(); });   /* 겹 그림이 실패해도 이야기는 그대로 */
   }
-  function clearLayer(keepDim = false) { dropCtl(); [...o.layer.children].forEach((c) => { if (!keepDim || c !== dim) c.remove(); }); if (!keepDim) dim = null; panel?.querySelector('.kb-story-slot')!.replaceChildren(); }
+  function clearLayer(keepDim = false) { dropCtl(); [...o.layer.children].forEach((c) => { if (!keepDim || c !== dim) c.remove(); }); if (!keepDim) dim = null; o.top?.replaceChildren(); panel?.querySelector('.kb-story-slot')!.replaceChildren(); }
   function dropCtl(instant = true) { const c = ctl; ctl = null; held = false; c?.destroy?.(instant); }   /* 주제를 바꿀 땐 어둠은 그대로(깜빡임 없이) */
   function showDim(on: boolean) {
     if (on) {

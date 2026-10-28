@@ -389,7 +389,10 @@ export function bootLegacy(DATA){
   const story = board ? mountStory({ host: map, svg, targets: () => board.storyTargets(), layer: board.storyLayer, islandPath: board.islandPath,
     active: () => KIOSK && board.on && !introOpen && kioskStage === 'rest' && document.documentElement.classList.contains('kb-rest'),
     busy: () => cycling || !!current || viewer.visible || talk.visible || speech.visible || vTalk.visible || vSpeech.visible || !!clusterAt,
-    quiet: () => talk.visible || vTalk.visible, moved: () => V.moved, toBoard: (lat, lng) => board.toBoard(...proj(lat, lng)), spots: () => board.storeSpots(),
+    quiet: () => talk.visible || vTalk.visible, moved: () => V.moved, toBoard: (lat, lng) => board.toBoard(...proj(lat, lng)), spots: () => board.storeSpots(), top: board.storyTop, obstacles: () => board.propBoxes(),
+    camera: (() => { let saved = null; return {   /* 이야기 장이 잠깐 카메라를 당겼다가(해 눈금 글씨가 작을 때) 되돌린다 */
+      focus: (x, y, mul, dx = 0) => { const s = V.scale(); if(!saved) saved = { x: V.x + V.pw / (2 * s), y: V.y + V.ph / (2 * s), s }; const [mx, my] = board.toMapXY(x, y); centerOn(mx + dx / (s * mul), my, s * mul, 0); },   /* dx: 화면 px 만큼 오른쪽을 비운다(상자 자리) */
+      restore: () => { if(!saved) return; const p = saved; saved = null; centerOn(p.x, p.y, p.s, 0); } }; })(),
     onOpen: () => { idle(); closeCluster(); viewer.close(); speech.hide(); villagerDone(); if(current) closeCard(); board.focus(null); },
     onClose: () => idle(),
     villagers: { roster: () => walkers.filter(w => w.vScript).sort((a, b) => (b.vScript.kind === 'form') - (a.vScript.kind === 'form')).map(w => ({ id: w.vScript.id, g: w.g, body: w.body, script: w.vScript })),   /* 시민 인터뷰 주민 먼저 */

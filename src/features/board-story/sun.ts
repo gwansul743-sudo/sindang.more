@@ -96,7 +96,8 @@ export const diorama: Renderer = async (c: LayerCtx) => {
   let date = dates.includes('today') ? 'today' : dates[0], cmp: string | null = null, idx = 0, night = false, view: 'diorama' | 'board' | null = null;
   let timer = 0, gaugeG: SVGGElement | null = null, preloadRun = 0, shown = false, landed = false, onLand: (() => void) | null = null;
   /* 디오라마 속 주민(dioWalkers.ts): 다 들춘 뒤 한 장짜리 장에서만. 길 데이터는 처음 걸을 때 받는다 */
-  let walkers: DioWalkers | null = null, talkT = 0;
+  let walkers: DioWalkers | null = null, talkT = 0, camHeld = false;
+  const camBack = () => { if (camHeld) { camHeld = false; c.camera?.restore(); } };   /* 해 눈금 장에서 당긴 카메라 되돌리기 */
   const walkersOk = () => !!(c.villagers && m.axon && m.local);
   async function people(on: boolean) {
     if (!on || !walkersOk()) { walkers?.stop(); return; }
@@ -149,24 +150,32 @@ export const diorama: Renderer = async (c: LayerCtx) => {
     }
   }
 
-  /* 해 눈금(보드 장): 단추 자리 옆, 이름표·단추·다른 눈금과 덜 겹치는 쪽에 */
+  /* 해 눈금(보드 장, 10-28 정리): 단추·이름표 위 층(top)에. 자리는 이름표처럼 욕심쟁이 배치 — 아래·오른쪽·왼쪽·위 × 거리 네 단계 중
+     이름표·단추·장식·다른 눈금과 가장 덜 겹치는 곳. 단추에서 떨어져 놓이면 가는 홈질 실로 잇는다.
+     글씨가 화면에서 12px 보다 작으면(보드 전체로 물러나 있으면) 카메라를 가게들 쪽으로 한 단계(×1.6) 당겼다가 이 장을 떠나면 되돌린다 */
   async function gauges(day: string | undefined) {
     gaugeG?.remove(); gaugeG = null;
     if (!day) return;
     const data = (await c.load('sun-stores.json')) as { stores: StoreSun[] };
     if (!c.alive() || view !== 'board') return;
     const spots = c.spots(), byId = new Map(spots.map((s) => [s.id, s])), byName = new Map(spots.map((s) => [s.name, s]));
-    const BW = 34, BH = 6, FS = 10, TW = 31, W = BW + 3 + TW, H = 11;
-    const boxes = spots.flatMap((s) => [{ x0: s.x - s.r, y0: s.y - s.r, x1: s.x + s.r, y1: s.y + s.r }, ...(s.lab ? [s.lab] : [])]);
-    const over = (a: typeof boxes[0], b: typeof boxes[0]) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
-    gaugeG = document.createElementNS(NS, 'g'); gaugeG.setAttribute('class', 'kb-sun-gauges'); c.root.appendChild(gaugeG);
-    for (const st of data.stores) {
-      const d = st[day] as DaySun | undefined, s: StoreSpot | undefined = byId.get(st.id) || byName.get(st.name);
-      if (!d || !s) continue;
-      const cands: [number, number][] = [[s.x - W / 2, s.y + s.r + 2], [s.x + s.r + 2, s.y - H / 2], [s.x - s.r - 2 - W, s.y - H / 2], [s.x - W / 2, s.y - s.r - 2 - H]];
-      let best = cands[0], bc = Infinity;
-      cands.forEach(([x, y], k) => { const b = { x0: x, y0: y, x1: x + W, y1: y + H }; const cost = boxes.reduce((a, o) => a + over(b, o), 0) + k * 4; if (cost < bc) { bc = cost; best = [x, y]; } });
-      boxes.push({ x0: best[0], y0: best[1], x1: best[0] + W, y1: best[1] + H });
+    const BW = 34, BH = 6, FS = 10, TW = 38, W = BW + 3 + TW, H = 12, MIN_PX = 12;   /* TW: '0.7시간' 글씨 폭 + 여유 */
+    type B = { x0: number; y0: number; x1: number; y1: number };
+    const fixed: B[] = [...spots.flatMap((s) => [{ x0: s.x - s.r, y0: s.y - s.r, x1: s.x + s.r, y1: s.y + s.r }, ...(s.lab ? [s.lab] : [])]), ...c.obstacles()];
+    const placed: B[] = [], over = (a: B, b: B) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
+    gaugeG = document.createElementNS(NS, 'g'); gaugeG.setAttribute('class', 'kb-sun-gauges'); (c.top || c.root).appendChild(gaugeG);
+    const leads = document.createElementNS(NS, 'path'); leads.setAttribute('class', 'kb-sun-lead'); gaugeG.appendChild(leads); let leadD = '';
+    const mine = data.stores.map((st) => ({ st, d: st[day] as DaySun | undefined, s: byId.get(st.id) || byName.get(st.name) })).filter((q): q is { st: StoreSun; d: DaySun; s: StoreSpot } => !!q.d && !!q.s);
+    mine.sort((a, b) => a.s.x - b.s.x);
+    for (const { d, s } of mine) {
+      let best: [number, number] = [s.x - W / 2, s.y + s.r + 2], bc = Infinity, bd = 0;
+      [2, 9, 18, 30].forEach((gap, gi) => [[0, 1], [1, 0], [-1, 0], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]].forEach(([ux, uy], k) => {
+        const x = ux > 0 ? s.x + s.r + gap : ux < 0 ? s.x - s.r - gap - W : s.x - W / 2, y = uy > 0 ? s.y + s.r + gap : uy < 0 ? s.y - s.r - gap - H : s.y - H / 2, b = { x0: x, y0: y, x1: x + W, y1: y + H };
+        const cost = fixed.reduce((a, o) => a + over(b, o), 0) + placed.reduce((a, o) => a + over(b, o) * 8, 0) + gi * 60 + k * 6;
+        if (cost < bc) { bc = cost; best = [x, y]; bd = gap; } }));
+      placed.push({ x0: best[0], y0: best[1], x1: best[0] + W, y1: best[1] + H });
+      if (bd > 2) { const gx = Math.max(best[0], Math.min(s.x, best[0] + W)), gy = Math.max(best[1], Math.min(s.y, best[1] + H)), a = Math.atan2(gy - s.y, gx - s.x);
+        leadD += `M${(s.x + Math.cos(a) * s.r).toFixed(1)} ${(s.y + Math.sin(a) * s.r).toFixed(1)}L${gx.toFixed(1)} ${gy.toFixed(1)}`; }
       const g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'kb-sun-g' + (d.hours ? '' : ' zero')); g.setAttribute('transform', `translate(${best[0].toFixed(1)},${best[1].toFixed(1)})`);
       const n = d.slots.length || 1, cw = BW / n; let sun = '';
       for (let i = 0; i < n; ) { if (d.slots[i] !== '1') { i++; continue; } let j = i; while (j < n && d.slots[j] === '1') j++; sun += `M${(i * cw).toFixed(2)} ${(H - BH) / 2}h${((j - i) * cw).toFixed(2)}v${BH}h${(-(j - i) * cw).toFixed(2)}Z`; i = j; }   /* 해 드는 칸을 이어 한 path 로 */
@@ -174,13 +183,18 @@ export const diorama: Renderer = async (c: LayerCtx) => {
         + `<text x="${BW + 3}" y="${H / 2}" font-size="${FS}">${d.hours}시간</text>`;
       gaugeG.appendChild(g);
     }
+    leads.setAttribute('d', leadD || 'M0 0');
+    const sc = c.root.getScreenCTM()?.a ?? 1;   /* 보드 1단위 = 화면 px */
+    if (FS * sc < MIN_PX && mine.length && c.camera) { const cx = mine.reduce((a, q) => a + q.s.x, 0) / mine.length, cy = mine.reduce((a, q) => a + q.s.y, 0) / mine.length; const hr = c.host.getBoundingClientRect(), pr = (c.host.querySelector('.kb-story.show') as HTMLElement | null)?.getBoundingClientRect(), lr = (c.host.querySelector('.kb-legend.show') as HTMLElement | null)?.getBoundingClientRect();
+      const L = lr ? lr.right - hr.left : 0, R = pr ? pr.left - hr.left : hr.width;   /* 범례(왼쪽)와 상자(오른쪽) 사이 칸의 가운데로 */
+      c.camera.focus(cx, cy, 1.6, hr.width / 2 - (L + R) / 2); camHeld = true; }
     keyDate.textContent = short(m.dates[day] || day) + ' ';
   }
 
   const api: LayerCtl = {
     page(_i, p) {
       const L = (p.layer || {}) as PageL;
-      stop(); gaugeG?.remove(); gaugeG = null;
+      stop(); gaugeG?.remove(); gaugeG = null; camBack();
       view = L.view === 'board' ? 'board' : 'diorama';
       if (view === 'board') { showStage(false); c.slot(L.stores ? keyRow : null); void gauges(L.stores); return; }
       night = !!L.night; cmp = !night && L.compare && m.frames[L.compare] ? L.compare : null;
@@ -191,7 +205,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
       if (landed) void people(!cmp);   /* 장이 바뀌어도 무대가 떠 있으면: 비교 장에선 숨기고 한 장짜리면 다시 */
     },
     destroy(instant) {
-      stop(); preloadRun++; gaugeG?.remove(); view = null; clearInterval(talkT); walkers?.destroy(); walkers = null;
+      stop(); preloadRun++; gaugeG?.remove(); view = null; clearInterval(talkT); walkers?.destroy(); walkers = null; if (instant) camHeld = false; else camBack();
       const finish = () => { if (alive !== finish) return; alive = null; lift?.kill(); c.host.classList.remove('kb-dio-on', 'kb-dio-fab'); P.forEach((p) => p.release()); stage.remove(); };
       alive = finish;
       if (instant || !shown || !lift) { finish(); return; }

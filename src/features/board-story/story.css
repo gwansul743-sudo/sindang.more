@@ -101,7 +101,7 @@ html.kb-on #map > svg{transition:scale .7s cubic-bezier(.32,.72,0,1),opacity .7s
 .kb-dio-lw img.on{opacity:1}
 /* 들추는 동안 천(리넨·장식·제목·단추·이름표·주민·겹 그림)은 걷히고 길·바탕만 남는다 — 들추는 그림의 길이 그 위에 겹친다 */
 #map .kb-cloth,#map .kb-tint,#map .kb-props,#map .kb-title,#map .kb-buttons,#map .kb-story-layer{transition:opacity .5s ease}
-#map.kb-dio-fab .kb-cloth,#map.kb-dio-fab .kb-tint,#map.kb-dio-fab .kb-props,#map.kb-dio-fab .kb-title,#map.kb-dio-fab .kb-buttons,#map.kb-dio-fab .kb-story-layer,#map.kb-dio-fab .wk{opacity:0!important}
+#map.kb-dio-fab .kb-cloth,#map.kb-dio-fab .kb-tint,#map.kb-dio-fab .kb-props,#map.kb-dio-fab .kb-title,#map.kb-dio-fab .kb-buttons,#map.kb-dio-fab .kb-story-layer,#map.kb-dio-fab .kb-story-top,#map.kb-dio-fab .wk{opacity:0!important}
 #map.kb-dio-fab .kb-legend.show{opacity:0;pointer-events:none}
 .kb-dio-pane{position:relative;flex:1;min-width:0;margin:0}
 .kb-dio:not(.compare) .kb-dio-pane + .kb-dio-pane{display:none}
@@ -135,6 +135,7 @@ html.kb-on #map > svg{transition:scale .7s cubic-bezier(.32,.72,0,1),opacity .7s
 
 /* 해 눈금(보드 장): 가게마다 <g> 하나 — 그늘 막대 + 해 드는 칸 path + 'n시간' */
 .kb-sun-gauges{pointer-events:none}
+.kb-sun-lead{fill:none;stroke:var(--kb-thread);stroke-width:1.2;stroke-dasharray:3 2.2;opacity:.8}   /* 단추에서 떨어진 눈금을 잇는 실 */
 .kb-sun-g{animation:kb-sun-in .4s ease both}
 @keyframes kb-sun-in{from{opacity:0}to{opacity:1}}
 .kb-sun-bar{stroke:#fbf3e2;stroke-width:1.2;paint-order:stroke}

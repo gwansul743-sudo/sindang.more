@@ -35,6 +35,9 @@ export interface Board {
   storyLayer: SVGGElement;                                    // 이야기 겹 그림을 넣을 층(길 위, 장식·제목·단추 아래 — 10-28 건물 겹 그림 위로 집·나무가 보이게). 이야기가 닫히면 비운다
   toBoard(x: number, y: number): XY;                          // 지도 좌표(실제 자리) → 보드 캔버스(길과 같은 변환 R)
   storeSpots(): { id: string; name: string; x: number; y: number; r: number; lab: Box | null }[];   // 단추 자리·이름표 칸(캔버스, 배치 뒤) — 이야기 겹 그림이 비켜 놓을 때
+  storyTop: SVGGElement;                                      // 이야기 겹 그림 중 단추·이름표보다 위에 와야 하는 것(해 눈금). 이야기가 닫히면 비운다
+  propBoxes(): Box[];                                         // 장식(집·나무·재봉틀…) 칸(캔버스) — 비켜 놓을 때
+  toMapXY(x: number, y: number): XY;                          // 보드 캔버스 → 지도 좌표(카메라)
   islandPath: string;                                         // 섬 덩어리(캔버스 좌표) — 이야기가 열린 동안 보드만 살짝 어둡게
 }
 /* 이야기 상자(10-28): 그림 종류 → 이야기 주제(content/board-story/{주제}.json). 나무는 모두 '쉼', 구름 둘은 '구름' */
@@ -163,6 +166,7 @@ export function mountBoard(o: BoardOptions): Board {
      · 작은 단추는 큰 단추·이름표를 피해 살짝 비켜 서고, 이름 글씨도 빈 자리를 찾는다(위가 먼저, 단추에 붙여서).
      · featured 목록이 비어 있으면 전부 큰 단추 — 예전 모습 */
   const btnG = el('g', { class: 'kb-buttons' }, board);
+  const storyTop = el('g', { class: 'kb-story-top' }, board);   /* 단추·이름표 위(10-28 해 눈금) — 비어 있다가 이야기가 열린 동안만 */
   const minorG = el('g', {}, btnG), leadG = el('g', {}, btnG), featG = el('g', {}, btnG), labG = el('g', {}, btnG), minorLabG = el('g', {}, btnG);
   type Btn = { id: string; name: string; cat: string; feat: boolean; img: boolean; ox: number; oy: number; x: number; y: number; k: number; r: number; bund: boolean; bc?: XY;
     pos: SVGGElement; g: SVGGElement; inner: SVGGElement; lab: SVGGElement; lw: number; lh: number; lx: number; ly: number; lead?: SVGLineElement };
@@ -450,6 +454,7 @@ export function mountBoard(o: BoardOptions): Board {
     storyTargets: () => [...g.querySelectorAll<SVGGraphicsElement>('[data-story]')].map((e) => ({ topic: e.dataset.story!, el: e })),
     storyLayer, islandPath: islandD, toBoard: (x, y) => R.to(x, y),
     storeSpots: () => btns.map((b) => ({ id: b.id, name: b.name, x: b.x, y: b.y, r: b.r, lab: b.lw ? labBox(b) : null })),
+    storyTop, propBoxes: () => propBoxes.slice(), toMapXY: (x, y) => toMap([x, y]),
     play({ onChief }) {
       const my = ++run; reset(); on = true; loadLinen(); g.classList.add('mounted'); fold(); void (board as unknown as HTMLElement).getBoundingClientRect();
       if (reduced()) { skip(); at(onChief, 300); return; }
