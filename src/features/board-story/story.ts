@@ -88,7 +88,7 @@ export function mountStory(o: StoryOptions): BoardStory {
   o.host.addEventListener('pointermove', (e) => {
     if (e.pointerType === 'touch') return;
     if (hot && e.target instanceof Element && e.target.closest('.speech')) return;   /* hook 말풍선 위로 옮겨 가도 유지 — 말풍선을 눌러도 열린다 */
-    if (e.target instanceof Element && e.target.closest('.kb-story-layer [data-page]')) { cancelAnimationFrame(raf); setHot(null); return; }   /* 겹 그림의 누르는 것(별자리 별) 위 */
+    if (e.target instanceof Element && e.target.closest('.kb-story-layer [data-page],.kb-story-layer [data-hit]')) { cancelAnimationFrame(raf); setHot(null); return; }   /* 겹 그림의 누르는 것(별자리 별) 위 */
     cancelAnimationFrame(raf); const { clientX: x, clientY: y, target } = e;
     raf = requestAnimationFrame(() => setHot(o.active() && onMap(target) ? hitAt(x, y) : null));
   }, { passive: true });
@@ -100,6 +100,7 @@ export function mountStory(o: StoryOptions): BoardStory {
   o.host.addEventListener('click', (e) => { if (cur && e.target instanceof Element && e.target.closest(SKIP)) close(true); }, true);
   o.host.addEventListener('click', (e) => {
     if (!o.active() || o.moved() || !onMap(e.target)) return;
+    if ((e.target as Element).closest('.kb-story-layer [data-hit]')) return;   /* 겹 그림이 스스로 받는 것(쉼터 제안 자리) */
     const pg = cur && data ? (e.target as Element).closest('.kb-story-layer [data-page]') : null;
     if (pg) { goTo(Number(pg.getAttribute('data-page'))); return; }   /* 별자리 별 → 그 장 */
     const t = hitAt(e.clientX, e.clientY);

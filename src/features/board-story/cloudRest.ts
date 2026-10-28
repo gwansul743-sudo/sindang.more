@@ -92,60 +92,112 @@ export const shade: Renderer = async (c: LayerCtx) => {
   };
 };
 
-/* 나무 — 쉼(rest): layer.show "places"(공원·놀이터 천 조각 + 화장실) · "walk"(쉴 곳까지 걷는 시간, 네 묶음) · "trees"(가로수 180그루, path 하나) ·
-   "proposals"(그늘 쉼터 제안 여덟 자리, 방석 모양). 요소는 모두 합쳐 30개 이하 — 묶을 수 있는 것은 path 하나로. 공원 넓이는 실제 넓이 그대로의 원 */
-const WALK_COL = ['#6f8a73', '#f2c070', '#f0a850', '#7d2030'], WALK_W = 7;   /* 3분 이하 초록(봉제 무늬) → 노랑 → 주황 → 와인 */
+/* 나무 — 쉼(rest, TASK_11 다시 그림): layer.show "places" · "walk" · "trees" · "proposals". 요소는 보이는 장에 필요한 묶음만 만들고 나머지는 DOM 에서 지운다(한 번에 40개 이하).
+   · places: 공원·놀이터 = 실제 넓이의 초록 천 조각(홈질) + 벤치·미끄럼틀 그림, 화장실 = 와인 꼬리표 그림
+   · walk: 쉴 곳까지 걷는 시간 네 묶음을 천 리본(띠 + 홈질)으로 — 3분 초록 · 5분 노랑 · 8분 주황 · 그 넘게 와인, 지도 모서리 범례
+   · trees: 가로수마다 펠트 수관(반지름 = 키에서 2.5–4 m, 화면 5 px 이상), 초록 세 겹(path 셋) + 홈질 테두리(path 하나), 가로수가 없는 골목엔 점선 구역 + '골목 안 가로수 0그루'
+   · proposals: 여덟 자리마다 시원한 그늘 원 + 보드 벤치 그림 + 작은 화분 + 번호 꼬리표, 열 때 차례로 톡. 누르거나 가리키면 '쉼터까지 n분 · 오후 그늘 n%' */
+const WALK_COL = ['#6f8a73', '#f2c070', '#f0a850', '#7d2030'], WALK_W = 8;   /* 3분 이하 초록(봉제 무늬) → 노랑 → 주황 → 와인 */
+const TREE_COL = ['#6f8a73', '#5f7d66', '#84a086'];   /* 보드 나무 초록 세 겹(봉제 무늬 초록 둘레) */
 interface Place { name: string; kind: string; latlng: number[]; area: number | null }
 interface WalkSeg { a: number[]; b: number[]; min: number }
-interface Proposal { latlng: number[]; walk_min: number }
-interface Tree { latlng: number[]; road?: string }
+interface Proposal { latlng: number[]; walk_min: number; shade15?: number }
+interface Tree { latlng: number[]; road?: string; h?: number }
 const circle = (x: number, y: number, r: number) => `M${(x - r).toFixed(1)} ${y.toFixed(1)}a${r.toFixed(1)} ${r.toFixed(1)} 0 1 0 ${(2 * r).toFixed(1)} 0a${r.toFixed(1)} ${r.toFixed(1)} 0 1 0 ${(-2 * r).toFixed(1)} 0Z`;
 const pill = (x: number, y: number, w: number, h: number, r: number) => `M${(x - w / 2 + r).toFixed(1)} ${(y - h / 2).toFixed(1)}h${(w - 2 * r).toFixed(1)}a${r} ${r} 0 0 1 ${r} ${r}v${(h - 2 * r).toFixed(1)}a${r} ${r} 0 0 1 ${-r} ${r}h${(-(w - 2 * r)).toFixed(1)}a${r} ${r} 0 0 1 ${-r} ${-r}v${(-(h - 2 * r)).toFixed(1)}a${r} ${r} 0 0 1 ${r} ${-r}Z`;
+function hull(pts: number[][]) {   /* 볼록 껍질(모노톤 체인) */
+  const p = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]); if (p.length < 3) return p;
+  const cross = (o: number[], a: number[], b: number[]) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo: number[][] = [], up: number[][] = [];
+  for (const q of p) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  for (const q of p.slice().reverse()) { while (up.length >= 2 && cross(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+  return lo.slice(0, -1).concat(up.slice(0, -1));
+}
 
 export const rest: Renderer = async (c: LayerCtx) => {
   const [data, tdata] = (await Promise.all([c.load(String(c.spec.data)), c.load(String(c.spec.trees))])) as [{ places: Place[]; segs: WalkSeg[]; proposals: Proposal[] }, { trees: Tree[] }];
   if (!c.alive()) return null;
   const P = (ll: number[]) => c.toBoard(ll[0], ll[1]);
-  /* 미터 → 보드 단위: 동서로 100 m 떨어진 두 점 */
-  const ll0 = data.places[0]?.latlng || [37.565, 127.02], [ax, ay] = P(ll0), [bx, by] = P([ll0[0], ll0[1] + 100 / (111320 * Math.cos((ll0[0] * Math.PI) / 180))]), m = Math.hypot(bx - ax, by - ay) / 100;
-  const root = el('g', { class: 'kb-rs', 'clip-path': 'url(#kb-clip)' }, c.root);
-  /* 걷는 시간(네 묶음) — 맨 아래 */
-  const walk = el('g', { class: 'kb-rs-walk' }, root), wd = ['', '', '', ''];
-  for (const s of data.segs) { const k = s.min <= 3 ? 0 : s.min <= 5 ? 1 : s.min <= 8 ? 2 : 3, [x1, y1] = P(s.a), [x2, y2] = P(s.b); wd[k] += `M${x1.toFixed(1)} ${y1.toFixed(1)}L${x2.toFixed(1)} ${y2.toFixed(1)}`; }
-  wd.forEach((d, k) => el('path', { d: d || 'M0 0', stroke: WALK_COL[k], 'stroke-width': WALK_W }, walk));
-  /* 공원·놀이터: 실제 넓이의 원(천 조각 + 홈질), 화장실 표시, 이름 둘 */
-  const places = el('g', { class: 'kb-rs-places' }, root);
-  const parks = data.places.filter((p) => (p.kind === 'park' || p.kind === 'playground') && p.area), patchD = parks.map((p) => { const [x, y] = P(p.latlng); return circle(x, y, Math.sqrt(p.area! / Math.PI) * m); }).join('');
-  el('path', { class: 'kb-rs-patch', d: patchD || 'M0 0' }, places); el('path', { class: 'kb-rs-patch-st', d: patchD || 'M0 0' }, places);
-  const park = data.places.find((p) => p.kind === 'park'), toilet = data.places.find((p) => p.kind === 'toilets');
-  if (park) { const [x, y] = P(park.latlng), r = Math.sqrt((park.area || 0) / Math.PI) * m; el('text', { class: 'kb-rs-lab', x: x.toFixed(1), y: (y - r - 5).toFixed(1) }, places).textContent = park.name; }
-  if (toilet) { const [x, y] = P(toilet.latlng), t = el('g', { class: 'kb-rs-wc', transform: `translate(${x.toFixed(1)},${y.toFixed(1)})` }, places);
-    el('path', { d: pill(0, 0, 14, 14, 3), fill: '#7d2030' }, t);   /* 화장실 그림: 와인 네모 + 크림 사람 둘 */
-    el('path', { d: 'M-3.5 -4.2a1.3 1.3 0 1 0 .01 0ZM3.5 -4.2a1.3 1.3 0 1 0 .01 0ZM-4.8 -2.2h2.6v5.6h-2.6ZM2.2 -2.2h2.6l1 3.6h-1.4v2h-1.8v-2h-1.4Z', fill: '#fbf3e2' }, t);
-    el('text', { class: 'kb-rs-lab', x: x.toFixed(1), y: (y + 18).toFixed(1) }, places).textContent = '화장실'; }
-  /* 가로수: 점 180개를 path 하나로, 큰길 이름 둘(그 길 나무 무리의 가운데 위) */
-  const trees = el('g', { class: 'kb-rs-trees' }, root), byRoad = new Map<string, number[][]>();
-  el('path', { class: 'kb-rs-tree', d: tdata.trees.map((t) => { const [x, y] = P(t.latlng); if (t.road) (byRoad.get(t.road) || byRoad.set(t.road, []).get(t.road)!).push([x, y]); return circle(x, y, 2.6); }).join('') }, trees);
-  [...byRoad].slice(0, 2).forEach(([name, pts]) => { const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
-    el('text', { class: 'kb-rs-road', x: cx.toFixed(1), y: (cy - 12).toFixed(1) }, trees).textContent = name; });
-  /* 제안 여덟 자리: 방석(둥근 네모 + 안쪽 홈질) path 둘 + 번호 */
-  const props = el('g', { class: 'kb-rs-props' }, root), pts = data.proposals.slice(0, 8).map((p) => P(p.latlng));
-  el('path', { class: 'kb-rs-cush', d: pts.map(([x, y]) => pill(x, y, 28, 19, 5)).join('') }, props);
-  el('path', { class: 'kb-rs-cush-st', d: pts.map(([x, y]) => pill(x, y, 22, 13, 3.5)).join('') }, props);
-  pts.forEach(([x, y], i) => { el('text', { class: 'kb-rs-num', x: x.toFixed(1), y: (y + 0.5).toFixed(1) }, props).textContent = String(i + 1); });
-  /* 상자 아래 칸: 걷는 시간 범례 / 공원·화장실 / 가로수 */
-  const key = (html: string) => { const d = document.createElement('div'); d.className = 'kb-rs-key'; d.innerHTML = html; return d; };
-  const walkKey = key(['걸어서 3분', '5분', '8분', '그 이상'].map((t, k) => `<i style="background:${WALK_COL[k]}"></i>${t}`).join(' '));
-  const placeKey = key('<i class="patch"></i>공원·놀이터 <i class="wc"></i>공중화장실');
-  const treeKey = key(`<i class="dot"></i>가로수 ${tdata.trees.length}그루`);
+  const ll0 = data.places[0]?.latlng || [37.565, 127.02], [ax, ay] = P(ll0), [bx, by] = P([ll0[0], ll0[1] + 100 / (111320 * Math.cos((ll0[0] * Math.PI) / 180))]), m = Math.hypot(bx - ax, by - ay) / 100;   /* 보드 단위 / m */
+  const px = () => 1 / Math.max(0.05, c.root.getScreenCTM()?.a || 1);   /* 화면 1 px = 보드 몇 단위 */
+  const root = el('g', { class: 'kb-rs on', 'clip-path': 'url(#kb-clip)' }, c.root);
+  const groups: Record<string, SVGGElement | null> = { walk: null, walkLite: null, places: null, trees: null, props: null };
+  /* 걷는 시간 리본(띠 + 홈질). lite = 띠만(쉼터 제안 장 밑에 옅게) */
+  function buildWalk(lite = false) {
+    const g = el('g', { class: 'kb-rs-walk' + (lite ? ' dim' : '') }, root), wd = ['', '', '', ''];
+    for (const s of data.segs) { const k = s.min <= 3 ? 0 : s.min <= 5 ? 1 : s.min <= 8 ? 2 : 3, [x1, y1] = P(s.a), [x2, y2] = P(s.b); wd[k] += `M${x1.toFixed(1)} ${y1.toFixed(1)}L${x2.toFixed(1)} ${y2.toFixed(1)}`; }
+    wd.forEach((d, k) => { if (!d) return; el('path', { class: 'band', d, stroke: WALK_COL[k], 'stroke-width': WALK_W }, g); if (!lite) el('path', { class: 'stitch', d }, g); });
+    return g;
+  }
+  /* 공원·놀이터·화장실 */
+  function buildPlaces() {
+    const g = el('g', { class: 'kb-rs-places' }, root);
+    const parks = data.places.filter((p) => (p.kind === 'park' || p.kind === 'playground') && p.area), patchD = parks.map((p) => { const [x, y] = P(p.latlng); return circle(x, y, Math.sqrt(p.area! / Math.PI) * m); }).join('');
+    el('path', { class: 'kb-rs-patch', d: patchD || 'M0 0' }, g); el('path', { class: 'kb-rs-patch-st', d: patchD || 'M0 0' }, g);
+    const park = data.places.find((p) => p.kind === 'park'), toilet = data.places.find((p) => p.kind === 'toilets'), u = px();
+    if (park) { const [x, y] = P(park.latlng), r = Math.sqrt((park.area || 0) / Math.PI) * m, s = 14 * u;
+      el('text', { class: 'kb-rs-lab', x: x.toFixed(1), y: (y - r - 6 * u).toFixed(1), 'font-size': (13 * u).toFixed(1) }, g).textContent = park.name;
+      /* 벤치 + 미끄럼틀 그림(와인 선) */
+      el('path', { class: 'kb-rs-pic', d: `M${x - s * 1.6} ${y}h${s * 1.2}M${x - s * 1.5} ${y}v${s * 0.6}M${x - s * 0.5} ${y}v${s * 0.6}M${x - s * 1.6} ${y - s * 0.45}h${s * 1.2}`
+        + `M${x + s * 0.3} ${y + s * 0.6}v${-s * 1.4}h${s * 0.4}l${s * 1.1} ${s * 1.4}M${x + s * 0.3} ${y - s * 0.4}h${s * 0.4}`, 'stroke-width': (2 * u).toFixed(2) }, g); }
+    if (toilet) { const [x, y] = P(toilet.latlng), s = 1.4 * u, t = el('g', { class: 'kb-rs-wc', transform: `translate(${x.toFixed(1)},${(y + 26 * u).toFixed(1)}) scale(${s.toFixed(3)})` }, g);
+      el('path', { d: pill(0, 0, 54, 20, 4), fill: '#7d2030' }, t);
+      el('path', { d: 'M-20 -5a2 2 0 1 0 .01 0ZM-12 -5a2 2 0 1 0 .01 0ZM-22 -2h4v8h-4ZM-14 -2h4l1.5 5h-2v3h-3v-3h-2Z', fill: '#fbf3e2' }, t);
+      el('text', { x: 6, y: 0.5, class: 'kb-rs-wct' }, t).textContent = '화장실'; }
+    return g;
+  }
+  /* 가로수: 펠트 수관 + 가로수가 없는 골목 구역 */
+  function buildTrees() {
+    const g = el('g', { class: 'kb-rs-trees' }, root), u = px(), pts: number[][] = [];
+    /* 펠트 결: 초록 세 톤이 섞인 작은 무늬(나무마다 조금씩 다른 톤으로 보이게, path 는 하나) */
+    const pat = el('pattern', { id: 'kb-rs-felt', width: 9, height: 9, patternUnits: 'userSpaceOnUse' }, el('defs', {}, g));
+    el('rect', { width: 9, height: 9, fill: TREE_COL[0] }, pat); el('circle', { cx: 2.5, cy: 2.5, r: 2.4, fill: TREE_COL[1] }, pat); el('circle', { cx: 7, cy: 6.5, r: 2.2, fill: TREE_COL[2] }, pat);
+    let fd = '';
+    tdata.trees.forEach((t) => { const [x, y] = P(t.latlng), rm = 2.5 + 1.5 * Math.max(0, Math.min(1, ((t.h || 8) - 5) / 12)), r = Math.max(rm * m, (5 * u) / 2); pts.push([x, y]); fd += circle(x, y, r); });
+    el('path', { class: 'kb-rs-crown', d: fd, fill: 'url(#kb-rs-felt)' }, g);
+    el('path', { class: 'kb-rs-crown-st', d: fd }, g);
+    /* 가로수 0그루 골목: 가장 가까운 나무에서 25 m 넘게 떨어진 길 토막 가운데들의 볼록 껍질 */
+    const far = data.segs.map((s) => { const [x1, y1] = P(s.a), [x2, y2] = P(s.b); return [(x1 + x2) / 2, (y1 + y2) / 2]; }).filter(([x, y]) => pts.every((p) => Math.hypot(p[0] - x, p[1] - y) > 25 * m));
+    const h = hull(far);
+    if (h.length > 2) { const cx = h.reduce((a, q) => a + q[0], 0) / h.length, cy = h.reduce((a, q) => a + q[1], 0) / h.length;
+      el('path', { class: 'kb-rs-zone', d: h.map(([x, y], i) => `${i ? 'L' : 'M'}${(cx + (x - cx) * 0.85).toFixed(1)} ${(cy + (y - cy) * 0.85).toFixed(1)}`).join('') + 'Z' }, g);
+      el('text', { class: 'kb-rs-zone-t', x: cx.toFixed(1), y: cy.toFixed(1), 'font-size': (16 * u).toFixed(1) }, g).textContent = '골목 안 가로수 0그루'; }
+    return g;
+  }
+  /* 그늘 쉼터 제안: 그늘 원(path 하나) + 벤치·화분 그림 + 번호 꼬리표, 누르거나 가리키면 꼬리표 */
+  function buildProps() {
+    const g = el('g', { class: 'kb-rs-props' }, root), u = px(), B = 30 * u, R = 26 * u, list = data.proposals.slice(0, 8), pts = list.map((p) => P(p.latlng));
+    el('path', { class: 'kb-rs-shade', d: pts.map(([x, y]) => circle(x, y, R)).join('') }, g);
+    const tip = el('g', { class: 'kb-rs-tip' }, g), tipR = el('rect', { rx: 4 * u }, tip), tipT = el('text', { 'font-size': (13 * u).toFixed(1) }, tip);
+    pts.forEach(([x, y], i) => {   /* 자리마다 요소 셋(벤치·화분·번호) — 묶음 g 없이(요소 40개 아래로) */
+      const s = el('image', { class: 'kb-rs-p', 'data-hit': '1', style: `--i:${i}`, href: '/board/bench.webp', x: (x - B * 0.6).toFixed(1), y: (y - B * 0.55).toFixed(1), width: (B * 1.17).toFixed(1), height: B.toFixed(1) }, g);
+      el('image', { class: 'kb-rs-pp', style: `--i:${i}`, href: '/board/hedge.webp', x: (x + B * 0.38).toFixed(1), y: (y - B * 0.15).toFixed(1), width: (B * 0.5).toFixed(1), height: (B * 0.3).toFixed(1) }, g);
+      el('text', { class: 'kb-rs-num kb-rs-pp', style: `--i:${i}`, x: (x - R * 0.95).toFixed(1), y: (y - R * 0.8).toFixed(1), 'font-size': (12 * u).toFixed(1) }, g).textContent = String(i + 1);
+      const show = () => { const p = list[i], t = `쉼터까지 ${Math.round(p.walk_min)}분 · 오후 그늘 ${Math.round((p.shade15 ?? 0) * 100)}%`, w = t.length * 12.2 * u + 16 * u, h = 24 * u;
+        tipR.setAttribute('x', (x - w / 2).toFixed(1)); tipR.setAttribute('y', (y - R - h - 6 * u).toFixed(1)); tipR.setAttribute('width', w.toFixed(1)); tipR.setAttribute('height', h.toFixed(1));
+        tipT.setAttribute('x', x.toFixed(1)); tipT.setAttribute('y', (y - R - h / 2 - 6 * u).toFixed(1)); tipT.textContent = t; tip.classList.add('on'); g.appendChild(tip); };
+      s.addEventListener('pointerenter', show); s.addEventListener('click', (e) => { e.stopPropagation(); show(); });
+    });
+    return g;
+  }
+  const builders: Record<string, () => SVGGElement> = { walk: () => buildWalk(), walkLite: () => buildWalk(true), places: buildPlaces, trees: buildTrees, props: buildProps };
+  function want(names: string[]) { for (const k in groups) { const on = names.includes(k); if (on && !groups[k]) groups[k] = builders[k](); if (!on && groups[k]) { groups[k]!.remove(); groups[k] = null; } } }
+  /* 지도 모서리 범례 */
+  const mapKey = document.createElement('div'); mapKey.className = 'kb-map-key'; c.host.appendChild(mapKey);
+  const keys: Record<string, string> = {
+    places: '<span><i class="patch"></i>공원·놀이터</span><span><i class="wc"></i>공중화장실</span>',
+    walk: ['걸어서 3분', '5분', '8분', '그 이상'].map((t, k) => `<span><i style="background-color:${WALK_COL[k]}"></i>${t}</span>`).join(''),
+    trees: `<span><i class="tree"></i>가로수 ${tdata.trees.length}그루</span><span><i class="zone"></i>가로수 없는 골목</span>`,
+    proposals: '<span><i class="bench"></i>그늘 쉼터 제안</span><span>누르면 걷는 시간·그늘</span>',
+  };
   return {
     page(_i, p) {
       const show = ((p.layer || {}) as { show?: string }).show || null;
-      root.classList.toggle('on', !!show);
-      places.classList.toggle('on', show === 'places' || show === 'walk' || show === 'proposals');
-      walk.classList.toggle('on', show === 'walk' || show === 'proposals'); walk.classList.toggle('dim', show === 'proposals');
-      trees.classList.toggle('on', show === 'trees'); props.classList.toggle('on', show === 'proposals');
-      c.slot(show === 'walk' || show === 'proposals' ? walkKey : show === 'places' ? placeKey : show === 'trees' ? treeKey : null);
+      want(show === 'places' ? ['places'] : show === 'walk' ? ['walk', 'places'] : show === 'trees' ? ['trees'] : show === 'proposals' ? ['walkLite', 'props'] : []);
+      if (show === 'proposals' && groups.props) { groups.props.classList.remove('pop'); void groups.props.getBoundingClientRect(); groups.props.classList.add('pop'); }
+      mapKey.innerHTML = show ? keys[show] || '' : ''; mapKey.classList.toggle('show', !!show);
+      c.slot(null);
     },
+    destroy() { mapKey.remove(); },
   };
 };
