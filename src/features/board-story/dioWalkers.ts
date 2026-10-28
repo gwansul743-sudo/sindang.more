@@ -69,7 +69,7 @@ function buildGraph(data: RoadData, L: Local) {
   };
 }
 
-export function mountDioWalkers(o: { pane: HTMLElement; axon: Axon; local: Local; data: RoadData; who: DioVillagers; onTalk: () => void }) {
+export function mountDioWalkers(o: { pane: HTMLElement; axon: Axon; local: Local; size: number[]; data: RoadData; who: DioVillagers; onTalk: () => void }) {
   const G = buildGraph(o.data, o.local);
   const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('class', 'kb-dio-wk'); svg.setAttribute('aria-hidden', 'true');
   o.pane.appendChild(svg);
@@ -78,8 +78,8 @@ export function mountDioWalkers(o: { pane: HTMLElement; axon: Axon; local: Local
   let ws: W[] = [], raf = 0, last = 0, on = false, box = { k: 1, ox: 0, oy: 0, q: 1 };
 
   function measure() {
-    const w = o.pane.clientWidth, h = o.pane.clientHeight, k = Math.min(w / 1920, h / 1080);
-    box = { k, ox: (w - 1920 * k) / 2, oy: (h - 1080 * k) / 2, q: Math.max(1, Math.round((1.8 * Math.abs(A.perZ[1]) * MUL * k) / 18)) };
+    const [IW, IH] = o.size, w = o.pane.clientWidth, h = o.pane.clientHeight, k = Math.min(w / IW, h / IH);   /* 그림 칸(contain) */
+    box = { k, ox: (w - IW * k) / 2, oy: (h - IH * k) / 2, q: Math.max(1, Math.round((1.8 * Math.abs(A.perZ[1]) * MUL * k) / 18)) };
   }
   function spawn() {
     ws.forEach((w) => w.g.remove()); ws = [];

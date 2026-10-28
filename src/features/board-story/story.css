@@ -87,8 +87,16 @@ html.kb-on #map > svg{transition:scale .7s cubic-bezier(.32,.72,0,1),opacity .7s
 .kb-dio[hidden]{display:none}
 .kb-dio.show:not(.rev){pointer-events:auto}
 .kb-dio-veil{position:absolute;inset:0;background:color-mix(in srgb,var(--kb-sea) 85%,transparent);opacity:0;transition:opacity .4s ease}
+/* 밤 프레임: 해 질 녘·밤 파랑(어둠막 색 #04202d) + 별 두 겹 — 보이는 동안만 */
+.kb-dio-dusk{position:absolute;inset:0;background:#04202d;opacity:0;transition:opacity .8s ease;pointer-events:none}
+.kb-dio-stars{position:absolute;left:0;top:0;width:1.6px;height:1.6px;border-radius:50%;opacity:0;transition:opacity .8s ease;pointer-events:none}
+.kb-dio.show.night .kb-dio-dusk{opacity:.6}
+.kb-dio.show.night .kb-dio-stars{opacity:.85;animation:kb-twinkle 2.8s ease-in-out infinite alternate}
+.kb-dio.show.night .kb-dio-stars.s1{animation-delay:-1.4s}
+@keyframes kb-twinkle{from{opacity:.25}to{opacity:.9}}
+@media(prefers-reduced-motion:reduce){.kb-dio.show.night .kb-dio-stars{animation:none}}
 .kb-dio.show .kb-dio-veil{opacity:1;transition:opacity .7s ease}
-.kb-dio-panes{position:absolute;left:0;top:0;bottom:0;right:calc(401px * var(--ui));display:flex;transform:translateY(24px) scale(.96);opacity:0;transition:transform .4s ease,opacity .4s ease}
+.kb-dio-panes{position:absolute;left:12px;top:12px;bottom:12px;right:calc(401px * var(--ui) + 4px);display:flex;transform:translateY(24px) scale(.96);opacity:0;transition:transform .4s ease,opacity .4s ease}
 .kb-dio.show .kb-dio-panes{transform:none;opacity:1;transition:transform .7s cubic-bezier(.32,.72,0,1),opacity .7s ease}
 /* 천을 들추면(lift.ts): 들추는 그림(.kb-dio-lw, 1920×1080 을 matrix 로 놓음)이 먼저, 바다색 막은 0.5초 뒤부터 천천히, 해 그림은 다 들춘 뒤 0.35초로 덮는다 */
 .kb-dio.lift .kb-dio-veil{opacity:1;transition:opacity 1.7s ease .5s}
@@ -104,12 +112,9 @@ html.kb-on #map > svg{transition:scale .7s cubic-bezier(.32,.72,0,1),opacity .7s
 #map.kb-dio-fab .kb-cloth,#map.kb-dio-fab .kb-tint,#map.kb-dio-fab .kb-props,#map.kb-dio-fab .kb-title,#map.kb-dio-fab .kb-buttons,#map.kb-dio-fab .kb-story-layer,#map.kb-dio-fab .kb-story-top,#map.kb-dio-fab .wk{opacity:0!important}
 #map.kb-dio-fab .kb-legend.show{opacity:0;pointer-events:none}
 .kb-dio-pane{position:relative;flex:1;min-width:0;margin:0}
-.kb-dio:not(.compare) .kb-dio-pane + .kb-dio-pane{display:none}
 .kb-dio-pane img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .35s ease;user-select:none}
 .kb-dio-pane img.on{opacity:1}
 .kb-dio-pane img:not([src]){visibility:hidden}
-.kb-dio-pane figcaption{position:absolute;left:50%;bottom:18%;transform:translateX(-50%);padding:4px 12px 5px;border:1px dashed var(--kb-stitch);border-radius:4px;background:#fbf3e2;color:var(--kb-wine);font:700 13px var(--font-ui);letter-spacing:-.2px;white-space:nowrap;zoom:var(--ui)}
-.kb-dio-pane figcaption[hidden]{display:none}
 @media(max-width:899px){.kb-dio-panes{right:0;bottom:45%}}
 #map.kb-dio-on .kb-legend.show{opacity:0;pointer-events:none}   /* 천을 들춘 동안 범례도 물러난다 */
 @media(prefers-reduced-motion:reduce){html.kb-on #map > svg,.kb-dio,.kb-dio-panes,.kb-dio-pane img{transition:none!important}.kb-dio-panes{transform:none}}
