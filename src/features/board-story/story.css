@@ -172,3 +172,27 @@ html.kb-on #map > svg{transition:scale .7s cubic-bezier(.32,.72,0,1),opacity .7s
 .kb-chart.grow .kb-bar-c i{animation:kb-bar-in .6s cubic-bezier(.32,.72,0,1) both}
 @keyframes kb-bar-in{from{transform:scaleY(0)}to{transform:scaleY(1)}}
 @media(prefers-reduced-motion:reduce){.kb-shade,.kb-shade-t{transition:none}.kb-chart.grow .kb-bar-c i{animation:none}}
+
+/* 나무 — 쉼(cloudRest.ts rest): 공원 천 조각·화장실 · 걷는 시간 네 묶음 · 가로수 점 path 하나 · 제안 방석 여덟. 장마다 묶음을 opacity 로 켜고 끈다 */
+.kb-rs{opacity:0;transition:opacity .6s ease;pointer-events:none}
+.kb-rs.on{opacity:1}
+.kb-rs > g{opacity:0;transition:opacity .6s ease}
+.kb-rs > g.on{opacity:1}
+.kb-rs-walk path{fill:none;stroke-linecap:round;stroke-linejoin:round;opacity:.9}
+.kb-rs > g.kb-rs-walk.dim{opacity:.35}
+.kb-rs-patch{fill:#cfd9c8;opacity:.92}
+.kb-rs-patch-st{fill:none;stroke:#6f8a73;stroke-width:1.6;stroke-dasharray:4 3}
+.kb-rs-lab{font:700 12px var(--font-ui);fill:var(--kb-wine);text-anchor:middle;paint-order:stroke;stroke:#fbf3e2;stroke-width:3px;stroke-linejoin:round;letter-spacing:-.02em}
+.kb-rs-tree{fill:#24382d;opacity:.85}
+.kb-rs-road{font:700 13px var(--font-ui);fill:#24382d;opacity:.55;text-anchor:middle;paint-order:stroke;stroke:#fbf3e2;stroke-width:3px;stroke-linejoin:round;letter-spacing:.1em}
+.kb-rs-cush{fill:#fbf3e2;stroke:#8a4a3e;stroke-width:1.3}
+.kb-rs-cush-st{fill:none;stroke:var(--kb-stitch);stroke-width:1.2;stroke-dasharray:3 2}
+.kb-rs-num{font:800 11px var(--font-ui);fill:var(--kb-wine);text-anchor:middle;dominant-baseline:central}
+.kb-rs-props.on{animation:kb-rest-pulse 2.4s ease-in-out infinite}
+@keyframes kb-rest-pulse{50%{opacity:.78}}
+.kb-rs-key{display:flex;align-items:center;flex-wrap:wrap;gap:4px 5px;margin-top:12px;padding-top:9px;border-top:1.6px dashed #9b3d4980;font-size:11px;font-weight:600;letter-spacing:-.3px}
+.kb-rs-key i{display:inline-block;width:16px;height:7px;border-radius:4px;margin-left:4px}
+.kb-rs-key i.patch{width:12px;height:12px;border-radius:50%;background:#cfd9c8;box-shadow:inset 0 0 0 1px #6f8a73}
+.kb-rs-key i.wc{width:11px;height:11px;border-radius:2px;background:#7d2030}
+.kb-rs-key i.dot{width:7px;height:7px;border-radius:50%;background:#24382d}
+@media(prefers-reduced-motion:reduce){.kb-rs,.kb-rs > g{transition:none}.kb-rs-props.on{animation:none}}

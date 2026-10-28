@@ -83,5 +83,6 @@ const diorama: Renderer = async (c) => (await import('./sun')).diorama(c);
 
 /* 구름(그늘길)·나무(쉼)도 이야기를 열 때 받는다 */
 const shade: Renderer = async (c) => (await import('./cloudRest')).shade(c);
+const rest: Renderer = async (c) => (await import('./cloudRest')).rest(c);
 
-export const RENDERERS: Record<string, Renderer> = { constellation, 'buildings-age': buildingsAge, diorama, shade };
+export const RENDERERS: Record<string, Renderer> = { constellation, 'buildings-age': buildingsAge, diorama, shade, rest };
