@@ -121,7 +121,7 @@ export function bootLegacy(DATA){
     if(V.moved) return;
     if(picking){ const [lat,lng] = unproj(...V.toMap(e.clientX, e.clientY));
       form.latlng.value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`; endPick(); return; }
-    if(!e.target.closest('.dot,.col-pill,.cluster,.wk-talk')) { closeCluster(); collapseSide(); if(villager && !vTalk.visible) villagerDone(); }   /* 카드가 열려 있으면 카드만, 아니면 빈 사이드바도 접는다 (10-21) */
+    if(!e.target.closest('.dot,.col-pill,.cluster,.wk-talk')) { closeCluster(); collapseSide(); if(villager && !vTalk.visible) villagerDone(); else endPeek(true); }   /* 카드가 열려 있으면 카드만, 아니면 빈 사이드바도 접는다 (10-21) */
   });
 
   /* 카드 */
@@ -295,7 +295,7 @@ export function bootLegacy(DATA){
   let villager = null, vHookT = null;   /* { w, script } 지금 말을 거는 주민 */
   const vTalk = mountTalk(stage, { onEnd: () => { const st = vEndCard; vEndCard = null; villagerDone(); if(st) openStoreCard(st); if(KIOSK) idle(); } });   /* 모바일: 대화가 끝나면 그 가게 카드 */   /* 대화가 끝나면 무입력 30초를 다시 센다 → 자동 순환 이어짐 */
   const vSpeech = mountSpeech(stage, {
-    anchor: () => { const g = villager?.w.g; if(!g || g.getAttribute('display') === 'none') return null; const r = g.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { x: r.left + r.width / 2 - st.left, y: r.top - st.top }; },
+    anchor: () => { const g = (vPeek || villager)?.w.g; if(!g || g.getAttribute('display') === 'none') return null; const r = g.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { x: r.left + r.width / 2 - st.left, y: r.top - st.top }; },
     bounds: () => { const m = map.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { left: m.left - st.left, top: m.top - st.top, width: m.width, height: m.height }; },
   });
   const takeVillager = (w, script) => { clearTimeout(vHookT); if(villager && villager.w !== w){ villager.w.release(); vTalk.hide(); } villager = { w, script }; w.hold(); };
@@ -319,7 +319,7 @@ export function bootLegacy(DATA){
   /* 모바일(10-23): 대화 중엔 가게 카드(바텀시트)를 띄우지 않는다 — 대화 상자와 겹쳤다. 이름표 옆 '가게 카드 ›' 로 대화를 닫고 바로 열거나, 대화가 끝나면 열린다(vEndCard) */
   let vEndCard = null;
   const openStoreCard = (st) => { if(KIOSK && board){ board.select(st.id); board.focus(null); } select(st, false); };
-  function villagerOpen(w, script){ if(chiefBusy()) return; speech.hide(); takeVillager(w, script); vSpeech.hide(); stopCycle();
+  function villagerOpen(w, script){ if(chiefBusy()) return; endPeek(); speech.hide(); takeVillager(w, script); vSpeech.hide(); stopCycle();
     const st = script.store ? STORES.find(s => s.name === script.store) : null, wide = desktop();
     vEndCard = !wide && st ? st : null;
     vTalk.start({ name: script.store && !script.name.startsWith(script.store) ? `${script.store} · ${script.name}` : script.name,   /* 이름이 가게 이름으로 시작하면('신당야학 박소민 강학') 겹치지 않게 이름만 */
@@ -330,7 +330,16 @@ export function bootLegacy(DATA){
       const s0 = KIOSK && board ? focusZoom() : Math.max(scale(), 4.6);
       centerOn(w.x + w.ox, w.y + w.oy, s0, wide ? V.ph * 0.1 : V.ph * 0.14); };   /* 아래 큰 상자를 피해 사람을 조금 위에 */
     if(st && wide) withSide(false, go); else go(); }
-  function villagerDone(){ clearTimeout(vHookT); vSpeech.hide(); if(vTalk.visible) vTalk.hide(); villager?.w.release(); villager = null; }
+  function villagerDone(){ endPeek(); clearTimeout(vHookT); vSpeech.hide(); if(vTalk.visible) vTalk.hide(); villager?.w.release(); villager = null; }
+  /* 큰 상자로 대화하는 중에 다른 주민을 누르면(10-28): 바로 넘어가지 않고 그 사람 머리 위에 작은 말풍선(hook)만 — hover 와 같은 말풍선, 큰 상자는 그대로.
+     그 사람은 말풍선이 떠 있는 동안 서 있고, 그 동안 한 번 더 누르거나 말풍선을 누르면 그 사람과 큰 대화로 넘어간다. 지도 빈 곳을 누르거나 시간이 지나면 닫힌다 */
+  let vPeek = null, vPeekT = null;   /* { w, script } 대화 중에 말풍선을 띄운 다른 주민 */
+  function villagerPeek(w, script){ if(chiefBusy()) return; endPeek(); vPeek = { w, script }; w.hold();
+    vSpeech.say([script.hook], { onTap: () => villagerOpen(w, script), cta: '이야기 듣기 ›' });
+    vPeekT = setTimeout(() => { if(vPeek?.w === w) endPeek(true); }, script.hook.length * 34 + TOUCH_HOOK_MS); }
+  function endPeek(hide = false){ if(!vPeek) return; clearTimeout(vPeekT); const w = vPeek.w; vPeek = null; if(hide) vSpeech.hide(); if(villager?.w !== w) w.release(); }
+  /* 주민이 장면에서 빠질 때(교대·폼 내리기): 그 사람과의 대화·말풍선을 닫는다 */
+  function dropVillager(w){ if(villager?.w === w) villagerDone(); else if(vPeek?.w === w) endPeek(true); }
   function bindVillager(w, script){
     w.makeClickable();
     if(script.kind === 'form') w.showMark(DATA.characters.chief.mark);   /* 시민이 인터뷰를 남겨 생긴 주민만 빨간 세모. 가게 인터뷰 주민(shop)은 표시 없음 */
@@ -340,8 +349,9 @@ export function bootLegacy(DATA){
     w.g.addEventListener('pointerdown', e => { downType = e.pointerType; });
     w.g.addEventListener('click', e => { e.stopPropagation(); if(V.moved) return;
       const type = downType || e.pointerType || (matchMedia('(hover: none)').matches ? 'touch' : 'mouse'); downType = '';
+      if(vTalk.visible && villager?.w !== w){ if(vPeek?.w === w) villagerOpen(w, script); else villagerPeek(w, script); return; }   /* 다른 주민과 대화 중: 첫 번째는 작은 말풍선, 그 말풍선이 떠 있을 때 한 번 더 누르면 이 사람과 대화(10-28) */
       const firstTouch = type !== 'mouse' && !(villager?.w === w && (vSpeech.visible || vTalk.visible));
-      if(firstTouch && !vTalk.visible) villagerHook(w, script, true); else if(!(villager?.w === w && vTalk.visible)) villagerOpen(w, script); });   /* 다른 주민과 큰 상자로 대화 중이면 첫 탭에 바로 그 주민으로 넘어간다(hover 말풍선은 큰 상자 위에 안 뜨므로) */
+      if(firstTouch && !vTalk.visible) villagerHook(w, script, true); else if(!(villager?.w === w && vTalk.visible)) villagerOpen(w, script); });
   }
   /* 보드 전체(시안 캔버스 1774×887)를 담는 카메라 */
   const kioskTarget = () => { const v = board.view(); return { x: v.x, y: v.y, s: desktop() ? Math.min(V.pw / v.w, V.ph / v.h) : V.pw / (v.iw * 1.08) }; };   /* 데스크톱: 캔버스 전체(하늘까지) · 폰: 섬 폭에 맞춤 */
@@ -650,11 +660,11 @@ export function bootLegacy(DATA){
       const w = spawnWalker(scene, { graph: walkerGraphs[board?.on ? 'kiosk' : 'home'], parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, speed: 6.5, seed: seedOf(script.id), offscreen: walkIn ? offscreen : undefined, fixed: script.look });
       w.g.dataset.script = script.id; walkers.push(w); shopOn.push({ script, w }); bindVillager(w, script); }   /* data-script: 지금 누가 나와 있는지 개발자 도구에서 보이게 */
     function shopLeave(o){
-      shopOn.splice(shopOn.indexOf(o), 1); const w = o.w, i = walkers.indexOf(w); if(i >= 0) walkers.splice(i, 1);
+      shopOn.splice(shopOn.indexOf(o), 1); const w = o.w, i = walkers.indexOf(w); if(i >= 0) walkers.splice(i, 1); dropVillager(w);
       if(w.lastT === 'off' || offscreen(w.x, w.y)){ scene.remove(w); return; }
       w.g.style.pointerEvents = 'none'; w.g.style.transition = 'opacity .8s'; w.g.style.opacity = '0'; setTimeout(() => scene.remove(w), 800); }
     function shopSwap(){
-      const out = shopOn.find(o => villager?.w !== o.w), rest = shopScripts.filter(v => !shopOn.some(o => o.script === v) && v !== out?.script);
+      const out = shopOn.find(o => villager?.w !== o.w && vPeek?.w !== o.w), rest = shopScripts.filter(v => !shopOn.some(o => o.script === v) && v !== out?.script);
       if(!out || !rest.length) return;
       shopLeave(out); shopEnter(rest[Math.floor(Math.random() * rest.length)], true); }
     shopScripts.slice().sort(() => Math.random() - 0.5).slice(0, SHOP_SLOTS).forEach(v => shopEnter(v, false));   /* 처음 둘은 길 위 아무 데서나 */
@@ -666,7 +676,7 @@ export function bootLegacy(DATA){
     const FORM_SLOTS = 6, formOn = new Map();   /* 캐릭터 id → 주민 */
     function syncForm(rows){
       const want = rows.map(r => ({ id: r.id, script: scriptFromRow(r.id, r.answers, r.summary) })).filter(r => r.script).slice(-FORM_SLOTS), ids = new Set(want.map(r => r.id));
-      for(const [id, w] of [...formOn]) if(!ids.has(id)){ if(villager?.w === w) villagerDone(); scene.remove(w); formOn.delete(id); const i = walkers.indexOf(w); if(i >= 0) walkers.splice(i, 1); }
+      for(const [id, w] of [...formOn]) if(!ids.has(id)){ dropVillager(w); scene.remove(w); formOn.delete(id); const i = walkers.indexOf(w); if(i >= 0) walkers.splice(i, 1); }
       for(const r of want){ if(formOn.has(r.id)) continue;
         const w = spawnWalker(scene, { graph: walkerGraphs[board?.on ? 'kiosk' : 'home'], parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, speed: 6.5, seed: seedOf(r.id), offscreen });
         walkers.push(w); formOn.set(r.id, w); bindVillager(w, r.script); }
