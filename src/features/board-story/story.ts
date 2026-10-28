@@ -116,7 +116,8 @@ export function mountStory(o: StoryOptions): BoardStory {
     loadTopic(t.topic).then((d) => {
       if (my !== seq || !d || !o.active()) { if (my === seq && !d) close(true); return; }
       data = d; page = 0; showDim(true); ensurePanel(); render(); armIdle();
-      document.documentElement.classList.toggle('kb-story-focus', !!d.focus);   /* 이 이야기에 집중: 단추·이름표·범례·주민·동선이 물러난다(story.css) */
+      document.documentElement.classList.toggle('kb-story-focus', !!d.focus);   /* 이 이야기에 집중: 단추·이름표·범례·주민·동선이 물러나고 섬 위 장식은 25 %(story.css) */
+      o.targets().forEach((q) => q.el.classList.toggle('kb-keep', q.topic === t.topic));   /* 열린 주제의 그림(재봉틀·나무)은 그대로 */
       if (d.pages.some((q) => q.img && typeof q.img === 'object')) void creditsOf(d.id).then((cr) => { if (my === seq && data === d) { topicCredits = cr; render(); } });
       panel!.classList.add('show'); document.documentElement.classList.add('kb-story-on');
       if (d.layer) startLayer(d, my);

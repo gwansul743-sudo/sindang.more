@@ -216,6 +216,7 @@ html.kb-rest #map.kb-story-ptr svg{cursor:pointer}
 .kb-rs-lab{font-family:var(--font-ui);font-weight:800;fill:var(--kb-wine);text-anchor:middle;paint-order:stroke;stroke:#fbf3e2;stroke-width:3px;stroke-linejoin:round;letter-spacing:-.02em}
 .kb-rs-wct{font:800 11px var(--font-ui);fill:#fbf3e2;dominant-baseline:central;letter-spacing:-.02em}
 .kb-rs-crown{opacity:.95}
+.kb-rs-crown-sh{fill:#24382d;opacity:.35}
 .kb-rs-crown-st{fill:none;stroke:#24382d;stroke-width:.9;stroke-dasharray:2 1.6;opacity:.7}
 .kb-rs-zone{fill:#fbf3e2;fill-opacity:.25;stroke:var(--kb-wine);stroke-width:1.6;stroke-dasharray:7 5;opacity:.9}
 .kb-rs-zone-t{font-family:var(--font-ui);font-weight:800;fill:var(--kb-wine);text-anchor:middle;dominant-baseline:central;paint-order:stroke;stroke:#fbf3e2;stroke-width:4px;stroke-linejoin:round}
@@ -347,3 +348,7 @@ html.kb-story-focus .wk *,html.kb-story-focus .kb .kb-buttons *{pointer-events:n
 #map .kb-dio-world canvas.kb-dio-mask.on{opacity:1}
 #map .kb-dio-world canvas.kb-dio-mask.on.night{opacity:.92}
 .kb-bld-lead{margin:4px 0 8px;font-size:17px;font-weight:800;line-height:1.45;color:var(--kb-wine);letter-spacing:-.03em;word-break:keep-all}
+
+/* 집중 보기(TASK_14): 섬 위 장식(집·나무·벤치·가로등·재봉틀·팻말)은 25 % — 열린 주제의 그림(.kb-keep)은 그대로, 하늘 그림은 그대로 */
+html.kb-on .kb .kb-props .kb-prop{transition:opacity .4s ease}
+html.kb-story-focus .kb .kb-props .kb-prop:not(.kb-keep){opacity:.25!important}

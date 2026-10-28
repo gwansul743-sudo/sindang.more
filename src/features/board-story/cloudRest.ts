@@ -153,7 +153,9 @@ export const rest: Renderer = async (c: LayerCtx) => {
     const pat = el('pattern', { id: 'kb-rs-felt', width: 9, height: 9, patternUnits: 'userSpaceOnUse' }, el('defs', {}, g));
     el('rect', { width: 9, height: 9, fill: TREE_COL[0] }, pat); el('circle', { cx: 2.5, cy: 2.5, r: 2.4, fill: TREE_COL[1] }, pat); el('circle', { cx: 7, cy: 6.5, r: 2.2, fill: TREE_COL[2] }, pat);
     let fd = '';
-    tdata.trees.forEach((t) => { const [x, y] = P(t.latlng), rm = 2.5 + 1.5 * Math.max(0, Math.min(1, ((t.h || 8) - 5) / 12)), r = Math.max(rm * m, (5 * u) / 2); pts.push([x, y]); fd += circle(x, y, r); });
+    /* 보기 쉽게 키운 수관(TASK_14): 반지름 = max(화면 13 px, 수관 2.2 배) — 큰길 가로수가 이어진 초록 띠가 된다(일부러) */
+    tdata.trees.forEach((t) => { const [x, y] = P(t.latlng), rm = 2.5 + 1.5 * Math.max(0, Math.min(1, ((t.h || 8) - 5) / 12)), r = Math.max(13 * u, 2.2 * rm * m); pts.push([x, y]); fd += circle(x, y, r); });
+    el('path', { class: 'kb-rs-crown-sh', d: fd, transform: `translate(${(2 * u).toFixed(2)},${(2 * u).toFixed(2)})` }, g);   /* 2 px 아래 진한 그림자(필터 없이) */
     el('path', { class: 'kb-rs-crown', d: fd, fill: 'url(#kb-rs-felt)' }, g);
     el('path', { class: 'kb-rs-crown-st', d: fd }, g);
     /* 가로수 0그루 골목: 가장 가까운 나무에서 25 m 넘게 떨어진 길 토막 가운데들의 볼록 껍질 */
@@ -166,22 +168,23 @@ export const rest: Renderer = async (c: LayerCtx) => {
   }
   /* 그늘 쉼터 제안: 그늘 원(path 하나) + 벤치·화분 그림 + 번호 꼬리표, 누르거나 가리키면 꼬리표 */
   function buildProps() {
-    const g = el('g', { class: 'kb-rs-props' }, root), u = px(), B = 30 * u, R = 26 * u, list = data.proposals.slice(0, 8), pts = list.map((p) => P(p.latlng));
+    const g = el('g', { class: 'kb-rs-props' }, root), u = px(), B = 30 * u, R = 34 * u, list = data.proposals.slice(0, 8), pts = list.map((p) => P(p.latlng));   /* 그늘 원 +30 %(TASK_14) */
     el('path', { class: 'kb-rs-shade', d: pts.map(([x, y]) => circle(x, y, R)).join('') }, g);
-    const tip = el('g', { class: 'kb-rs-tip' }, g), tipR = el('rect', { rx: 4 * u }, tip), tipT = el('text', { 'font-size': (13 * u).toFixed(1) }, tip);
+    /* 꼬리표는 보드 장식(나무 그림) 위로 — 단추·이름표 위 층(top)에 */
+    const tip = el('g', { class: 'kb-rs-tip' }, c.top || g), tipR = el('rect', { rx: 4 * u }, tip), tipT = el('text', { 'font-size': (13 * u).toFixed(1) }, tip);
     pts.forEach(([x, y], i) => {   /* 자리마다 요소 셋(벤치·화분·번호) — 묶음 g 없이(요소 40개 아래로) */
       const s = el('image', { class: 'kb-rs-p', 'data-hit': '1', style: `--i:${i}`, href: '/board/bench.webp', x: (x - B * 0.6).toFixed(1), y: (y - B * 0.55).toFixed(1), width: (B * 1.17).toFixed(1), height: B.toFixed(1) }, g);
       el('image', { class: 'kb-rs-pp', style: `--i:${i}`, href: '/board/hedge.webp', x: (x + B * 0.38).toFixed(1), y: (y - B * 0.15).toFixed(1), width: (B * 0.5).toFixed(1), height: (B * 0.3).toFixed(1) }, g);
       el('text', { class: 'kb-rs-num kb-rs-pp', style: `--i:${i}`, x: (x - R * 0.95).toFixed(1), y: (y - R * 0.8).toFixed(1), 'font-size': (12 * u).toFixed(1) }, g).textContent = String(i + 1);
       const show = () => { const p = list[i], t = `쉼터까지 ${Math.round(p.walk_min)}분 · 오후 그늘 ${Math.round((p.shade15 ?? 0) * 100)}%`, w = t.length * 12.2 * u + 16 * u, h = 24 * u;
         tipR.setAttribute('x', (x - w / 2).toFixed(1)); tipR.setAttribute('y', (y - R - h - 6 * u).toFixed(1)); tipR.setAttribute('width', w.toFixed(1)); tipR.setAttribute('height', h.toFixed(1));
-        tipT.setAttribute('x', x.toFixed(1)); tipT.setAttribute('y', (y - R - h / 2 - 6 * u).toFixed(1)); tipT.textContent = t; tip.classList.add('on'); g.appendChild(tip); };
+        tipT.setAttribute('x', x.toFixed(1)); tipT.setAttribute('y', (y - R - h / 2 - 6 * u).toFixed(1)); tipT.textContent = t; tip.classList.add('on'); };
       s.addEventListener('pointerenter', show); s.addEventListener('click', (e) => { e.stopPropagation(); show(); });
     });
     return g;
   }
   const builders: Record<string, () => SVGGElement> = { walk: () => buildWalk(), walkLite: () => buildWalk(true), places: buildPlaces, trees: buildTrees, props: buildProps };
-  function want(names: string[]) { for (const k in groups) { const on = names.includes(k); if (on && !groups[k]) groups[k] = builders[k](); if (!on && groups[k]) { groups[k]!.remove(); groups[k] = null; } } }
+  function want(names: string[]) { for (const k in groups) { const on = names.includes(k); if (on && !groups[k]) groups[k] = builders[k](); if (!on && groups[k]) { groups[k]!.remove(); groups[k] = null; if (k === 'props') c.top?.querySelector('.kb-rs-tip')?.remove(); } } }
   /* 지도 모서리 범례 */
   const mapKey = document.createElement('div'); mapKey.className = 'kb-map-key'; c.host.appendChild(mapKey);
   const keys: Record<string, string> = {
