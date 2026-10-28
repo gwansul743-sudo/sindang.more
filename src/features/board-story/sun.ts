@@ -102,7 +102,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
 
   /* 건물 고르기 */
   const select = hiOk ? mountSelect({ world: st.world, size: [SW, SH], plan: planAff, axon: m.axon!, idmapPlan: base + m.hi!.idmap_top, idmapAxon: base + m.idmap!.file,
-    load: () => c.load('sun-buildings.json') as Promise<{ b: Bld[] }>, cover: (el) => c.cover(el), date: () => (level === 2 ? 'today' : date), scale: () => st.cam.s,
+    load: () => c.load('sun-buildings.json') as Promise<{ b: Bld[] }>, area, cover: (el) => c.cover(el), date: () => (level === 2 ? 'today' : date), scale: () => st.cam.s,
     idmapAxon2: base + m.hi!.idmap_axon, frameImg: () => st.frontImg(), islandSrc: base + (m.hi!.today[0] || ''),
     heatSrc: m.sunhours ? base + m.sunhours.image : undefined, valuesSrc: m.sunhours ? base + m.sunhours.values : undefined }) : null;
   if (select) { void fetchImg(base + m.hi!.top); void select.ensure('plan'); }   /* 위에서 본 그림 + 그 idmap 을 먼저 */

@@ -258,11 +258,8 @@ html.kb-rest #map.kb-story-ptr svg{cursor:pointer}
 .kb-dio-sel .sl-ring{fill:none;stroke:#fbf3e2;stroke-width:1.2;stroke-dasharray:6 5;opacity:.75}
 .kb-dio-sel .sl-halo{fill:none;stroke:#fbf3e2;stroke-width:3}
 .kb-dio-sel .sl-line{fill:none;stroke:var(--kb-wine);stroke-width:1}
-.kb-dio-sel .sl-lead{fill:none;stroke:var(--kb-thread);stroke-width:1.4;stroke-dasharray:5 3}
-.kb-dio-sel .sl-tag rect{fill:#fbf3e2;stroke:#c4ae8f;stroke-width:2}
-.kb-dio-sel .sl-tag rect.st{fill:none;stroke:var(--kb-stitch);stroke-width:1.5;stroke-dasharray:6 4}
-.kb-dio-sel .sl-tag text{font-family:var(--font-ui);font-weight:700;fill:var(--kb-wine);dominant-baseline:central;letter-spacing:-.02em}
-.kb-dio-sel:not(.on) .sl-tags{display:none}
+.kb-dio-sel .sl-lead{fill:none;stroke:var(--kb-wine)}
+.kb-dio-sel .sl-dot{fill:var(--kb-wine);stroke:#fbf3e2}
 /* 건물 카드(상자 본문 자리) */
 .kb-story-cover{flex:1;min-height:0;overflow:auto;word-break:keep-all}
 .kb-story-cover[hidden],.kb-story-page[hidden]{display:none}
@@ -337,9 +334,9 @@ html.kb-story-focus .wk *,html.kb-story-focus .kb .kb-buttons *{pointer-events:n
 .kb-dio-sel .sl-name.on{opacity:1}
 .kb-dio-sel .sl-name rect{fill:#fbf3e2;stroke:var(--kb-wine);vector-effect:non-scaling-stroke;stroke-width:1.2}
 .kb-dio-sel .sl-name text{font-family:var(--font-ui);font-weight:800;fill:var(--kb-wine);text-anchor:middle;dominant-baseline:central;letter-spacing:-.02em}
-.kb-dio-sel.enter .sl-ring,.kb-dio-sel.enter .sl-halo,.kb-dio-sel.enter .sl-line,.kb-dio-sel.enter .sl-lead,.kb-dio-sel.enter .sl-tag{animation:kb-sel-in .35s ease both}
+.kb-dio-sel.enter .sl-ring,.kb-dio-sel.enter .sl-halo,.kb-dio-sel.enter .sl-line,.kb-dio-sel.enter .sl-lead{animation:kb-sel-in .35s ease both}
 .kb-dio-sel.enter .sl-ring{animation-delay:.12s}.kb-dio-sel.enter .sl-halo,.kb-dio-sel.enter .sl-line{animation-delay:.24s}
-.kb-dio-sel.enter .sl-lead{animation-delay:.36s}.kb-dio-sel.enter .sl-tag{animation-delay:calc(.48s + var(--i) * .12s)}
+.kb-dio-sel.enter .sl-lead,.kb-dio-sel.enter .sl-dot{animation-delay:.48s}.kb-dio-sel.enter .sl-dot{animation:kb-sel-in .35s ease .48s both}
 @keyframes kb-sel-in{from{opacity:0}to{opacity:1}}
 @media(prefers-reduced-motion:reduce){.kb-dio-sel.enter *{animation:none!important}}
 
@@ -383,3 +380,20 @@ html.kb-story-focus .kb .kb-props .kb-prop:not(.kb-keep){opacity:.25!important}
 .kb-dio-heattag.on{opacity:1}
 .kb-bld-heat{margin:6px 0 2px;font-size:11.5px;font-weight:600;color:#6b3a30}
 .kb-bld-heat[hidden]{display:none}
+
+/* 해 · 고른 건물 정보 카드(TASK_16): 건물 옆 카드 하나, 지붕 가운데에서 실선 하나. 바깥 칸 = 자리·배율(1/카메라), 안 칸 = 나타나기 */
+#map .kb-dio-world > .kb-bld-tag{position:absolute;z-index:3;transform-origin:0 0;pointer-events:none}
+.kb-bld-tag[hidden]{display:none}
+.kb-bld-tag-in{padding:12px 14px 12px;background:linear-gradient(#fbf3e2f2,#fbf3e2f2),var(--kb-cream) url(/board/linen.webp);background-size:auto,120px;border:1.5px solid var(--kb-wine);border-radius:6px;box-shadow:0 4px 10px #2e3b4340;color:var(--kb-wine);font-family:var(--font-ui);white-space:nowrap}
+.kb-bld-tag.enter .kb-bld-tag-in{animation:kb-tag-in .25s ease-out .6s both}
+@keyframes kb-tag-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.kb-bld-tag.enter .kb-bld-tag-in{animation:none}}
+.kb-bld-tag h5{margin:0 0 10px;font-size:15px;font-weight:800;letter-spacing:-.02em;color:var(--kb-wine)}
+.kb-bld-tag .gr{display:grid;grid-template-columns:auto auto;gap:10px 18px}
+.kb-bld-tag .m{display:grid;grid-template-columns:18px auto;grid-template-rows:auto auto;column-gap:7px;align-items:center}
+#map .kb-bld-tag svg.ic{position:static;display:block;inset:auto;width:18px;height:18px;fill:none;stroke:var(--kb-wine);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;will-change:auto;shape-rendering:auto}
+.kb-bld-tag .m p{margin:0;line-height:1;font-variant-numeric:tabular-nums}
+.kb-bld-tag .m b{font-size:23px;font-weight:800;letter-spacing:-.03em;color:var(--kb-wine)}
+.kb-bld-tag .m b.s{font-size:16px}
+.kb-bld-tag .m i{margin-left:2px;font-style:normal;font-size:13px;font-weight:700;color:var(--kb-wine)}
+.kb-bld-tag .m span{grid-column:2;margin-top:3px;font-size:12px;font-weight:600;color:#6b3a30}
