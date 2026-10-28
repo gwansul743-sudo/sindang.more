@@ -113,12 +113,13 @@ export function mountStory(o: StoryOptions): BoardStory {
     const alive = () => my === seq && root.isConnected;
     Promise.resolve(fn({ root, spec: d.layer!, topic: d, alive, go: goTo,
       later: (f, ms) => { setTimeout(() => { if (alive()) f(); }, ms); },
+      legend: (h) => { if (alive()) panel?.querySelector('.kb-story-legend')!.replaceChildren(...(h ? [h] : [])); },
       load: async (name) => { const f = LOAD[`../../../content/board-story/${name}`]; if (!f) throw new Error('없는 데이터 ' + name); return f(); },
       toBoard: (lat, lng) => o.toBoard ? o.toBoard(lat, lng) : [0, 0] }))
       .then((c) => { if (!alive() || !c) return; ctl = c; c.page(page, d.pages[page]); })
       .catch(() => { if (alive()) root.remove(); });   /* 겹 그림이 실패해도 이야기는 그대로 */
   }
-  function clearLayer(keepDim = false) { [...o.layer.children].forEach((c) => { if (!keepDim || c !== dim) c.remove(); }); if (!keepDim) dim = null; }   /* 주제를 바꿀 땐 어둠은 그대로(깜빡임 없이) */
+  function clearLayer(keepDim = false) { [...o.layer.children].forEach((c) => { if (!keepDim || c !== dim) c.remove(); }); if (!keepDim) dim = null; panel?.querySelector('.kb-story-legend')!.replaceChildren(); }   /* 주제를 바꿀 땐 어둠은 그대로(깜빡임 없이) */
   function showDim(on: boolean) {
     if (on) {
       if (!dim) { dim = document.createElementNS(NS, 'path'); dim.setAttribute('class', 'kb-story-dim'); dim.setAttribute('d', o.islandPath); o.layer.prepend(dim); }
@@ -139,7 +140,7 @@ export function mountStory(o: StoryOptions): BoardStory {
   function ensurePanel() {
     if (panel) { panel.classList.remove('instant'); return panel; }
     panel = document.createElement('aside'); panel.className = 'kb-story'; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-live', 'polite');
-    panel.innerHTML = '<button type="button" class="kb-story-x" aria-label="이야기 닫기">✕</button><h2 class="kb-story-title"></h2><div class="kb-story-page"></div>'
+    panel.innerHTML = '<button type="button" class="kb-story-x" aria-label="이야기 닫기">✕</button><h2 class="kb-story-title"></h2><div class="kb-story-page"></div><div class="kb-story-legend"></div>'
       + '<nav class="kb-story-nav"><button type="button" class="kb-story-prev" aria-label="앞 장">‹</button><span class="kb-story-dots"></span><button type="button" class="kb-story-next" aria-label="다음 장">›</button></nav>';
     ['pointerdown', 'wheel', 'click'].forEach((ev) => panel!.addEventListener(ev, (e) => e.stopPropagation(), { passive: true }));   /* 지도 끌기·휠 줌·빈 곳 닫기로 새지 않게(활동 판정은 window capture 라 그대로) */
     panel.querySelector('.kb-story-x')!.addEventListener('click', () => close());

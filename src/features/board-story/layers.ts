@@ -9,6 +9,7 @@ export interface LayerCtx {
   alive(): boolean;                                        // 아직 이 이야기가 열려 있나(늦은 콜백 막기)
   later(fn: () => void, ms: number): void;                 // alive 일 때만 부르는 setTimeout
   load(name: string): Promise<unknown>;                    // content/board-story/ 의 데이터 파일(처음 쓸 때 받음)
+  legend(el: HTMLElement | null): void;                    // 상자 아래쪽 범례 띠(닫히면 story.ts 가 비운다)
   toBoard(lat: number, lng: number): [number, number];     // 실제 위경도 → 보드 캔버스(길과 같은 변환)
 }
 export interface LayerCtl { page(i: number, p: StoryPage): void }
@@ -36,4 +37,39 @@ const constellation: Renderer = (c) => {
   return { page(i) { const k = i >= 1 && i <= n ? i : 0; g.classList.toggle('pick', !!k); stars.forEach((s, j) => s.classList.toggle('cur', j + 1 === k)); } };
 };
 
-export const RENDERERS: Record<string, Renderer> = { constellation };
+/* 건물 나이(sewing): 실제 건물 바닥(국토부 GIS건물통합정보, sewing-buildings.json)을 길과 같은 변환으로 보드에 놓고 지어진 연대별로 칠한다.
+   요소는 연대마다 path 하나 + '정보 없음' 하나(약 10개) — 건물마다 하나씩 만들면 팬·줌이 무거워진다(CLAUDE.md §8). 섬 밖은 kb-clip 으로 자른다.
+   색은 오래된 것 = 짙은 와인 → 빨강·테라코타 → 새것 = 보드 바탕에 가까운 크림(보드 팔레트 값). 장의 layer.highlight:
+   null → 숨김 · [from, to](연도) → 그 연대만 또렷하게, 나머지 0.15 · "all" → 모두. spec: { data, decades, unknown } */
+const AGE_COLORS = ['#7d2030', '#9b3d49', '#b23a48', '#c2444f', '#d9636a', '#e8b3b1', '#e7c9a8', '#f1e4c8', '#fbf3e2'];
+interface Building { y: number | null; r: number[][][] }
+const buildingsAge: Renderer = async (c) => {
+  const decades = (c.spec.decades as number[]) || [1930, 1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010], unknown = String(c.spec.unknown ?? '정보 없음');
+  const data = (await c.load(String(c.spec.data))) as { b: Building[] };
+  if (!c.alive()) return null;
+  const d: string[] = decades.map(() => ''); let dn = '';
+  for (const b of data.b) {
+    const ring = b.r.map((r) => r.map(([lat, lng], i) => { const [x, y] = c.toBoard(lat, lng); return `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`; }).join('') + 'Z').join('');
+    if (b.y == null) { dn += ring; continue; }
+    let k = decades.length - 1; while (k > 0 && b.y < decades[k]) k--;   /* 1930 전은 1930년대에, 2020 뒤는 2010년대에 */
+    d[k] += ring;
+  }
+  const g = el('g', { class: 'kb-age', 'clip-path': 'url(#kb-clip)' }, c.root);
+  const paths = decades.map((dec, i) => el('path', { class: 'kb-age-d', d: d[i] || 'M0 0', fill: AGE_COLORS[Math.round((i * (AGE_COLORS.length - 1)) / Math.max(1, decades.length - 1))], 'data-dec': dec }, g));
+  const none = el('path', { class: 'kb-age-none', d: dn || 'M0 0' }, g);
+  /* 범례 띠: 연대 9칸 + 정보 없음 */
+  const lg = document.createElement('ul'); lg.className = 'kb-age-legend';
+  const item = (label: string, color: string | null) => { const li = document.createElement('li'), sw = document.createElement('i'); if (color) sw.style.background = color; li.append(sw, label); lg.appendChild(li); return li; };
+  const items = decades.map((dec, i) => item(`${dec}년대`, paths[i].getAttribute('fill')));
+  const liNone = item(unknown, null); liNone.className = 'none';
+  c.legend(lg);
+  return { page(_i, p) {
+    const h = (p.layer as { highlight?: unknown } | null | undefined)?.highlight ?? null;
+    g.classList.toggle('on', h != null); lg.classList.toggle('off', h == null);
+    const inRange = (dec: number) => h === 'all' || (Array.isArray(h) && dec + 9 >= h[0] && dec <= h[1]);
+    paths.forEach((pa, i) => { const on = inRange(decades[i]); pa.classList.toggle('dim', !on); items[i].classList.toggle('dim', !on); });
+    const noneOn = h === 'all'; none.classList.toggle('dim', !noneOn); liNone.classList.toggle('dim', !noneOn);
+  } };
+};
+
+export const RENDERERS: Record<string, Renderer> = { constellation, 'buildings-age': buildingsAge };

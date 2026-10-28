@@ -62,3 +62,19 @@ html.kb-rest #map.kb-story-ptr svg{cursor:pointer}
 .kb-const-star.in:hover{scale:1.2}
 .kb-const.pick .kb-const-star.in.cur:hover{scale:1.5}
 @media(prefers-reduced-motion:reduce){.kb-const-star,.kb-const-line{transition:none}}
+
+/* 건물 나이(layers.ts buildings-age): 연대별 path 하나씩. 장이 바뀌면 opacity 만(0.6s) */
+.kb-age{opacity:0;transition:opacity .6s ease;pointer-events:none}
+.kb-age.on{opacity:1}
+.kb-age-d{stroke:#6b3a30;stroke-width:.7;stroke-opacity:.55;stroke-linejoin:round;transition:opacity .6s ease}
+.kb-age-none{fill:none;stroke:#6b3a30;stroke-width:.6;stroke-opacity:.3;transition:opacity .6s ease}
+.kb-age-d.dim,.kb-age-none.dim{opacity:.15}
+/* 범례 띠(상자 아래쪽) */
+.kb-story-legend:empty{display:none}
+.kb-age-legend{display:grid;grid-template-columns:repeat(5,1fr);gap:5px 6px;margin:12px 0 0;padding:9px 0 0;border-top:1.6px dashed #9b3d4980;list-style:none;transition:opacity .6s ease}
+.kb-age-legend.off{opacity:.4}
+.kb-age-legend li{display:flex;align-items:center;gap:4px;font-size:10px;font-weight:600;letter-spacing:-.4px;white-space:nowrap;transition:opacity .6s ease}
+.kb-age-legend li.dim{opacity:.35}
+.kb-age-legend i{flex:none;width:11px;height:11px;border-radius:2px;box-shadow:inset 0 0 0 1px #6b3a3080}
+.kb-age-legend li.none i{background:none;box-shadow:inset 0 0 0 1px #6b3a3060}
+@media(prefers-reduced-motion:reduce){.kb-age,.kb-age-d,.kb-age-none,.kb-age-legend,.kb-age-legend li{transition:none}}

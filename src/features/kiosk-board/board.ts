@@ -32,7 +32,8 @@ export interface Board {
   land: BoardLand;                                            // 섬 덩어리(지도 좌표)
   chiefAt(): XY;                                              // 이장님 자리(지도 좌표)
   storyTargets(): { topic: string; el: SVGGraphicsElement }[];  // 이야기 상자(10-28, features/board-story): data-story 가 붙은 하늘·소품 그림
-  storyLayer: SVGGElement;                                    // 이야기 겹 그림을 넣을 층(길·장식 위, 단추 아래). 이야기가 닫히면 비운다
+  storyLayer: SVGGElement;                                    // 이야기 겹 그림을 넣을 층(길 위, 장식·제목·단추 아래 — 10-28 건물 겹 그림 위로 집·나무가 보이게). 이야기가 닫히면 비운다
+  toBoard(x: number, y: number): XY;                          // 지도 좌표(실제 자리) → 보드 캔버스(길과 같은 변환 R)
   islandPath: string;                                         // 섬 덩어리(캔버스 좌표) — 이야기가 열린 동안 보드만 살짝 어둡게
 }
 /* 이야기 상자(10-28): 그림 종류 → 이야기 주제(content/board-story/{주제}.json). 나무는 모두 '쉼', 구름 둘은 '구름' */
@@ -136,6 +137,7 @@ export function mountBoard(o: BoardOptions): Board {
   { let tot = 0; const segs = ISLAND.map((p, i) => { const q = ISLAND[(i + 1) % ISLAND.length], L = Math.hypot(q[0] - p[0], q[1] - p[1]); tot += L; return { p, q, L }; }); let acc = 0;
     segs.forEach(({ p, q, L }) => { const nx = -(q[1] - p[1]) / L, ny = (q[0] - p[0]) / L; for (let t = 4; t < L; t += TICK_STEP) { const x = p[0] + ((q[0] - p[0]) * t) / L, y = p[1] + ((q[1] - p[1]) * t) / L; ticks.push({ at: (acc + t) / tot, el: el('line', { class: 'kb-tick', x1: (x + nx * 5 + ((q[0] - p[0]) / L) * 2).toFixed(1), y1: (y + ny * 5 + ((q[1] - p[1]) / L) * 2).toFixed(1), x2: (x - nx * 8).toFixed(1), y2: (y - ny * 8).toFixed(1) }, edge) }); } acc += L; }); }
   /* 장식(아플리케, 시안 자리 그대로): [종류, x 가운데, y 발끝, 높이] */
+  const storyLayer = el('g', { class: 'kb-story-layer' }, board);   /* 이야기 겹 그림(10-28): 비어 있다가 이야기가 열린 동안만 */
   const propsG = el('g', { class: 'kb-props' }, board);
   const PROP_W: Record<string, number> = { bench: 1.17, 'bench-s': 1.63, sewing: 1.55, sign: 0.74, hedge: 1.65, 'house-check': 0.9 };   /* 그림 가로:세로(기본 0.84 = 집·나무). 벤치+가로등('펠트 패치워크' 3행 4~5열, 10-26)은 가로로 넓다. 팻말·덤불은 '학교 캠퍼스 펠트' 4행 8·9열(10-26). bench-s 는 가로등 없는 벤치만, sewing 은 학교 자리의 천 재봉틀(10-26 사용자 제공). house-check 는 '펠트 패치워크' 1행 1열 집(10-26) */
   const propEls = (c.props || []).map(([kind, x, y, h]) => { const w = +h * (PROP_W[kind] ?? 0.84); return el('image', { class: 'kb-prop', href: `/board/${kind}.webp`, x: (+x - w / 2).toFixed(1), y: (+y - +h).toFixed(1), width: w.toFixed(1), height: h, preserveAspectRatio: 'xMidYMax meet', ...(STORY[kind] ? { 'data-story': STORY[kind] } : {}) }, propsG); });
@@ -159,7 +161,6 @@ export function mountBoard(o: BoardOptions): Board {
        손으로 정하려면 kiosk-board.json labelAt: { "가게 이름": [dx, dy] } — 단추 가운데에서 이름표 가운데까지(캔버스 단위).
      · 작은 단추는 큰 단추·이름표를 피해 살짝 비켜 서고, 이름 글씨도 빈 자리를 찾는다(위가 먼저, 단추에 붙여서).
      · featured 목록이 비어 있으면 전부 큰 단추 — 예전 모습 */
-  const storyLayer = el('g', { class: 'kb-story-layer' }, board);   /* 이야기 겹 그림(10-28): 비어 있다가 이야기가 열린 동안만 */
   const btnG = el('g', { class: 'kb-buttons' }, board);
   const minorG = el('g', {}, btnG), leadG = el('g', {}, btnG), featG = el('g', {}, btnG), labG = el('g', {}, btnG), minorLabG = el('g', {}, btnG);
   type Btn = { id: string; name: string; cat: string; feat: boolean; img: boolean; ox: number; oy: number; x: number; y: number; k: number; r: number; bund: boolean; bc?: XY;
@@ -446,7 +447,7 @@ export function mountBoard(o: BoardOptions): Board {
     chiefAt: () => toMap([(c.chiefAt || [905, 430])[0], (c.chiefAt || [905, 430])[1]]),
     roadPath: () => roadMapD,
     storyTargets: () => [...g.querySelectorAll<SVGGraphicsElement>('[data-story]')].map((e) => ({ topic: e.dataset.story!, el: e })),
-    storyLayer, islandPath: islandD,
+    storyLayer, islandPath: islandD, toBoard: (x, y) => R.to(x, y),
     play({ onChief }) {
       const my = ++run; reset(); on = true; loadLinen(); g.classList.add('mounted'); fold(); void (board as unknown as HTMLElement).getBoundingClientRect();
       if (reduced()) { skip(); at(onChief, 300); return; }
