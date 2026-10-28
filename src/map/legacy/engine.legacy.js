@@ -394,7 +394,7 @@ export function bootLegacy(DATA){
       focus: (x, y, mul, dx = 0) => { const s = V.scale(); if(!saved) saved = { x: V.x + V.pw / (2 * s), y: V.y + V.ph / (2 * s), s }; const [mx, my] = board.toMapXY(x, y); centerOn(mx + dx / (s * mul), my, s * mul, 0); },   /* dx: 화면 px 만큼 오른쪽을 비운다(상자 자리) */
       restore: () => { if(!saved) return; const p = saved; saved = null; centerOn(p.x, p.y, p.s, 0); } }; })(),
     onOpen: () => { idle(); closeCluster(); viewer.close(); speech.hide(); villagerDone(); if(current) closeCard(); board.focus(null); },
-    onClose: () => idle(),
+    onClose: () => idle(), openPhoto: (urls, i, label) => viewer.open(urls, i, label),
     villagers: { roster: () => walkers.filter(w => w.vScript).sort((a, b) => (b.vScript.kind === 'form') - (a.vScript.kind === 'form')).map(w => ({ id: w.vScript.id, g: w.g, body: w.body, script: w.vScript })),   /* 시민 인터뷰 주민 먼저 */
       hook: (p, script) => villagerHook(p, script), talk: (p, script) => villagerTalk(p, script), talking: () => vTalk.visible, done: () => villagerDone() } }) : null;
   function kioskView(){ if(!board || introOpen) return; const my = ++kioskSeq; clearTimeout(kioskStartT); kioskStage = 'play'; syncSkip?.();

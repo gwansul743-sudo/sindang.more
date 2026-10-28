@@ -14,6 +14,8 @@ export interface LayerCtx {
   cover(el: HTMLElement | null): void;                     // 상자 본문 자리를 잠시 이것으로(건물 카드). null 이면 본문으로
   hold(on: boolean): void;                                 // true 인 동안 이야기 45초 자동 닫기를 멈춘다(자동 재생 중)
   host: HTMLElement;                                       // #map — HTML 겹(디오라마 무대)을 붙일 칸
+  island: number[][];                                      // 섬 덩어리(보드 캔버스 좌표)
+  openPhoto(urls: string[], i: number, label: string): void;   // 사진 크게 보기
   toBoard(lat: number, lng: number): [number, number];     // 실제 위경도 → 보드 캔버스(길과 같은 변환)
   spots(): StoreSpot[];                                    // 보드 가게 단추 자리(캔버스) + 이름표 칸
   villagers: DioVillagers | null;                          // 보드에서 걷는 주민(해 디오라마 속을 같이 걷는다)
@@ -53,17 +55,23 @@ const constellation: Renderer = (c) => {
    null → 숨김 · [from, to](연도) → 그 연대만 또렷하게, 나머지 0.15 · "all" → 모두. spec: { data, decades, unknown } */
 const AGE_COLORS = ['#7d2030', '#9b3d49', '#b23a48', '#c2444f', '#d9636a', '#e8b3b1', '#e7c9a8', '#f1e4c8', '#fbf3e2'];
 interface Building { y: number | null; r: number[][][] }
+interface Outside { name: string; latlng: number[]; img?: string; cap?: string }
+const WIND = ['북', '북북동', '북동', '동북동', '동', '동남동', '남동', '남남동', '남', '남남서', '남서', '서남서', '서', '서북서', '북서', '북북서'];
+const inPoly = (poly: number[][], x: number, y: number) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [x1, y1] = poly[i], [x2, y2] = poly[j]; if ((y1 > y) !== (y2 > y) && x < ((x2 - x1) * (y - y1)) / (y2 - y1) + x1) c = !c; } return c; };
 const buildingsAge: Renderer = async (c) => {
   const decades = (c.spec.decades as number[]) || [1930, 1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010], unknown = String(c.spec.unknown ?? '정보 없음');
   const data = (await c.load(String(c.spec.data))) as { b: Building[] };
   if (!c.alive()) return null;
   const d: string[] = decades.map(() => ''); let dn = '';
+  const cnt = decades.map(() => 0), sx = decades.map(() => 0), sy = decades.map(() => 0); let nUnknown = 0, lat0 = 0, lng0 = 0;   /* 연대별 수·가운데(지도 위 막대·캡션) */
   for (const b of data.b) {
-    const ring = b.r.map((r) => r.map(([lat, lng], i) => { const [x, y] = c.toBoard(lat, lng); return `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`; }).join('') + 'Z').join('');
-    if (b.y == null) { dn += ring; continue; }
+    let mx = 0, my = 0, mn = 0;
+    const ring = b.r.map((r) => r.map(([lat, lng], i) => { const [x, y] = c.toBoard(lat, lng); mx += x; my += y; mn++; if (!i) { lat0 += lat; lng0 += lng; } return `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`; }).join('') + 'Z').join('');
+    if (b.y == null) { dn += ring; nUnknown++; continue; }
     let k = decades.length - 1; while (k > 0 && b.y < decades[k]) k--;   /* 1930 전은 1930년대에, 2020 뒤는 2010년대에 */
-    d[k] += ring;
+    d[k] += ring; cnt[k]++; if (mn) { sx[k] += mx / mn; sy[k] += my / mn; }
   }
+  const rings0 = data.b.reduce((a, b) => a + b.r.length, 0) || 1, centre = [lat0 / rings0, lng0 / rings0];   /* 섬 가운데(위경도) — 건물 가운데들의 평균 */
   const g = el('g', { class: 'kb-age', 'clip-path': 'url(#kb-clip)' }, c.root);
   const paths = decades.map((dec, i) => el('path', { class: 'kb-age-d', d: d[i] || 'M0 0', fill: AGE_COLORS[Math.round((i * (AGE_COLORS.length - 1)) / Math.max(1, decades.length - 1))], 'data-dec': dec }, g));
   const none = el('path', { class: 'kb-age-none', d: dn || 'M0 0' }, g);
@@ -73,13 +81,60 @@ const buildingsAge: Renderer = async (c) => {
   const items = decades.map((dec, i) => item(`${dec}년대`, paths[i].getAttribute('fill')));
   const liNone = item(unknown, null); liNone.className = 'none';
   c.slot(lg);
-  return { page(_i, p) {
-    const h = (p.layer as { highlight?: unknown } | null | undefined)?.highlight ?? null;
+  /* 지도 위 연대 막대(왼쪽 아래 바다 위, 천 조각): 연대마다 막대 하나 + 건물 수. 누르면 그 연대만 잠깐(장이 바뀔 때까지) */
+  const strip = document.createElement('div'); strip.className = 'kb-age-strip';
+  const maxN = Math.max(...cnt, nUnknown, 1);
+  strip.innerHTML = '<b>지어진 때</b><ol>' + decades.map((dec, i) => `<li data-k="${i}"><em>${cnt[i]}</em><i style="height:${((cnt[i] / maxN) * 100).toFixed(0)}%;background:${paths[i].getAttribute('fill')}"></i><span>${String(dec).slice(2)}</span></li>`).join('')
+    + `<li class="none"><em>${nUnknown}</em><i style="height:${((nUnknown / maxN) * 100).toFixed(0)}%"></i><span>?</span></li></ol>`;
+  ['pointerdown', 'wheel', 'click'].forEach((ev) => strip.addEventListener(ev, (e) => e.stopPropagation(), { passive: true }));
+  strip.querySelectorAll<HTMLElement>('li[data-k]').forEach((li) => li.addEventListener('click', () => { const dec = decades[+li.dataset.k!]; apply([dec, dec + 9]); }));
+  c.host.appendChild(strip); requestAnimationFrame(() => strip.classList.add('show'));
+  /* 떠 있는 캡션: 강조한 건물들의 가운데 위 '1930~40년대 · 62채' */
+  const capG = el('g', { class: 'kb-age-cap' }, c.root), capR = el('rect', { rx: 4 }, capG), capT = el('text', {}, capG);
+  const outG = el('g', { class: 'kb-age-out' }, c.root);
+  function apply(h: unknown) {
     g.classList.toggle('on', h != null); lg.classList.toggle('off', h == null);
     const inRange = (dec: number) => h === 'all' || (Array.isArray(h) && dec + 9 >= h[0] && dec <= h[1]);
     paths.forEach((pa, i) => { const on = inRange(decades[i]); pa.classList.toggle('dim', !on); items[i].classList.toggle('dim', !on); });
     const noneOn = h === 'all'; none.classList.toggle('dim', !noneOn); liNone.classList.toggle('dim', !noneOn);
-  } };
+    strip.querySelectorAll<HTMLElement>('li[data-k]').forEach((li) => li.classList.toggle('hi', h != null && inRange(decades[+li.dataset.k!])));
+    strip.querySelector('li.none')!.classList.toggle('hi', noneOn);
+    const ks = decades.map((_, i) => i).filter((i) => h != null && inRange(decades[i])), n = ks.reduce((a, i) => a + cnt[i], 0) + (noneOn ? nUnknown : 0);
+    if (!ks.length || !n) { capG.classList.remove('on'); return; }
+    const cx = ks.reduce((a, i) => a + sx[i], 0) / Math.max(1, ks.reduce((a, i) => a + cnt[i], 0)), cy = ks.reduce((a, i) => a + sy[i], 0) / Math.max(1, ks.reduce((a, i) => a + cnt[i], 0));
+    const first = decades[ks[0]], last = decades[ks[ks.length - 1]];
+    capT.textContent = h === 'all' ? `모든 건물 · ${n}채` : first === last ? `${first}년대 · ${n}채` : `${first}~${String(last).slice(2)}년대 · ${n}채`;
+    capT.setAttribute('x', cx.toFixed(1)); capT.setAttribute('y', (cy - 34).toFixed(1));
+    const w = capT.textContent.length * 12.5 + 18; capR.setAttribute('x', (cx - w / 2).toFixed(1)); capR.setAttribute('y', (cy - 34 - 13).toFixed(1)); capR.setAttribute('width', w.toFixed(1)); capR.setAttribute('height', '26');
+    capG.classList.remove('on'); void capG.getBoundingClientRect(); capG.classList.add('on');
+  }
+  /* 섬 밖 장소(layer.outside): 섬 가운데에서 그쪽 방향으로 섬 가장자리에 화살표 + '광희문 · 서쪽 약 1km' (+ 동그란 사진, 누르면 크게) */
+  function outside(list: Outside[] | undefined) {
+    outG.replaceChildren(); if (!list?.length || !c.island.length) return;
+    const isl = c.island, ox = isl.reduce((a, q) => a + q[0], 0) / isl.length, oy = isl.reduce((a, q) => a + q[1], 0) / isl.length;
+    list.forEach((pl, k) => {
+      const dN = (pl.latlng[0] - centre[0]) * 110574, dE = (pl.latlng[1] - centre[1]) * 111320 * Math.cos((centre[0] * Math.PI) / 180), km = Math.hypot(dN, dE) / 1000;
+      const brg = ((Math.atan2(dE, dN) * 180) / Math.PI + 360) % 360, wind = WIND[Math.round(brg / 22.5) % 16];
+      const dist = km < 1 ? Math.round(km * 10) / 10 : Math.round(km * 2) / 2, ux = dE / (Math.hypot(dN, dE) || 1), uy = -dN / (Math.hypot(dN, dE) || 1);
+      let t = 0; while (t < 2000 && inPoly(isl, ox + ux * t, oy + uy * t)) t += 4;   /* 가운데에서 그 방향으로 섬 가장자리까지 */
+      const ex = ox + ux * (t + 8), ey = oy + uy * (t + 8), a = Math.atan2(uy, ux), L = 46;
+      const og = el('g', { class: 'kb-out', transform: `translate(${ex.toFixed(1)},${ey.toFixed(1)})` }, outG);
+      el('path', { class: 'kb-out-arrow', d: `M0 0L${L} 0M${L - 11} -8L${L} 0L${L - 11} 8`, transform: `rotate(${((a * 180) / Math.PI).toFixed(1)})` }, og);
+      const lx = ux * (L + 18), ly = uy * (L + 18), anchor = ux < -0.3 ? 'end' : ux > 0.3 ? 'start' : 'middle';
+      const tx = el('text', { class: 'kb-out-lab', x: lx.toFixed(1), y: (ly + 5).toFixed(1), 'text-anchor': anchor }, og); tx.textContent = `${pl.name} · ${wind}쪽 약 ${dist}km`;
+      if (pl.img) {
+        const src = `/board/story/${c.topic.id}/${pl.img}`, id = `kb-out-clip-${k}`, cx = lx + (anchor === 'end' ? -36 : anchor === 'start' ? 36 : 0), cy = ly - 40, R = 26;
+        el('circle', { cx: cx.toFixed(1), cy: cy.toFixed(1), r: R }, el('clipPath', { id }, og));
+        const im = el('image', { class: 'kb-out-img', href: src, x: (cx - R).toFixed(1), y: (cy - R).toFixed(1), width: R * 2, height: R * 2, preserveAspectRatio: 'xMidYMid slice', 'clip-path': `url(#${id})` }, og);
+        el('circle', { class: 'kb-out-ring', cx: cx.toFixed(1), cy: cy.toFixed(1), r: R }, og);
+        im.addEventListener('click', (e) => { e.stopPropagation(); c.openPhoto([src], 0, pl.cap || pl.name); });
+      }
+    });
+  }
+  return {
+    page(_i, p) { const L = (p.layer || {}) as { highlight?: unknown; outside?: Outside[] }; apply(L.highlight ?? null); outside(L.outside); },
+    destroy() { strip.remove(); },
+  };
 };
 
 /* 해 디오라마는 코드가 커서 해 이야기를 열 때 받는다(첫 화면 무게, CLAUDE.md §8) */

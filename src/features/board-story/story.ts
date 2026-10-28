@@ -3,7 +3,7 @@ import { mountSpeech } from '../chief-speech/speech';
 import { RENDERERS, type LayerCtl, type StoreSpot } from './layers';
 import type { DioVillagers } from './dioWalkers';
 import { mountReader } from './reader';
-import { pageHtml } from './pageHtml';
+import { pageHtml, imgSrc, type Credit } from './pageHtml';
 
 /* 전시 보드 이야기 상자(10-28) — 전시 모드(rest)에서 하늘·소품 그림(해·구름·별·나무·재봉틀)을 누르면 그 주제의 이야기가 열린다.
    · 그림은 board.ts 가 data-story 를 달아 둔 <image>. 그림엔 투명 여백이 있어 요소를 새로 만들지 않고 JS 로 판정한다: 그림 칸을 15% 줄인 칸(최소 44px).
@@ -16,9 +16,9 @@ import { pageHtml } from './pageHtml';
    · 닫기: ✕·Esc·보드 빈 곳. 카메라·단추·필터는 건드리지 않는다. 열린 채 45초 입력이 없으면 스스로 닫혀 자동 순환이 다시 돈다.
    · 주제 JSON(content/board-story/*.json)은 처음 열 때 받는다(첫 화면 무게). 늦게 도착한 것은 seq 로 버린다.
    순수 UI: 엔진 상태는 옵션 함수로만 묻는다. */
-export interface StoryPage { h: string; body: string; img?: string | null; src?: string | null; author?: string | null; q?: string; pdf?: string | null; layer?: Record<string, unknown> | null }
+export interface StoryPage { h: string; body: string; img?: string | { file: string; cap?: string } | null; src?: string | null; author?: string | null; q?: string; pdf?: string | null; layer?: Record<string, unknown> | null }
 export interface StoryLayerSpec { type: string; [k: string]: unknown }
-export interface StoryTopic { id: string; title: string; hook: string; pages: StoryPage[]; layer: StoryLayerSpec | null }
+export interface StoryTopic { id: string; title: string; hook: string; pages: StoryPage[]; layer: StoryLayerSpec | null; focus?: boolean }   // focus: 열린 동안 단추·이름표·범례·주민·동선을 걷는다
 export interface StoryOptions {
   host: HTMLElement;                                        // #map — 상자·말풍선을 붙일 칸
   svg: SVGSVGElement;
@@ -33,6 +33,7 @@ export interface StoryOptions {
   toBoard?: (lat: number, lng: number) => [number, number];   // 실제 위경도 → 보드 캔버스(건물 겹 그림)
   spots?: () => StoreSpot[];                                 // 보드 가게 단추 자리(해 눈금)
   villagers?: DioVillagers;                                  // 보드 주민 명단·말 걸기(해 디오라마)
+  openPhoto?: (urls: string[], i: number, label: string) => void;   // 사진 크게 보기(엔진의 photo-viewer)
   top?: SVGGElement;                                         // 단추·이름표 위 층(해 눈금)
   obstacles?: () => { x0: number; y0: number; x1: number; y1: number }[];   // 장식 칸(캔버스)
   camera?: { focus(x: number, y: number, mul: number, dx?: number): void; restore(): void };   // 카메라 잠깐 당기기·되돌리기(보드 캔버스 좌표)
@@ -41,6 +42,10 @@ export interface BoardStory { readonly open: boolean; close(instant?: boolean): 
 
 const LOAD = import.meta.glob<StoryTopic>('../../../content/board-story/*.json', { import: 'default' });   /* 주제 JSON 과 겹 그림 데이터(…-buildings.json 등) — 모두 처음 쓸 때 받는다 */
 const cache: Record<string, StoryTopic> = {};
+/* 장 그림의 저작자(public/board/story/<주제>/credits.json) — 그림이 있는 주제를 처음 열 때 받는다 */
+const credits: Record<string, Promise<Record<string, Credit>>> = {};
+const creditsOf = (id: string) => (credits[id] ||= fetch(`/board/story/${id}/credits.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
+const imgBase = (id: string) => `/board/story/${id}/`;
 async function loadTopic(id: string): Promise<StoryTopic | null> {
   if (cache[id]) return cache[id];
   const f = LOAD[`../../../content/board-story/${id}.json`]; if (!f) return null;
@@ -54,6 +59,7 @@ const SKIP = '.kb-btn,.kb-lg,.wk';                         /* 이쪽을 누른 �
 export function mountStory(o: StoryOptions): BoardStory {
   let cur: { topic: string; el: SVGGraphicsElement } | null = null, data: StoryTopic | null = null, page = 0, seq = 0;
   let panel: HTMLElement | null = null, dim: SVGPathElement | null = null, idleT = 0, hot: { topic: string; el: SVGGraphicsElement } | null = null, raf = 0, ctl: LayerCtl | null = null, held = false;
+  const islandPts = (o.islandPath.match(/-?\d+\.?\d*/g) || []).map(Number).reduce<number[][]>((a, v, i, arr) => { if (i % 2 === 0) a.push([v, arr[i + 1]]); return a; }, []);   /* 섬 덩어리 꼭짓점(캔버스) */
   const pdf = mountReader(() => { if (cur) armIdle(); });   /* 논문 읽기 틀이 닫히면 45초를 다시 센다(열린 동안은 멈춤) */
   const hook = mountSpeech(o.host, {
     anchor: () => { if (!hot) return null; const r = hot.el.getBoundingClientRect(), m = o.host.getBoundingClientRect(); return { x: r.left + r.width / 2 - m.left, y: r.top + r.height * 0.1 - m.top }; },
@@ -104,10 +110,12 @@ export function mountStory(o: StoryOptions): BoardStory {
     const my = ++seq; o.onOpen(); hook.hide();
     if (!reduced()) t.el.animate([{ scale: '1' }, { scale: '1.16' }, { scale: '.96' }, { scale: '1' }], { duration: 420, easing: 'ease-out' });
     if (cur?.topic === t.topic && data) { cur = t; return; }
-    clearLayer(true); cur = t; data = null;
+    clearLayer(true); cur = t; data = null; topicCredits = {}; document.documentElement.classList.remove('kb-story-focus');
     loadTopic(t.topic).then((d) => {
       if (my !== seq || !d || !o.active()) { if (my === seq && !d) close(true); return; }
       data = d; page = 0; showDim(true); ensurePanel(); render(); armIdle();
+      document.documentElement.classList.toggle('kb-story-focus', !!d.focus);   /* 이 이야기에 집중: 단추·이름표·범례·주민·동선이 물러난다(story.css) */
+      if (d.pages.some((q) => q.img && typeof q.img === 'object')) void creditsOf(d.id).then((cr) => { if (my === seq && data === d) { topicCredits = cr; render(); } });
       panel!.classList.add('show'); document.documentElement.classList.add('kb-story-on');
       if (d.layer) startLayer(d, my);
     }).catch(() => { if (my === seq) close(true); });
@@ -122,13 +130,15 @@ export function mountStory(o: StoryOptions): BoardStory {
       slot: (h) => { if (alive()) panel?.querySelector('.kb-story-slot')!.replaceChildren(...(h ? [h] : [])); },
       cover: (h) => { if (alive()) setCover(h); },
       hold: (on) => { if (!alive() || held === on) return; held = on; if (on) clearTimeout(idleT); else armIdle(); },
-      host: o.host, spots: () => (o.spots ? o.spots() : []), villagers: o.villagers ?? null,
+      host: o.host, spots: () => (o.spots ? o.spots() : []), villagers: o.villagers ?? null, island: islandPts,
+      openPhoto: (urls, i, label) => o.openPhoto?.(urls, i, label),
       top: o.top ?? null, obstacles: () => (o.obstacles ? o.obstacles() : []), camera: o.camera ?? null,
       load: async (name) => { const f = LOAD[`../../../content/board-story/${name}`]; if (!f) throw new Error('없는 데이터 ' + name); return f(); },
       toBoard: (lat, lng) => o.toBoard ? o.toBoard(lat, lng) : [0, 0] }))
       .then((c) => { if (!c) return; if (!alive()) { c.destroy?.(); return; } ctl = c; c.page(page, d.pages[page]); })
       .catch(() => { if (alive()) root.remove(); });   /* 겹 그림이 실패해도 이야기는 그대로 */
   }
+  let topicCredits: Record<string, Credit> = {};
   function clearLayer(keepDim = false) { dropCtl(); [...o.layer.children].forEach((c) => { if (!keepDim || c !== dim) c.remove(); }); if (!keepDim) dim = null; o.top?.replaceChildren(); panel?.querySelector('.kb-story-slot')!.replaceChildren(); setCover(null); }
   function setCover(h: HTMLElement | null) {   /* 본문 대신 잠시(건물 카드) */
     if (!panel) return; const cov = panel.querySelector('.kb-story-cover') as HTMLElement, pg = panel.querySelector('.kb-story-page') as HTMLElement;
@@ -144,7 +154,7 @@ export function mountStory(o: StoryOptions): BoardStory {
   function close(instant = false) {
     ++seq; clearTimeout(idleT); off(); pdf.close(true); dropCtl(instant || reduced());
     const was = !!cur; cur = null; data = null; setHot(null);
-    document.documentElement.classList.remove('kb-story-on');
+    document.documentElement.classList.remove('kb-story-on', 'kb-story-focus'); topicCredits = {};
     if (panel) { panel.classList.toggle('instant', instant); panel.classList.remove('show'); }
     if (instant || reduced()) clearLayer();
     else { showDim(false); const my = seq; setTimeout(() => { if (my === seq) clearLayer(); }, 260); }   /* 어둠이 걷힌 뒤 비운다 */
@@ -168,7 +178,11 @@ export function mountStory(o: StoryOptions): BoardStory {
     const d = data!, p: StoryPage = d.pages[page] || { h: '', body: '' };
     panel!.setAttribute('aria-label', d.title);
     panel!.querySelector('.kb-story-title')!.textContent = d.title;
-    panel!.querySelector('.kb-story-page')!.innerHTML = pageHtml(p, { pdfButton: true });
+    panel!.querySelector('.kb-story-page')!.innerHTML = pageHtml(p, { pdfButton: true, imgBase: imgBase(d.id), credits: topicCredits });
+    (panel!.querySelector('.kb-story-page') as HTMLElement).scrollTop = 0;
+    const src = imgSrc(p, imgBase(d.id)), cap = p.img && typeof p.img === 'object' ? p.img.cap || '' : '';
+    panel!.querySelector('.kb-story-figbtn')?.addEventListener('click', () => o.openPhoto?.([src], 0, cap));
+    const nx = d.pages[page + 1]; if (nx?.img) { const im = new Image(); im.src = imgSrc(nx, imgBase(d.id)); }   /* 다음 장 그림 미리 */
     panel!.querySelector('.kb-story-pdf')?.addEventListener('click', () => { if (p.pdf) { clearTimeout(idleT); pdf.show(p.pdf, p); } });   /* 틀이 열린 동안 45초 자동 닫기는 멈춘다 */
     panel!.querySelector('.kb-story-dots')!.innerHTML = d.pages.map((_, i) => `<i${i === page ? ' class="on"' : ''}></i>`).join('');
     (panel!.querySelector('.kb-story-prev') as HTMLButtonElement).disabled = page === 0;

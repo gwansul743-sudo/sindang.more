@@ -266,3 +266,38 @@ html.kb-on #map > svg{transition:scale .7s cubic-bezier(.32,.72,0,1),opacity .7s
 .kb-bld-sun i{display:block;height:7px;border-radius:4px;background:#9a7a6055;overflow:hidden}
 .kb-bld-sun i b{display:block;height:100%;background:#f0a850}
 .kb-bld-sun em{grid-column:2;font-style:normal;font-size:10.5px;color:#6b3a30}
+
+/* 이야기에 집중(10-28, 주제 focus: true): 열린 동안 단추·이름표·범례·주민·동선이 물러난다 — 천 섬·길·장식·하늘은 그대로. 닫으면 그대로 돌아온다 */
+html.kb-on .wk{transition:opacity .4s ease}   /* 범례·동선·단추는 원래 opacity 전환이 있다(범례는 펼침 전환까지 — 덮어쓰지 않게) */
+html.kb-story-focus .kb .kb-buttons,html.kb-story-focus .kb .kb-route,html.kb-story-focus .kb-legend.show,html.kb-story-focus .wk{opacity:0!important;pointer-events:none!important}
+html.kb-story-focus .wk *,html.kb-story-focus .kb .kb-buttons *{pointer-events:none!important}   /* 단추(.kb-btn.in)·이름표는 스스로 pointer-events:auto 라 자식까지 */
+/* 장 그림(pageHtml): 상자 너비, 높이는 상자의 38% 까지, 누르면 크게 */
+.kb-story-fig{margin:0 0 10px}
+.kb-story-figbtn{display:block;width:100%;padding:0;border:1px solid #c4ae8f;border-radius:3px;background:#fbf3e2;cursor:zoom-in;overflow:hidden}
+.kb-story-figbtn img{display:block;width:100%;height:auto;max-height:min(38vh,300px);object-fit:cover}
+.kb-story-fig figcaption{margin-top:4px;font-size:11.5px;font-weight:600;color:var(--kb-stitch);letter-spacing:-.3px}
+.kb-story-fig figcaption small{display:block;margin-top:1px;font-size:10px;font-weight:500;color:#9a7a60}
+/* 지도 위 연대 막대(layers.ts buildings-age, 왼쪽 아래 바다 위 천 조각) */
+.kb-age-strip{position:absolute;z-index:4;left:25px;bottom:28px;padding:10px 14px 8px;background:linear-gradient(#f1e2c5e0,#f1e2c5e0),var(--kb-cream) url(/board/linen.webp);background-size:auto,120px;border:1px solid #c4ae8f;border-radius:5px;box-shadow:0 3px 4px #2e3b4338;color:var(--kb-wine);font-family:var(--font-ui);zoom:var(--ui);opacity:0;transform:translateY(10px);transition:opacity .4s ease,transform .4s ease}
+.kb-age-strip.show{opacity:1;transform:none}
+.kb-age-strip::after{content:"";position:absolute;inset:4px;border:1.6px dashed var(--kb-stitch);border-radius:2px;pointer-events:none}
+.kb-age-strip > b{display:block;font-size:11.5px;font-weight:800;margin-bottom:4px}
+.kb-age-strip ol{display:flex;align-items:flex-end;gap:5px;height:92px;margin:0;padding:0;list-style:none}
+.kb-age-strip li{position:relative;z-index:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;width:24px;height:100%;cursor:pointer;opacity:.45;transition:opacity .3s ease}
+.kb-age-strip li.hi{opacity:1}.kb-age-strip li:hover{opacity:.85}
+.kb-age-strip li i{display:block;width:16px;min-height:2px;border-radius:2px 2px 0 0;box-shadow:inset 0 0 0 1px #6b3a3060}
+.kb-age-strip li.none i{background:none;box-shadow:inset 0 0 0 1px #6b3a3080}
+.kb-age-strip li em{font-style:normal;font-size:10px;font-weight:700;margin-bottom:2px}
+.kb-age-strip li span{font-size:10px;font-weight:600;color:#9a7a60;margin-top:2px}
+@media(max-width:899px){.kb-age-strip{left:10px;bottom:auto;top:10px}}
+/* 떠 있는 캡션 · 섬 밖 장소 화살표(보드 캔버스 SVG) */
+.kb-age-cap{opacity:0;pointer-events:none}
+.kb-age-cap.on{animation:kb-cap-in .5s ease both}
+@keyframes kb-cap-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.kb-age-cap rect{fill:#fbf3e2;stroke:var(--kb-wine);stroke-width:1.4}
+.kb-age-cap text{font:800 15px var(--font-ui);fill:var(--kb-wine);text-anchor:middle;dominant-baseline:central;letter-spacing:-.02em}
+.kb-out-arrow{fill:none;stroke:var(--kb-wine);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.kb-out-lab{font:800 16px var(--font-ui);fill:var(--kb-wine);paint-order:stroke;stroke:#f1e2c5;stroke-width:4px;stroke-linejoin:round;letter-spacing:-.02em}
+.kb-out-img{cursor:zoom-in;pointer-events:auto}
+.kb-out-ring{fill:none;stroke:var(--kb-wine);stroke-width:2;stroke-dasharray:4 3;pointer-events:none}
+@media(prefers-reduced-motion:reduce){.kb-age-strip{transition:none}.kb-age-cap.on{animation:none;opacity:1}}
