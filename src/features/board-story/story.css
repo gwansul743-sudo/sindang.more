@@ -19,7 +19,7 @@ html.kb-rest #map.kb-story-ptr svg{cursor:pointer}
 .kb-story.instant{transition:none!important}
 .kb-story-x{position:absolute;z-index:1;top:9px;right:10px;width:32px;height:32px;padding:0;border:0;background:none;color:var(--kb-stitch);font:700 16px/1 var(--font-ui);cursor:pointer}
 .kb-story-x:hover{color:var(--kb-wine)}
-.kb-story-title{margin:0 30px 10px 0;padding-bottom:9px;border-bottom:1.6px dashed #9b3d4980;font-family:var(--kb-title);font-size:26px;font-weight:700;line-height:1.15;letter-spacing:-.2px}
+.kb-story-title{word-break:keep-all;margin:0 30px 10px 0;padding-bottom:9px;border-bottom:1.6px dashed #9b3d4980;font-family:var(--kb-title);font-size:26px;font-weight:700;line-height:1.15;letter-spacing:-.2px}
 .kb-story-page{flex:1;min-height:0;overflow:auto;word-break:keep-all}
 .kb-story-page img{display:block;width:100%;margin:2px 0 10px;border:1px solid #c4ae8f;border-radius:3px}
 .kb-story-page h3{margin:4px 0 6px;font-size:15px;font-weight:700;letter-spacing:-.025em;color:var(--kb-thread)}
@@ -34,3 +34,31 @@ html.kb-rest #map.kb-story-ptr svg{cursor:pointer}
 .kb-story-dots i.on{background:var(--kb-thread)}
 @media(max-width:899px){.kb-story{top:auto;right:10px;left:10px;bottom:14px;width:auto;max-height:60%}}
 @media(prefers-reduced-motion:reduce){.kb-story,.kb-story.show{transition:opacity .2s,visibility 0s}.kb-story{transform:none}html.kb-rest .kb [data-story]{transition:none}}
+
+/* 장의 덧붙은 칸(10-28): 글쓴이 · 손글씨 질문 · 논문 원문 보기 */
+.kb-story-author{margin:-2px 0 6px;font-size:11.5px;font-weight:600;letter-spacing:-.3px;color:var(--kb-stitch)}
+.kb-story-page .kb-story-q{margin:0 0 9px;padding:5px 9px 6px;border-left:3px solid var(--kb-thread);background:#fbf3e2b3;font-family:var(--kb-hand);font-size:20px;font-weight:400;line-height:1.25;letter-spacing:.2px;color:var(--kb-wine);white-space:normal}
+.kb-story-pdf{display:block;width:100%;margin-top:12px;padding:9px 0;border:1px dashed var(--kb-stitch);border-radius:4px;background:#fbf3e2;color:var(--kb-wine);font:700 13px var(--font-ui);letter-spacing:-.2px;cursor:pointer}
+.kb-story-pdf:hover{background:#e3cfa8}
+
+/* 논문 원문(pdf.ts): 화면 전체를 덮는 천 틀 + 브라우저 PDF 보기. 새 탭은 열지 않는다 */
+.kb-pdf{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;padding:14px 22px 22px;box-sizing:border-box;background:linear-gradient(#f1e2c5e6,#f1e2c5e6),var(--kb-cream) url(/board/linen.webp);background-size:auto,120px;opacity:0;transition:opacity .25s ease}
+.kb-pdf.show{opacity:1}
+.kb-pdf::after{content:"";position:absolute;inset:8px;border:2px dashed var(--kb-stitch);border-radius:3px;pointer-events:none}
+.kb-pdf-bar{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 6px 10px 10px;zoom:var(--ui)}
+.kb-pdf-bar b{font-family:var(--kb-title);font-size:24px;font-weight:700;color:var(--kb-wine);letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kb-pdf-frame{display:block;flex:1;min-height:0;width:100%;border:1px solid #c4ae8f;border-radius:3px;background:#fbf3e2}
+.kb-pdf-x{flex:none;width:56px;height:56px;padding:0;border:2px dashed var(--kb-stitch);border-radius:50%;background:#fbf3e2;color:var(--kb-wine);font:700 26px/1 var(--font-ui);box-shadow:0 3px 4px #2e3b4338;cursor:pointer}
+.kb-pdf-x:hover{background:#e3cfa8}
+@media(prefers-reduced-motion:reduce){.kb-pdf{transition:none}}
+
+/* 별자리(layers.ts constellation): 작은 별이 하나씩 떠오르고 홈질 선으로 이어진다. 지금 장의 별은 크고 밝게 */
+.kb-const-line{fill:none;stroke:var(--kb-stitch);stroke-width:2;stroke-dasharray:7 5;stroke-linecap:round;stroke-linejoin:round;opacity:0;transition:opacity .6s ease}
+.kb-const.lined .kb-const-line{opacity:.7}
+.kb-const-star{opacity:0;cursor:pointer;pointer-events:auto;transform-box:fill-box;transform-origin:center;transition:opacity .45s ease,scale .35s ease}
+.kb-const-star.in{opacity:1}
+.kb-const.pick .kb-const-star.in{opacity:.5}
+.kb-const.pick .kb-const-star.in.cur{opacity:1;scale:1.45}
+.kb-const-star.in:hover{scale:1.2}
+.kb-const.pick .kb-const-star.in.cur:hover{scale:1.5}
+@media(prefers-reduced-motion:reduce){.kb-const-star,.kb-const-line{transition:none}}
