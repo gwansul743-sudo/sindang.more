@@ -107,7 +107,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
     heatSrc: m.sunhours ? base + m.sunhours.image : undefined, valuesSrc: m.sunhours ? base + m.sunhours.values : undefined }) : null;
   if (select) { void fetchImg(base + m.hi!.top); void select.ensure('plan'); }   /* 위에서 본 그림 + 그 idmap 을 먼저 */
   /* 하늘을 나는 2호선(subway.ts): 기울어진 보기에 내려앉은 뒤에만 */
-  const subway = m.subway && m.axon ? mountSubway({ world: st.world, base, spec: m.subway, axon: m.axon, local: m.local, island: m.island?.latlng, night: () => isNight(), scale: () => st.cam.s }) : null;
+  const subway = m.subway && m.axon ? mountSubway({ world: st.world, base, spec: m.subway, axon: m.axon, local: m.local, island: m.island?.latlng, night: () => isNight(), scale: () => st.cam.s, zoom: () => level === 2 }) : null;
   if (new URLSearchParams(location.search).has('lift_check')) Object.assign(window, { __liftCheck: (lat: number, lng: number) => st.check(lat, lng), __liftLocal: m.local,
     __sun: () => ({ view: st.view, cam: st.cam, landing: st.lastLanding, level, contain: st.contain(), sel: select?.selected?.i ?? -1, train: subway?.playing ?? false,
       heat: { on: heatOn, shown: select?.heatShown ?? false, ms: select?.heatMs ?? 0, live: !!liveT } }) });   /* 확인용 */
