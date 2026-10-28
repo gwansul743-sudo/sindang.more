@@ -11,6 +11,8 @@ const fullReload = (): Plugin => ({
   apply: 'serve',
   handleHotUpdate({ file, server }) {
     if (/\.(css)$/.test(file)) return;
+    /* 앱 소스만(TASK_20): 전엔 저장소 안 아무 파일(_bus 의 작업 쪽지·기록, 보고서 .md 등)이 바뀌어도 열려 있던 화면이 새로 고쳐져 인트로로 돌아갔다 */
+    if (!/[\\/](src|content)[\\/]|[\\/]index\.html$/.test(file)) return [];
     server.ws.send({ type: 'full-reload' });
     return [];
   },

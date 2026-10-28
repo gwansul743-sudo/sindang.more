@@ -36,6 +36,7 @@ import { onSwipeRight } from '../../shared/lib/swipe';
 import { onPullDown } from '../../shared/lib/sheetDrag';
 import { mountPhotoViewer } from '../../features/photo-viewer/viewer';
 import { mountStory } from '../../features/board-story/story';
+import { kbLog } from '../../shared/lib/kbLog';   /* 전시 상태가 바뀐 까닭(개발용, TASK_20) */
 
 export function bootLegacy(DATA){
 /* ═══════════════ CORE (투영 · 팬줌 · 가게 점 · 카드 · 관리 · 인트로) ═══════════════ */
@@ -397,7 +398,7 @@ export function bootLegacy(DATA){
     onClose: () => idle(), openPhoto: (urls, i, label) => viewer.open(urls, i, label),
     villagers: { roster: () => walkers.filter(w => w.vScript).sort((a, b) => (b.vScript.kind === 'form') - (a.vScript.kind === 'form')).map(w => ({ id: w.vScript.id, g: w.g, body: w.body, script: w.vScript })),   /* 시민 인터뷰 주민 먼저 */
       hook: (p, script) => villagerHook(p, script), talk: (p, script) => villagerTalk(p, script), talking: () => vTalk.visible, done: () => villagerDone() } }) : null;
-  function kioskView(){ if(!board || introOpen) return; const my = ++kioskSeq; clearTimeout(kioskStartT); kioskStage = 'play'; syncSkip?.();
+  function kioskView(){ if(!board || introOpen) return; kbLog('kiosk:view'); const my = ++kioskSeq; clearTimeout(kioskStartT); kioskStage = 'play'; syncSkip?.();
     villagerDone(); speech.hide(); closeCluster();   /* 켜기 전에 hover 로 떠 있던 주민·이장님 말풍선은 닫는다(10-26) — 주민 hook 은 3초 남짓 남아 연출 위에 떠 있었다 */
     withSide(true, () => { if(my !== kioskSeq || !KIOSK) return; walkersTo('kiosk'); chiefTo(true);
       if(kioskStage !== 'play') return;   /* 사이드바가 접히는 사이(약 0.3초) Skip 을 눌렀으면(kioskSkip → rest) 주민·이장님 자리만 옮기고 카메라·연출은 다시 틀지 않는다(10-28 — 전엔 연출이 처음부터 다시 돌았다) */
@@ -406,8 +407,8 @@ export function bootLegacy(DATA){
       board.play({ onChief: () => { if(my !== kioskSeq || !KIOSK) return; const [cx, cy] = board.chiefAt(), t = kioskTarget();
         V.centerOn(cx, cy - 12, t.s * 1.6 ** 2, 0, () => { if(my !== kioskSeq || !KIOSK) return; showChief(true); speech.say(CHIEF_LINES); }, true); } }); }); }   /* always: 줌인 도중 지도를 눌러 비행이 끊겨도 이장님은 그 자리에서 나온다(10-26) */
   /* 전시 연출을 그 자리에서 다 멈추고 평소 상태로(카메라·사이드바는 부르는 쪽이 정한다) */
-  function stopKiosk(){ story?.close(true); viewer.close(); closeCluster(); kioskSeq++; clearTimeout(kioskStartT); stopCycle(); kioskStage = 'off'; syncSkip?.(); speech.hide(); talk.hide(); villagerDone(); showChief(false); board?.hide(); walkersTo('home'); chiefTo(false); sideDone?.(false); }
-  function kioskRest(){ if(!KIOSK || !board || kioskStage !== 'play') return; kioskStage = 'rest'; syncSkip?.(); idle(); board.rest(); const t = kioskTarget(), k = REST_ZOOM(), [cx, cy] = board.chiefAt(); centerOn(cx + (t.x - cx) / k, cy + (t.y - cy) / k, t.s * k, 0); }
+  function stopKiosk(){ kbLog('kiosk:stop'); story?.close(true, 'kiosk:stop'); viewer.close(); closeCluster(); kioskSeq++; clearTimeout(kioskStartT); stopCycle(); kioskStage = 'off'; syncSkip?.(); speech.hide(); talk.hide(); villagerDone(); showChief(false); board?.hide(); walkersTo('home'); chiefTo(false); sideDone?.(false); }
+  function kioskRest(){ if(!KIOSK || !board || kioskStage !== 'play') return; kbLog('kiosk:rest'); kioskStage = 'rest'; syncSkip?.(); idle(); board.rest(); const t = kioskTarget(), k = REST_ZOOM(), [cx, cy] = board.chiefAt(); centerOn(cx + (t.x - cx) / k, cy + (t.y - cy) / k, t.s * k, 0); }
   /* 이장님 줌인에서 물러나며 범례·단추 — 보드 전체까지 다 물러나지 않고 데스크톱 ×1.25 · 폰 ×1.6(+ 버튼 한 번) 남긴다(10-28 사용자 요청).
      중심은 이장님을 고정점으로 줌아웃한 자리(보드 전체 화면에서 이장님이 있던 곳에 그대로 보인다). 30초 쉼·자동 순환 한 바퀴 끝은 보드 전체 그대로 */
   const REST_ZOOM = () => desktop() ? 1.25 : 1.6;
@@ -420,7 +421,7 @@ export function bootLegacy(DATA){
   function goHome(){ withSide(!side.classList.contains('welcome'), () => {   /* 소개가 떠 있으면 편 채로 */ const hv = homeView(); centerOn(hv.x, hv.y, hv.s, 0); }); }
   /* 이장님·고양이는 평소엔 숨겨 두고(body.chief-hidden), 보드 연출의 제목 뒤에 등장한다. 끄면 다시 숨김 */
   const showChief = (on) => { document.body.classList.toggle('chief-hidden', !on); document.querySelectorAll('.wk-chief,.wk-cat').forEach(g => g.classList.toggle('appear', on)); };
-  function kioskOff(){ story?.close(true); speech.hide(); talk.hide(); kioskStage = 'off'; syncSkip?.(); const my = ++kioskSeq; clearTimeout(kioskStartT);
+  function kioskOff(){ kbLog('kiosk:off', '전시 모드 끔'); story?.close(true, '전시 모드 끔'); speech.hide(); talk.hide(); kioskStage = 'off'; syncSkip?.(); const my = ++kioskSeq; clearTimeout(kioskStartT);
     withCurtain(() => { if(my !== kioskSeq) return; stopKiosk(); closeCard(); side.classList.add('closed'); V.fit(); resetHome(); }); }   /* 커튼이 덮이는 사이 다시 켰으면 되돌리지 않는다 */
   /* 인트로가 떠 있는 동안엔 상태(ON/OFF)만 바꾼다 — 연출은 인트로가 끝난 뒤(endIntro) */
   kioskBtn.onclick = () => { KIOSK=!KIOSK; renderKiosk(); if(introOpen) return; if(KIOSK){ showChief(false); closeCard(); kioskView(); } else kioskOff(); };
@@ -432,7 +433,7 @@ export function bootLegacy(DATA){
      한 바퀴 끝의 보드 전체 뷰에선 카드를 닫고 사이드바를 접는다. 사람이 끼어들어 멈추면 열린 카드는 그대로 둔다 */
   const IDLE_MS = 4000, DWELL_MS = 6000;
   let idleT = null, cycleT = null, cycleI = 0, cycling = false;
-  const canCycle = () => KIOSK && board && !introOpen && kioskStage === 'rest' && !viewer.visible && !talk.visible && !speech.visible && !vTalk.visible && !vSpeech.visible && !clusterAt && !videoPlaying() && !story?.open;   /* 이야기 상자가 열린 동안에도(10-28). 묶음 말풍선을 보고 있는 동안·영상 재생 중에도 쉬지 않는다 */
+  const canCycle = () => KIOSK && board && !introOpen && kioskStage === 'rest' && !viewer.visible && !talk.visible && !speech.visible && !vTalk.visible && !vSpeech.visible && !clusterAt && !videoPlaying() && !story?.open && !document.hidden;   /* 이야기 상자가 열린 동안에도(10-28). 묶음 말풍선을 보고 있는 동안·영상 재생 중에도 쉬지 않는다 */
   /* 영상 재생 중엔 자동 순환을 하지 않는다(10-26). 카드의 <video> 는 paused 로 바로 안다. 유튜브·구글 드라이브 iframe 은 다른 출처라 재생 여부를 못 읽으니
      iframe 을 누른 뒤(포커스가 그 안에 있는 동안)를 재생 중으로 본다 — 바깥을 누르면 풀린다. 다 보고 자리를 뜬 경우를 위해 iframe 은 VIDEO_MAX_MS 뒤엔 풀어 준다. 전체화면도 재생 중 */
   const VIDEO_MAX_MS = 60 * 1000; let frameAt = 0;
@@ -443,7 +444,7 @@ export function bootLegacy(DATA){
     return inCardFrame() && performance.now() - frameAt < VIDEO_MAX_MS;
   }
   const focusZoom = () => kioskTarget().s * (desktop() ? 2.6 : 2.2);   /* 보드 전체 배율에서 ×2.6(폰 ×2.2) */
-  function stopCycle(){ clearTimeout(cycleT); if(cycling){ cycling = false; board?.focus(null); } }
+  function stopCycle(){ clearTimeout(cycleT); if(cycling){ kbLog('cycle:stop'); cycling = false; board?.focus(null); } }
   function cycleStep(){
     if(!canCycle()){ stopCycle(); return; }
     const list = board.focusList();
@@ -481,12 +482,12 @@ export function bootLegacy(DATA){
       centerOn(st.x, st.y, HOME_FOCUS, desktop() ? 0 : V.ph * 0.24); });                                    /* 폰은 바텀시트가 아래를 덮으니 조금 위로 */
     homeCycleT = setTimeout(homeStep, HOME_DWELL_MS); }
   const startHomeIdle = () => { clearTimeout(homeIdleT); homeIdleT = setTimeout(() => { if(downs.size || !canHomeCycle()){ startHomeIdle(); return; }
-    if(!homeOrder.length || homeI >= homeOrder.length){ homeOrder = homeRoute(); homeI = 0; } homeCycling = true; homeStep(); }, HOME_IDLE_MS); };
+    if(!homeOrder.length || homeI >= homeOrder.length){ homeOrder = homeRoute(); homeI = 0; } kbLog('home-cycle:start', `무입력 ${HOME_IDLE_MS / 1000}초`); homeCycling = true; homeStep(); }, HOME_IDLE_MS); };
   /* 활동 판정(10-23): 누르는 순간만이 아니라 손가락·마우스를 대고 있는 동안(끌기·핀치), 움직임, 스크롤(카드 읽기)도 활동.
      capture 단계로 들어서 중간에서 막는 요소가 있어도 받는다. 손가락이 닿아 있는 동안엔 30초가 지나도 순환을 시작하지 않는다.
      순환 중에 만지면 이미 출발한 카메라 이동도 그 자리에서 멈춘다(V.stop) — 전엔 카드를 만져도 카메라가 끝까지 가 '터치 중 전환'처럼 보였다 */
   const downs = new Set(); let lastIdle = 0;
-  const startIdle = () => { clearTimeout(idleT); idleT = setTimeout(() => { if(downs.size || videoPlaying()){ startIdle(); return; } if(canCycle()){ cycling = true; cycleStep(); } }, IDLE_MS); };
+  const startIdle = () => { clearTimeout(idleT); idleT = setTimeout(() => { if(downs.size || videoPlaying()){ startIdle(); return; } if(canCycle()){ kbLog('cycle:start', `무입력 ${IDLE_MS / 1000}초`); cycling = true; cycleStep(); } }, IDLE_MS); };
   const idle = () => { if(cycling){ stopCycle(); V.stop(); } if(homeCycling){ stopHomeCycle(); V.stop(); } lastIdle = performance.now(); startIdle(); startHomeIdle(); };
   const idleSoft = () => { if(cycling || homeCycling || performance.now() - lastIdle > 500) idle(); };   /* 움직임·스크롤은 0.5초에 한 번만 다시 센다 */
   const opt = { passive: true, capture: true };
@@ -496,6 +497,7 @@ export function bootLegacy(DATA){
   ['pointerup', 'pointercancel'].forEach(ev => window.addEventListener(ev, e => { downs.delete(e.pointerId); idle(); }, opt));
   window.addEventListener('blur', () => { downs.clear(); setTimeout(() => { if(inCardFrame()){ frameAt = performance.now(); idle(); } }); });   /* iframe 안을 누르면 창이 blur — 그때부터 재생 중 */
   ['play', 'pause', 'ended'].forEach(ev => window.addEventListener(ev, idle, opt));   /* <video> 재생·멈춤(버블 안 하는 이벤트라 capture 로). 멈추면 거기서부터 다시 센다 */
+  document.addEventListener('visibilitychange', () => { if(document.hidden){ clearTimeout(idleT); clearTimeout(homeIdleT); kbLog('idle:pause', '탭 숨김'); } else idle(); });   /* 숨은 동안 4초 자동 순환을 걸지 않고, 돌아오면 새로 센다(TASK_20) */
   idle();
   function wake(){}   /* 예전엔 30초 뒤 자동 전환을 다시 걸었다. 호출 자리는 남겨 둔다 */
 
@@ -515,7 +517,7 @@ export function bootLegacy(DATA){
      전시 모드 ON/OFF 상태는 그대로 — 인트로가 끝나면 다시 시작.
      부드럽게(10-28): 인트로를 먼저 덮고(.back — 0.4s 페이드, visibility 지연 없음) 다 덮인 뒤에 그 아래서 보드 끄기·카드 닫기·사이드바·카메라를 한꺼번에 정리한다.
      전엔 인트로가 나타나는 같은 프레임에 이것들이 몰려 SVG 전체를 다시 그리는 게 보였고(지지직), visibility 가 .18s 늦게 켜져 툭 튀어나왔다 */
-  function playIntro(){ if(introOpen) return; story?.close(true); introOpen=true; clearTimeout(introT); stopCycle(); stopHomeCycle(); villagerDone(); speech.hide(); talk.hide(); closeCluster(); viewer.close();
+  function playIntro(why = 'MORE'){ if(introOpen) return; kbLog('intro', why); story?.close(true, '인트로 다시(' + why + ')'); introOpen=true; clearTimeout(introT); stopCycle(); stopHomeCycle(); villagerDone(); speech.hide(); talk.hide(); closeCluster(); viewer.close();
     const quick = matchMedia('(prefers-reduced-motion: reduce)').matches;
     intro.classList.remove('open'); intro.classList.add('back'); void intro.offsetWidth;   /* 숨은 채로 표지 애니메이션을 처음으로 되돌린 뒤 */
     requestAnimationFrame(() => intro.classList.remove('done'));
@@ -529,8 +531,8 @@ export function bootLegacy(DATA){
     else { intro.addEventListener('transitionend', function te(e){ if(e.target !== intro || e.propertyName !== 'opacity') return; intro.removeEventListener('transitionend', te); settle(); }); setTimeout(settle, 520); } }
   const brandBtn = document.querySelector('.brand b');
   brandBtn.setAttribute('role', 'button'); brandBtn.tabIndex = 0; brandBtn.setAttribute('aria-label', '처음 화면(인트로)으로');
-  brandBtn.addEventListener('click', playIntro);
-  brandBtn.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); playIntro(); } });
+  brandBtn.addEventListener('click', () => playIntro('MORE 클릭'));
+  brandBtn.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); playIntro('MORE 키'); } });
   document.getElementById('openMap').onclick = openMap;
   intro.addEventListener('click', e => { if(intro.classList.contains('open') && !e.target.closest('.folded')) endIntro(); });
 

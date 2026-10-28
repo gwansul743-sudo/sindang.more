@@ -4,6 +4,7 @@ import { RENDERERS, type LayerCtl, type StoreSpot } from './layers';
 import type { DioVillagers } from './dioWalkers';
 import { mountReader } from './reader';
 import { pageHtml, imgSrc, type Credit } from './pageHtml';
+import { kbLog } from '../../shared/lib/kbLog';
 
 /* 전시 보드 이야기 상자(10-28) — 전시 모드(rest)에서 하늘·소품 그림(해·구름·별·나무·재봉틀)을 누르면 그 주제의 이야기가 열린다.
    · 그림은 board.ts 가 data-story 를 달아 둔 <image>. 그림엔 투명 여백이 있어 요소를 새로 만들지 않고 JS 로 판정한다: 그림 칸을 15% 줄인 칸(최소 44px).
@@ -38,7 +39,7 @@ export interface StoryOptions {
   obstacles?: () => { x0: number; y0: number; x1: number; y1: number }[];   // 장식 칸(캔버스)
   camera?: { focus(x: number, y: number, mul: number, dx?: number): void; restore(): void };   // 카메라 잠깐 당기기·되돌리기(보드 캔버스 좌표)
 }
-export interface BoardStory { readonly open: boolean; close(instant?: boolean): void }
+export interface BoardStory { readonly open: boolean; close(instant?: boolean, why?: string): void }
 
 const LOAD = import.meta.glob<StoryTopic>('../../../content/board-story/*.json', { import: 'default' });   /* 주제 JSON 과 겹 그림 데이터(…-buildings.json 등) — 모두 처음 쓸 때 받는다 */
 const cache: Record<string, StoryTopic> = {};
@@ -97,31 +98,31 @@ export function mountStory(o: StoryOptions): BoardStory {
   o.host.addEventListener('pointerdown', (e) => { if (!(e.target instanceof Element && e.target.closest('.speech'))) { cancelAnimationFrame(raf); setHot(null); } }, { passive: true });   /* 끌기 시작하면 말풍선이 제자리에 남지 않게 */
 
   /* 누르기: 단추·이름표·주민을 누르면(capture 로 먼저) 열린 이야기를 닫는다 — 그쪽 카드·대화가 오른쪽을 쓴다 */
-  o.host.addEventListener('click', (e) => { if (cur && e.target instanceof Element && e.target.closest(SKIP)) close(true); }, true);
+  o.host.addEventListener('click', (e) => { if (cur && e.target instanceof Element && e.target.closest(SKIP)) close(true, 'click: 단추·범례·주민(' + (e.target.closest(SKIP)!.getAttribute('class') || '') + ')'); }, true);
   o.host.addEventListener('click', (e) => {
     if (!o.active() || o.moved() || !onMap(e.target)) return;
     if ((e.target as Element).closest('.kb-story-layer [data-hit]')) return;   /* 겹 그림이 스스로 받는 것(쉼터 제안 자리) */
     const pg = cur && data ? (e.target as Element).closest('.kb-story-layer [data-page]') : null;
     if (pg) { goTo(Number(pg.getAttribute('data-page'))); return; }   /* 별자리 별 → 그 장 */
     const t = hitAt(e.clientX, e.clientY);
-    if (t) openTopic(t); else if (cur) close();
+    if (t) openTopic(t); else if (cur) close(false, 'click: 빈 보드');
   });
 
   function openTopic(t: { topic: string; el: SVGGraphicsElement }) {
     if (!o.active()) return;
-    const my = ++seq; o.onOpen(); hook.hide();
+    const my = ++seq; o.onOpen(); hook.hide(); kbLog('story:open', t.topic);
     if (!reduced()) t.el.animate([{ scale: '1' }, { scale: '1.16' }, { scale: '.96' }, { scale: '1' }], { duration: 420, easing: 'ease-out' });
     if (cur?.topic === t.topic && data) { cur = t; return; }
     clearLayer(true); cur = t; data = null; topicCredits = {}; document.documentElement.classList.remove('kb-story-focus');
     loadTopic(t.topic).then((d) => {
-      if (my !== seq || !d || !o.active()) { if (my === seq && !d) close(true); return; }
+      if (my !== seq || !d || !o.active()) { if (my === seq && !d) close(true, 'load: 이야기 자료 없음'); return; }
       data = d; page = 0; showDim(true); ensurePanel(); render(); armIdle();
       document.documentElement.classList.toggle('kb-story-focus', !!d.focus);   /* 이 이야기에 집중: 단추·이름표·범례·주민·동선이 물러나고 섬 위 장식은 25 %(story.css) */
       o.targets().forEach((q) => q.el.classList.toggle('kb-keep', q.topic === t.topic));   /* 열린 주제의 그림(재봉틀·나무)은 그대로 */
       if (d.pages.some((q) => q.img && typeof q.img === 'object')) void creditsOf(d.id).then((cr) => { if (my === seq && data === d) { topicCredits = cr; render(); } });
       panel!.classList.add('show'); document.documentElement.classList.add('kb-story-on');
       if (d.layer) startLayer(d, my);
-    }).catch(() => { if (my === seq) close(true); });
+    }).catch(() => { if (my === seq) close(true, 'load: 실패'); });
   }
   /* 겹 그림: 렌더러가 늦게(데이터를 받아) 돌아와도 그새 닫혔거나 주제가 바뀌었으면 버린다 */
   function startLayer(d: StoryTopic, my: number) {
@@ -132,7 +133,7 @@ export function mountStory(o: StoryOptions): BoardStory {
       later: (f, ms) => { setTimeout(() => { if (alive()) f(); }, ms); },
       slot: (h) => { if (alive()) panel?.querySelector('.kb-story-slot')!.replaceChildren(...(h ? [h] : [])); },
       cover: (h) => { if (alive()) setCover(h); },
-      close: () => { if (alive()) close(); },
+      close: () => { if (alive()) close(false, 'layer: 길잡이 지도'); },
       hold: (on) => { if (!alive() || held === on) return; held = on; if (on) clearTimeout(idleT); else armIdle(); },
       host: o.host, spots: () => (o.spots ? o.spots() : []), villagers: o.villagers ?? null, island: islandPts,
       openPhoto: (urls, i, label) => o.openPhoto?.(urls, i, label),
@@ -157,7 +158,8 @@ export function mountStory(o: StoryOptions): BoardStory {
       void dim.getBoundingClientRect(); dim.classList.add('on');
     } else dim?.classList.remove('on');
   }
-  function close(instant = false) {
+  function close(instant = false, why = '?') {
+    if (cur) kbLog('story:close', `${cur.topic} · ${why}`);
     ++seq; clearTimeout(idleT); off(); pdf.close(true); dropCtl(instant || reduced());
     const was = !!cur; cur = null; data = null; setHot(null);
     document.documentElement.classList.remove('kb-story-on', 'kb-story-focus'); topicCredits = {};
@@ -175,8 +177,8 @@ export function mountStory(o: StoryOptions): BoardStory {
       + '<button type="button" class="kb-story-x" aria-label="이야기 닫기">✕</button><h2 class="kb-story-title"></h2><div class="kb-story-page"></div><div class="kb-story-cover" hidden></div><div class="kb-story-slot"></div>'
       + '<nav class="kb-story-nav"><button type="button" class="kb-story-prev" aria-label="앞 장">‹</button><span class="kb-story-dots"></span><button type="button" class="kb-story-next" aria-label="다음 장">›</button></nav>';
     ['pointerdown', 'wheel', 'click'].forEach((ev) => panel!.addEventListener(ev, (e) => e.stopPropagation(), { passive: true }));   /* 지도 끌기·휠 줌·빈 곳 닫기로 새지 않게(활동 판정은 window capture 라 그대로) */
-    panel.querySelector('.kb-story-x')!.addEventListener('click', () => { if (!ctl?.back?.()) close(); });   /* 고른 건물이 있으면 그것부터 푼다 */
-    panel.querySelector('.kb-story-sx')!.addEventListener('click', (e) => { e.stopPropagation(); if (!ctl?.back?.()) close(); });
+    panel.querySelector('.kb-story-x')!.addEventListener('click', () => { if (!step('✕')) close(false, '✕'); });   /* 고른 건물이 있으면 그것부터 푼다 */
+    panel.querySelector('.kb-story-sx')!.addEventListener('click', (e) => { e.stopPropagation(); if (!step('✕(띠)')) close(false, '✕(띠)'); });
     panel.querySelector('.kb-story-fold')!.addEventListener('click', () => setFold(!folded, { user: true }));
     panel.querySelector('.kb-story-strip')!.addEventListener('click', (e) => {   /* 접힌 띠: 점 = 그 장으로, 그 밖 = 펴기 */
       const dt = (e.target as Element).closest?.('[data-p]'); if (dt) { goTo(Number(dt.getAttribute('data-p'))); return; }
@@ -231,14 +233,17 @@ export function mountStory(o: StoryOptions): BoardStory {
   const go = (dp: number) => goTo(page + dp);
 
   /* 열린 동안: 입력이 오면 45초를 다시 센다, ← → Esc */
-  const armIdle = () => { clearTimeout(idleT); on(); if (held) return; const my = seq; idleT = window.setTimeout(() => { if (my !== seq || !cur) return; if (ctl?.back?.()) armIdle(); else close(); }, IDLE_CLOSE_MS); };   /* 45초: 한 단계씩 물러난다(해 이야기 건물 → 위에서 본 신당 → 보드) */
+  const step = (why: string) => { if (!ctl?.back?.()) return false; kbLog('story:level-up', `${cur?.topic} · ${why}`); return true; };   /* 한 단계 위로(고른 건물 풀기 등) */
+  const armIdle = () => { clearTimeout(idleT); on(); if (held) return; const my = seq; idleT = window.setTimeout(() => { if (my !== seq || !cur) return; if (step(`무입력 ${IDLE_CLOSE_MS / 1000}초`)) armIdle(); else close(false, `무입력 ${IDLE_CLOSE_MS / 1000}초`); }, IDLE_CLOSE_MS); };   /* 45초: 한 단계씩 물러난다(해 이야기 건물 → 위에서 본 신당 → 보드) */
   const onInput = () => { if (pdf.open) pdf.poke(); else if (cur && data && !held) armIdle(); };   /* 논문 틀이 열린 동안엔 그 3분만 센다 */
   const onKey = (e: KeyboardEvent) => {
     if (!cur || !data) return;
     if (pdf.open) { pdf.key(e); return; }   /* 논문 읽기 틀이 열려 있으면 그쪽 키(Esc: 큰 쪽 → 쪽 목록 → 틀 닫기, ← →) */
     if (e.key !== 'Escape' && e.target instanceof HTMLInputElement) return;   /* 막대(range)에 포커스가 있으면 ← → 는 막대 것 */
-    if (e.key === 'Escape') { e.preventDefault(); if (!ctl?.back?.()) close(); } else if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); } else if (e.key === 'ArrowRight') { e.preventDefault(); go(1); }
+    if (e.key === 'Escape') { e.preventDefault(); if (e.repeat) return; if (!step('Esc')) close(false, 'Esc'); }   /* 꾹 눌러 반복되는 Esc 는 한 번만(TASK_20) */ else if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); } else if (e.key === 'ArrowRight') { e.preventDefault(); go(1); }
   };
+  /* 탭이 숨으면(창 내림·다른 창) 45초를 멈추고, 돌아오면 새로 센다(TASK_20) — 숨은 동안 이야기가 닫혀 있던 것 */
+  document.addEventListener('visibilitychange', () => { if (!cur || !data) return; if (document.hidden) { clearTimeout(idleT); kbLog('story:idle-pause', '탭 숨김'); } else armIdle(); });
   let listening = false;
   const IN = ['pointerdown', 'pointermove', 'wheel', 'touchstart'] as const;
   function on() { if (listening) return; listening = true; IN.forEach((ev) => window.addEventListener(ev, onInput, { passive: true, capture: true })); window.addEventListener('keydown', onKey); window.addEventListener('keydown', onInput, true); }
@@ -251,5 +256,5 @@ export function mountStory(o: StoryOptions): BoardStory {
     ts[Math.floor(Math.random() * ts.length)].el.animate([{ rotate: '0deg' }, { rotate: '-5deg' }, { rotate: '4deg' }, { rotate: '-2deg' }, { rotate: '0deg' }], { duration: 560, easing: 'ease-in-out' });
   }, HINT_MS);
 
-  return { get open() { return !!cur; }, close };
+  return { get open() { return !!cur; }, close: (instant?: boolean, why = 'engine') => close(instant, why) };
 }

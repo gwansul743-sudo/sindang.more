@@ -6,7 +6,7 @@ import { project, type Aff, type LocalFrame } from './sunStage';
    · 언제: 기울어진 보기(axon·zoom)에 다 내려앉고 2초 뒤 첫 번, 그다음 20초마다. 전환 중엔 멈춘다(stop). 처음 내려앉은 뒤에야 받는다. 닫으면 src 를 놓는다.
      전시 모드(html.kb-on)에선 동작 줄이기를 따르지 않는다 — 열차는 꾸밈이 아니라 전시 내용이다(감독, TASK_19). 전시 모드 밖에서만 동작 줄이기면 틀지 않는다.
    · 자리: train_path.json(지역 m, 하늘 + 굴 중심선, 누적 길이). 영상 f 번째 장 = 앞차 머리가 길이 S0 + (S1 − S0)·f/239 (S0 = −115, S1 = 전체 + 5).
-     굴 안(z < 0)을 지나는 동안 그 자리까지 초록 빛 자국(굵은 옅은 선 + 가는 선, 둘 다 고정 — 필터 없음)을 stroke-dashoffset 으로 늘이고, 굴을 나간 뒤 1.5초에 사라진다.
+     굴 안(서쪽 입구 ~ 동쪽 입구, subway_path.json 의 둘째 점 ~ 끝 점 — 섬 밖 소매 구간은 빼고)을 지나는 동안 그 자리까지 초록 빛 자국(서쪽 끝은 입구에서 옅게 시작)(굵은 옅은 선 + 가는 선, 둘 다 고정 — 필터 없음)을 stroke-dashoffset 으로 늘이고, 굴을 나간 뒤 1.5초에 사라진다.
      하늘에 있는 동안(8–48 · 176–190 장) 앞차 머리를 따라다니는 작은 천 꼬리표 '2호선'. 굵기·글씨는 화면 크기로(카메라 배율로 나눔).
    · 다가간 보기(level 2)에선 열차 층(영상·자국·꼬리표)을 세 겹 흐림 막 위로(햇볕 지도·테두리 아래).
    · 상태는 세계 상자의 data-subway: idle · wait · playing · blocked:reduced · error:이름. 앞의 셋이 아니면 화면엔 아무것도 없이 콘솔(info)에 한 번만.
@@ -36,12 +36,20 @@ export function mountSubway(o: SubwayOpts) {
     glow = document.createElementNS(NS, 'path'); glow.setAttribute('class', 'g'); core = document.createElementNS(NS, 'path'); core.setAttribute('class', 'c'); trail.append(glow, core);
     o.world.insertBefore(trail, night.nextSibling);
     tag = document.createElement('div'); tag.className = 'kb-sub-tag'; tag.textContent = '2호선'; o.world.insertBefore(tag, trail.nextSibling);
-    void fetch(o.base + (o.spec.path || 'subway/train_path.json')).then((r) => r.json()).then((d: { pts: number[][]; cum: number[] }) => {
-      const uv = d.pts.map(([px, py, pz]) => project(o.axon, px, py, pz)), u0 = d.pts.findIndex((q) => q[2] < 0);
-      let u1 = u0; d.pts.forEach((q, i) => { if (q[2] < 0) u1 = i; });
+    void Promise.all([fetch(o.base + (o.spec.path || 'subway/train_path.json')).then((r) => r.json()), fetch(o.base + 'subway/subway_path.json').then((r) => r.json()).catch(() => null)]).then(([d, portals]: [{ pts: number[][]; cum: number[] }, { path_world: number[][] } | null]) => {
+      const uv = d.pts.map(([px, py, pz]) => project(o.axon, px, py, pz));
+      /* 굴 구간: 입구 둘(서쪽 = 둘째 점, 동쪽 = 끝 점)에 가장 가까운 굴 속 점. 자료가 없으면 z < 0 전체 */
+      const near = (w: number[]) => d.pts.reduce((b, q, i) => (q[2] < 0 && Math.hypot(q[0] - w[0], q[1] - w[1]) < Math.hypot(d.pts[b][0] - w[0], d.pts[b][1] - w[1]) ? i : b), d.pts.findIndex((q) => q[2] < 0));
+      const pw = portals?.path_world; let u0 = d.pts.findIndex((q) => q[2] < 0), u1 = u0; d.pts.forEach((q, i) => { if (q[2] < 0) u1 = i; });
+      if (pw && pw.length >= 3) { u0 = near(pw[1]); u1 = near(pw[pw.length - 1]); }
       const l2 = [0]; for (let i = u0 + 1; i <= u1; i++) l2.push(l2[l2.length - 1] + Math.hypot(uv[i][0] - uv[i - 1][0], uv[i][1] - uv[i - 1][1]));
       const total = l2[l2.length - 1], dd = uv.slice(u0, u1 + 1).map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join('');
       [glow, core].forEach((e) => { e.setAttribute('d', dd); e.setAttribute('stroke-dasharray', `${total.toFixed(1)} ${(total + 10).toFixed(1)}`); e.setAttribute('stroke-dashoffset', total.toFixed(1)); });
+      /* 서쪽 끝을 입구에서 옅게: 입구 → 굴 쪽 70 px 동안 0 → 1 (stroke 그러데이션, 정적) */
+      const k0 = Math.min(uv.length - 1, u0 + 12), a = uv[u0], b = uv[k0], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, ex = a[0] + ((b[0] - a[0]) / L) * 70, ey = a[1] + ((b[1] - a[1]) / L) * 70;
+      const gid = 'kb-sub-fade-' + Math.random().toString(36).slice(2, 8), defs = document.createElementNS(NS, 'defs');
+      defs.innerHTML = `<linearGradient id="${gid}" gradientUnits="userSpaceOnUse" x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${ex.toFixed(1)}" y2="${ey.toFixed(1)}"><stop offset="0" stop-color="#3cd26e" stop-opacity="0"/><stop offset="1" stop-color="#3cd26e"/></linearGradient>`;
+      trail.prepend(defs); [glow, core].forEach((e) => e.setAttribute('stroke', `url(#${gid})`));
       P = { uv, cum: d.cum, len: d.cum[d.cum.length - 1], u0, u1, l2, total };
     }).catch(() => undefined);
   }

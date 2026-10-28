@@ -3,6 +3,7 @@ import { mountSunStage, project, type Aff, type Cam, type LocalFrame, type Trans
 import { mountDioWalkers, type DioWalkers } from './dioWalkers';
 import { mountSelect, centre, type Bld } from './select';
 import { mountSubway, type SubwaySpec } from './subway';
+import { kbLog } from '../../shared/lib/kbLog';
 
 /* 해 이야기(10-28) — layer.type "diorama". 장의 layer 칸: view "diorama" | "board", date, hour, autoplay, stores, diagram, mode.
    · 세 단계(TASK_12, 감독 최종 흐름) — mode "select" 인 장:
@@ -197,6 +198,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
 
   const frameSrc = () => { const f = frames(date)[idx]; return f ? base + f.file : ''; };
   function setLevel(l: number) {
+    if (l !== level) kbLog('sun:level', `${level} → ${l}`);
     level = l; stage.dataset.level = String(l); crumbs.hidden = !flow || l === 0; upBtn.hidden = l !== 2;
     stage.classList.toggle('live', view === 'diorama');
     clearTimeout(peekT); c.fold(flow && view === 'diorama' && (l === 1 || l === 2));   /* 고르기 장(위에서 본 신당·건물)은 접은 채로 */
