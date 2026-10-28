@@ -8,6 +8,10 @@ import { project, type Aff } from './sunStage';
      막은 고를 때 한 번 idmap 으로 만든다: 픽셀마다 번호 → 겹, 땅은 axon 정사영을 거꾸로 풀어 건물 가운데까지 거리(50 m 넘어 4 m 동안 부드럽게).
      섬 밖(바다)은 지금 그림의 알파로 잘라 낸다(destination-in). 고른 건물엔 얇은 테두리(크림 + 와인)만, 데이터 꼬리표 넷 + 실, 상자에 건물 카드.
      SVG 는 세계 상자 안(viewBox = 기준 그림 크기)이라 카메라와 같이 움직이고, 선 굵기·꼬리표 글씨는 화면 크기를 지킨다(카메라가 바뀌면 redraw).
+   · 햇볕 지도(TASK_15): 블렌더로 센 '하루 동안 해가 드는 시간'(10월 30일, 8–17시 한 시간마다 그림자 판정) 그림을 막 위 캔버스에.
+     고른 건물·이웃·반경 안 땅만 보이게 — 막을 만드는 같은 줄에서 겹 알파(고른·이웃 = 255, 땅은 반경 넘어 4 m 동안 0 으로)를 같이 쓰고,
+     켤 때 그림 위에 destination-in 으로 한 번 잘라 둔다(고를 때마다). 새 단지는 이웃 자료가 없어 가운데 50 m 안 건물을 이웃으로.
+     가리키면 값 그림(sunhours_today.png, 시간 × 25)에서 읽는다(heatAt). 카드엔 지도가 켜졌을 때만 한 줄.
    · 날짜 탭이 바뀌면 값만 다시(refresh). 요소 약 25개 */
 export interface Bld {
   i: number; c: number[]; h: number; xy: number[][][]; tower?: number[][][]; svf: number | null; removed?: boolean; src?: string;   // removed: 모형에 없는 옛 건물(고를 수 없음) · src: 새 단지 출처
@@ -28,6 +32,7 @@ export interface SelectOptions {
   idmapAxon2?: string;                           // 2× axon idmap(흐림 막을 2× 로)
   frameImg?(): HTMLImageElement | null;          // 지금 그림(섬 밖을 잘라 낼 알파 — 섬 알파를 아직 못 받았을 때만)
   islandSrc?: string;                            // 섬 알파를 떠 올 그림(hi 해 그림 하나)
+  heatSrc?: string; valuesSrc?: string;          // 햇볕 지도 그림(2×) · 값 그림(기준 크기, 시간 × 25)
 }
 
 const NS = 'http://www.w3.org/2000/svg', TOWER_Z = 7.6, THIS_YEAR = 2026;
@@ -39,14 +44,16 @@ export const shortName = (b: Bld) => [b.info?.use || '건물', b.info?.floors ? 
 export function mountSelect(o: SelectOptions) {
   const [IW, IH] = o.size;
   const mask = document.createElement('canvas'); mask.className = 'kb-dio-mask'; o.world.appendChild(mask);
+  const heat = document.createElement('canvas'); heat.className = 'kb-dio-heat'; o.world.appendChild(heat);   /* 막 위, 테두리 SVG 아래 */
   const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('class', 'kb-dio-sel'); svg.setAttribute('viewBox', `0 0 ${IW} ${IH}`); svg.setAttribute('aria-hidden', 'true');
   o.world.appendChild(svg);
   const mk = (tag: string, cls: string, parent: Element = svg) => { const e = document.createElementNS(NS, tag); e.setAttribute('class', cls); parent.appendChild(e); return e; };
   const ring = mk('path', 'sl-ring'), halo = mk('path', 'sl-halo'), line = mk('path', 'sl-line'), hover = mk('path', 'sl-hover'), leads = mk('path', 'sl-lead');
   const tagG = mk('g', 'sl-tags'), nameG = mk('g', 'sl-name'), nameR = mk('rect', '', nameG), nameT = mk('text', '', nameG);
   let data: Bld[] | null = null, sel: Bld | null = null, mode: Mode = 'axon', dead = false, night = false, maskFor = -1, hiMs = 0, useHi = true;
-  const maps: Partial<Record<Mode, Uint8ClampedArray>> = {}, loads: Partial<Record<Mode | 'data' | 'hi', Promise<void>>> = {};
+  const maps: Partial<Record<Mode, Uint8ClampedArray>> = {}, loads: Partial<Record<Mode | 'data' | 'hi' | 'heat', Promise<void>>> = {};
   let hiMap: Uint8ClampedArray | null = null, isl: Uint8Array | null = null, maskImg: ImageData | null = null;
+  let heatBox: { x: number; y: number; w: number; h: number; R: number; a: Uint8Array } | null = null, heatOn = false, heatFor = -1, heatImg: ImageBitmap | null = null, vals: Uint8ClampedArray | null = null, heatMs = 0, cardEl: HTMLElement | null = null;
   const IW2 = IW, IH2 = IH;   /* 섬 알파는 기준 크기, 0–255 그대로 곱해 가장자리를 부드럽게 */
 
   function loadMap(m: Mode) {
@@ -84,10 +91,61 @@ export function mountSelect(o: SelectOptions) {
       }
     }
     mask.width = W; mask.height = H; const cx = mask.getContext('2d')!; cx.putImageData(img, 0, 0); maskImg = img;
+    heatFor = -1;
     if (!isl) { const f = o.frameImg?.(); if (f?.complete && f.naturalWidth) { cx.globalCompositeOperation = 'destination-in'; cx.drawImage(f, 0, 0, W, H); cx.globalCompositeOperation = 'source-over'; maskImg = null; } }   /* 섬 알파가 아직 없으면 그림 알파로(느림) */
     mask.classList.toggle('night', night); maskFor = b.i;
     const ms = performance.now() - t0; if (hi) { hiMs = ms; if (ms > 120) useHi = false; }
     (window as unknown as { __maskMs?: number[] }).__maskMs = [...((window as unknown as { __maskMs?: number[] }).__maskMs || []), Math.round(ms * 10) / 10 * (hi ? 1 : -1)];   /* 확인용: + 는 2×, − 는 1× */
+  }
+  /* 햇볕 지도: 그림 위에 겹 알파를 destination-in 으로(고를 때마다 한 번, 켤 때) */
+  const heatLoad = () => (loads.heat ||= new Promise<void>((ok) => {
+    if (!o.heatSrc) { ok(); return; }
+    /* 미리 비트맵으로 풀어 둔다(영상이 도는 동안) — 켤 때 큰 그림을 처음 올리는 비용을 피한다 */
+    fetch(o.heatSrc).then((r) => r.blob()).then((bl) => createImageBitmap(bl)).then((bm) => { if (dead) bm.close(); else heatImg = bm; }, () => undefined).then(ok);
+    if (o.valuesSrc) void readImg(o.valuesSrc, IW, IH).then((d) => { vals = d; });
+  }));
+  /* 겹 알파는 고른 건물·이웃·반경이 차지하는 칸(상자)만 — 막과 같은 판정(번호 → 겹, 땅은 거리), 캔버스도 그 상자 크기로 */
+  function composeHeat() {
+    const b = sel; if (!heatOn || !b || !data || mode !== 'axon' || !heatImg || heatFor === b.i) return;
+    const t0 = performance.now(), hi = useHi && !!hiMap, R = hi ? 2 : 1, W = IW * R, H = IH * R, ids = hi ? hiMap! : maps.axon; if (!ids) return;
+    const hn = new Uint8Array(data.length + 2), hR = b.near?.r ?? 50, c0 = centre(b), A = o.axon;
+    if (b.near) b.near.ids.forEach((q) => { hn[q] = 1; });
+    else data.forEach((q) => { if (!q.removed && q.c && Math.hypot(q.c[0] - c0[0], q.c[1] - c0[1]) <= hR) hn[q.i] = 1; });   /* 새 단지: 가운데가 50 m 안인 건물 */
+    hn[b.i] = 1;
+    /* 상자: 반경 원(+4 m) 바닥 + 이웃·고른 건물의 바닥·지붕 꼭짓점 */
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    const add = (u: number, v: number) => { if (u < x0) x0 = u; if (u > x1) x1 = u; if (v < y0) y0 = v; if (v > y1) y1 = v; };
+    for (let j = 0; j < 48; j++) { const t = (j / 48) * Math.PI * 2, [u, v] = project(A, c0[0] + Math.cos(t) * (hR + 5), c0[1] + Math.sin(t) * (hR + 5), 0); add(u, v); }
+    data.forEach((q) => { if (!hn[q.i] || q.removed) return; q.xy.forEach((r) => r.forEach(([x, y]) => { const p0 = project(A, x, y, 0), p1 = project(A, x, y, q.h); add(p0[0], p0[1]); add(p1[0], p1[1]); })); });
+    const bx = Math.max(0, Math.floor(x0 * R) - 4), by = Math.max(0, Math.floor(y0 * R) - 4), bw = Math.min(W, Math.ceil(x1 * R) + 4) - bx, bh = Math.min(H, Math.ceil(y1 * R) + 4) - by;
+    if (bw <= 0 || bh <= 0) return;
+    const det = A.perX[0] * A.perY[1] - A.perY[0] * A.perX[1], ia = A.perY[1] / det, ib = -A.perY[0] / det, ic = -A.perX[1] / det, id = A.perX[0] / det;
+    const h0s = hR * hR, h1s = (hR + 4) * (hR + 4), step = 1 / R, sh = R === 2 ? 1 : 0, src = new Uint32Array(ids.buffer, ids.byteOffset, W * H);
+    const img = new ImageData(bw, bh), out = new Uint32Array(img.data.buffer), a8 = new Uint8Array(bw * bh);
+    for (let v = 0; v < bh; v++) {
+      const gv = by + v, dv = (gv + 0.5) * step - A.origin[1], row = gv * W, irow = (gv >> sh) * IW;
+      let x = ia * ((bx + 0.5) * step - A.origin[0]) + ib * dv - c0[0], y = ic * ((bx + 0.5) * step - A.origin[0]) + id * dv - c0[1];
+      const dx = ia * step, dy = ic * step;
+      for (let u = 0; u < bw; u++, x += dx, y += dy) {
+        const px = src[row + bx + u]; let al = 0;
+        if (px >>> 24 && ((px >>> 16) & 255) === 255) { if (hn[(px & 255) + 256 * ((px >>> 8) & 255) - 1]) al = 255; }
+        else { const ial = isl ? isl[irow + ((bx + u) >> sh)] : 255, d2 = x * x + y * y; if (ial && d2 < h1s) al = ((d2 <= h0s ? 255 : 255 - (255 * (Math.sqrt(d2) - hR)) / 4) * ial) / 255; }   /* 반경 안 땅, 4 m 동안 옅어진다 */
+        if (al) { out[v * bw + u] = (al << 24) >>> 0; a8[v * bw + u] = al; }
+      }
+    }
+    const t1 = performance.now();
+    const tmp = document.createElement('canvas'); tmp.width = bw; tmp.height = bh; tmp.getContext('2d')!.putImageData(img, 0, 0);
+    heat.width = bw; heat.height = bh; const k = heatImg.width / W, cx = heat.getContext('2d')!;
+    cx.drawImage(heatImg, bx * k, by * k, bw * k, bh * k, 0, 0, bw, bh); cx.globalCompositeOperation = 'destination-in'; cx.drawImage(tmp, 0, 0); cx.globalCompositeOperation = 'source-over';
+    tmp.width = tmp.height = 0;
+    Object.assign(heat.style, { left: (bx / W) * 100 + '%', top: (by / H) * 100 + '%', width: (bw / W) * 100 + '%', height: (bh / H) * 100 + '%' });
+    heatBox = { x: bx, y: by, w: bw, h: bh, R, a: a8 }; heatFor = b.i; heatMs = performance.now() - t0; (window as unknown as { __heatParts?: number[][] }).__heatParts = [...((window as unknown as { __heatParts?: number[][] }).__heatParts || []), [Math.round(t1 - t0), Math.round(performance.now() - t1), bw, bh]];   /* 확인용: 알파 · 합성 ms, 상자 */
+  }
+  function showHeat() {
+    const on = heatOn && !!sel && mode === 'axon';
+    if (on) composeHeat();
+    heat.classList.toggle('on', on && heatFor === sel?.i);
+    cardEl?.querySelectorAll<HTMLElement>('.kb-bld-heat').forEach((e) => { e.hidden = !on; });
   }
   function tint() {   /* 낮 = 흰 막, 밤 = 밤 파랑 막 — 알파는 그대로 두고 색만 다시 써 넣는다 */
     mask.classList.toggle('night', night);
@@ -117,9 +175,9 @@ export function mountSelect(o: SelectOptions) {
 
   function draw() {
     tagG.replaceChildren();
-    if (!sel || !data || mode !== 'axon') { [ring, halo, line, leads].forEach((e) => e.setAttribute('d', '')); svg.classList.remove('on'); mask.classList.remove('on'); return; }
+    if (!sel || !data || mode !== 'axon') { [ring, halo, line, leads].forEach((e) => e.setAttribute('d', '')); svg.classList.remove('on'); mask.classList.remove('on'); showHeat(); return; }
     const b = sel, d = day(), k = 1 / Math.max(0.05, o.scale());   /* 화면 1px = 기준 k px */
-    if (maskFor !== b.i) buildMask(b); mask.classList.add('on');
+    if (maskFor !== b.i) buildMask(b); mask.classList.add('on'); showHeat();
     const outline = topOf(b) + (b.tower?.length ? verts(b.xy, 0, TOWER_Z) + verts(b.tower, TOWER_Z, b.h) : verts(b.xy, 0, b.h));   /* 그림은 그대로, 얇은 테두리만 */
     halo.setAttribute('d', outline); line.setAttribute('d', outline);
     ring.setAttribute('d', b.near ? Array.from({ length: 64 }, (_, j) => { const a = (j / 64) * Math.PI * 2, [u, v] = project(o.axon, b.c[0] + Math.cos(a) * b.near!.r, b.c[1] + Math.sin(a) * b.near!.r, 0); return `${j ? 'L' : 'M'}${u.toFixed(1)} ${v.toFixed(1)}`; }).join('') + 'Z' : '');
@@ -155,18 +213,19 @@ export function mountSelect(o: SelectOptions) {
       <dl>${row('구조', I?.struct || '—')}${row('층수', I?.floors ? `지상 ${I.floors}층` + (I.basement ? ` / 지하 ${I.basement}층` : '') : '—')}${row('높이', n1(I?.height || b.h, 'm'))}${row('사용승인', yr)}
       ${row('건축면적', area(I?.bldg_area))}${row('대지면적', area(I?.site_area))}${row('건폐율', n1(I?.bcr, '%'))}${row('용적률', n1(I?.far, '%'))}</dl>`;
     if (!b.sun) {   /* 새 단지(925–933): 기본 정보 + 한 줄 + 출처 */
-      el.innerHTML = `<button type="button" class="kb-bld-back">‹ 이야기로</button>${basic}<p class="kb-bld-none">새로 지어진 단지라 햇볕 분석 자료가 아직 없어요.</p>` + (b.src ? `<small class="kb-story-src">${esc(b.src)}</small>` : '');
+      el.innerHTML = `<button type="button" class="kb-bld-back">‹ 이야기로</button>${basic}<p class="kb-bld-none">새로 지어진 단지라 햇볕 분석 자료가 아직 없어요.</p><p class="kb-bld-heat" hidden>햇볕 지도는 3D 모형으로 계산해서 이 단지도 보여요. 색이 진할수록 해가 덜 들어요.</p>` + (b.src ? `<small class="kb-story-src">${esc(b.src)}</small>` : '');
     } else {
       el.innerHTML = `<button type="button" class="kb-bld-back">‹ 이야기로</button>
         <p class="kb-bld-lead">${esc(lead)}</p>
         ${basic}
-        <h4>햇볕 <small>(길 높이에서 해가 드는 시간 / 해가 떠 있는 시간)</small></h4><ul class="kb-bld-sun">${bars}</ul>
+        <h4>햇볕 <small>(길 높이에서 해가 드는 시간 / 해가 떠 있는 시간)</small></h4><ul class="kb-bld-sun">${bars}</ul>${b.sun.today ? `<p class="kb-bld-heat" hidden>색이 진할수록 해가 덜 들어요. 이 건물 앞길: <b>${b.sun.today.street}시간</b></p>` : ''}
         <h4>하늘과 열</h4><p>앞길에서 하늘이 <b>${b.svf != null ? Math.round(b.svf * 100) + '%' : '—'}</b> 보여요. 하늘이 많이 보일수록 밤에 열이 잘 빠져요.</p>
         <h4>이웃과 함께 <small>(반경 ${N.r}m)</small></h4>
         <ul class="kb-bld-near"><li>그림자를 드리우는 이웃 <b>${cast ? cast.neighbors + '동 · ' + cast.hours + '시간' : '—'}</b></li><li>이웃 건물 <b>${N.count}동</b> · 가운데 연도 <b>${N.median_year ?? '—'}</b> · 가운데 층수 <b>${N.median_floors ?? '—'}</b></li>
         <li>나무 <b>${N.trees}그루</b> · 8월 오후 길 그늘 <b>${N.road_shade_aug15 != null ? Math.round(N.road_shade_aug15 * 100) + '%' : '—'}</b></li><li>가장 가까운 쉼터까지 걸어서 <b>${N.walk_to_rest_min != null ? N.walk_to_rest_min + '분' : '—'}</b></li></ul>`;
     }
     el.querySelector('.kb-bld-back')!.addEventListener('click', (e) => { e.stopPropagation(); clear(); });
+    cardEl = el; el.querySelectorAll<HTMLElement>('.kb-bld-heat').forEach((e) => { e.hidden = !(heatOn && mode === 'axon'); });
     return el;
   }
   /* 가리키기: plan 은 바닥 윤곽 + 이름표, axon 은 윗면만 옅게 */
@@ -182,16 +241,25 @@ export function mountSelect(o: SelectOptions) {
     return i;
   }
   function select(i: number) { if (!data?.[i]) return false; sel = data[i]; hover.setAttribute('d', ''); nameG.classList.remove('on'); draw(); o.cover(card(sel, day())); return true; }
-  function clear() { if (!sel) return false; sel = null; maskFor = -1; draw(); o.cover(null); return true; }
+  function clear() { if (!sel) return false; sel = null; maskFor = -1; draw(); o.cover(null); cardEl = null; return true; }
+  /* 햇볕 지도 값: 화면 자리 → 기준 px → 시간(보이는 겹 안에서만, 아니면 null) */
+  function heatAt(cx: number, cy: number) {
+    const B = heatBox; if (!heat.classList.contains('on') || !vals || !B) return null;
+    const r = o.world.getBoundingClientRect(), k = r.width / IW, fu = (cx - r.left) / k, fv = (cy - r.top) / k, u = Math.floor(fu), v = Math.floor(fv);
+    const hu = Math.floor(fu * B.R) - B.x, hv = Math.floor(fv * B.R) - B.y;
+    if (u < 0 || v < 0 || u >= IW || v >= IH || hu < 0 || hv < 0 || hu >= B.w || hv >= B.h || B.a[hv * B.w + hu] < 128) return null;
+    return vals[(v * IW + u) * 4] / 25;
+  }
   return {
-    ensure, ensureHi, idAt, hoverAt, select, clear, get maskMs() { return hiMs; },
+    ensure, ensureHi, idAt, hoverAt, select, clear, heatAt, get maskMs() { return hiMs; }, get heatMs() { return heatMs; }, get heatShown() { return heat.classList.contains('on'); },
+    heatLoad, setHeat(on: boolean) { heatOn = on; if (on) void heatLoad().then(() => { if (!dead) showHeat(); }); else showHeat(); },
     setNight(n: boolean) { if (n === night) return; night = n; tint(); },
     setMode(m: Mode) { mode = m; hover.setAttribute('d', ''); nameG.classList.remove('on'); draw(); },
     get mode() { return mode; }, get selected() { return sel; }, building: (i: number) => data?.[i] ?? null,
     refresh() { if (sel) { draw(); o.cover(card(sel, day())); } },   /* 날짜가 바뀌었을 때 */
     redraw() { if (sel) draw(); if (nameG.classList.contains('on')) nameG.classList.remove('on'); },   /* 카메라가 바뀌었을 때(꼬리표 크기) */
     enter() { svg.classList.remove('enter'); void svg.getBoundingClientRect(); svg.classList.add('enter'); },   /* 내려앉은 뒤 차례로 그려지기 */
-    destroy() { dead = true; svg.remove(); mask.remove(); delete maps.plan; delete maps.axon; hiMap = null; data = null; },
+    destroy() { dead = true; svg.remove(); mask.remove(); heat.width = heat.height = 0; heat.remove(); heatBox = null; vals = null; heatImg?.close(); heatImg = null; cardEl = null; delete maps.plan; delete maps.axon; hiMap = null; data = null; },
   };
 }
 export type Select = ReturnType<typeof mountSelect>;

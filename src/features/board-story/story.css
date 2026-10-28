@@ -361,3 +361,24 @@ html.kb-story-focus .kb .kb-props .kb-prop:not(.kb-keep){opacity:.25!important}
 #map .kb-dio-world > video.kb-sub.v.on{opacity:1}
 .kb-sub-tag{position:absolute;transform:translate(-50%,-160%);padding:.25em .7em;border:1px dashed var(--kb-stitch);border-radius:4px;background:#fbf3e2;color:#6f8a73;font-family:var(--font-ui);font-weight:800;letter-spacing:-.02em;white-space:nowrap;box-shadow:0 2px 3px #2e3b4338;opacity:0;transition:opacity .4s ease;pointer-events:none}
 .kb-sub-tag.on{opacity:1}
+
+/* 햇볕 지도(TASK_15): 막 위 캔버스(400 ms 로 겹쳐 바뀜) · 단추는 '‹ 위에서 보기' 옆 · 범례는 그 위 · 가리킨 자리 값 */
+#map .kb-dio-world canvas.kb-dio-heat{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .4s ease;pointer-events:none}
+#map .kb-dio-world canvas.kb-dio-heat.on{opacity:1}
+.kb-dio-heatbtn{position:absolute;z-index:1;left:150px;bottom:22px;padding:10px 16px 10px 34px;border:1.5px dashed var(--kb-stitch);border-radius:5px;background:#fbf3e2;color:var(--kb-wine);font:800 15px var(--font-ui);box-shadow:0 3px 4px #2e3b4338;cursor:pointer;zoom:var(--ui);pointer-events:auto}
+.kb-dio-heatbtn::before{content:"";position:absolute;left:12px;top:50%;width:14px;height:14px;margin-top:-7px;border:1.5px solid var(--kb-stitch);border-radius:50%;background:#fbf3e2}
+.kb-dio-heatbtn.on::before{background:radial-gradient(circle,#fab428 45%,#f06428)}
+.kb-dio-heatbtn:hover{background:#e3cfa8}
+.kb-dio-heatbtn[hidden],.kb-dio-heatkey[hidden]{display:none}
+.kb-dio-heatkey{position:absolute;z-index:1;left:22px;bottom:84px;width:236px;padding:9px 14px 8px;background:linear-gradient(#f1e2c5e6,#f1e2c5e6),var(--kb-cream) url(/board/linen.webp);background-size:auto,120px;border:1px solid #c4ae8f;border-radius:5px;box-shadow:0 3px 4px #2e3b4338;color:var(--kb-stitch);font:700 12px var(--font-ui);zoom:var(--ui);pointer-events:auto}
+.kb-dio-heatkey::after{content:"";position:absolute;inset:3px;border:1px dashed var(--kb-stitch);border-radius:3px;opacity:.7;pointer-events:none}
+.kb-dio-heatkey b{display:block;margin-bottom:5px;color:var(--kb-wine);font-weight:800}
+.kb-dio-heatkey i{display:block;height:10px;border-radius:2px;box-shadow:inset 0 0 0 1px #2e3b4333}
+.kb-dio-heatkey span{position:relative;display:block;height:15px;margin:2px 0 1px}
+.kb-dio-heatkey em{position:absolute;top:0;transform:translateX(-50%);font-style:normal;font-size:10.5px;white-space:nowrap}
+.kb-dio-heatkey em:first-child{transform:none}.kb-dio-heatkey em:last-child{transform:translateX(-82%)}
+.kb-dio-heatkey small{display:block;font-size:9.5px;font-weight:600;color:#9a7a60}
+.kb-dio-heattag{position:absolute;z-index:2;transform:translate(14px,-130%);padding:3px 8px;border:1px dashed var(--kb-stitch);border-radius:4px;background:#fbf3e2;color:var(--kb-wine);font:800 12px var(--font-ui);white-space:nowrap;box-shadow:0 2px 3px #2e3b4338;opacity:0;transition:opacity .12s ease;pointer-events:none;zoom:var(--ui)}
+.kb-dio-heattag.on{opacity:1}
+.kb-bld-heat{margin:6px 0 2px;font-size:11.5px;font-weight:600;color:#6b3a30}
+.kb-bld-heat[hidden]{display:none}

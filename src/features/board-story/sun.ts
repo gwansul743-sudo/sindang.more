@@ -11,19 +11,22 @@ import { mountSubway, type SubwaySpec } from './subway';
        시간은 저절로 흐른다(1.2초에 한 시간, 8→21시, 마지막에서 1.5초 쉬고 처음부터). 막대로 직접, 끄는 동안 멈춤.
        끌기 = 옮기기, 휠 = 확대(1–3배, 커서 기준), 다른 건물 누르기 = 그 건물로(0.3초에 가운데로, 영상 없음).
      한 단계 위로: ✕ · Esc · 길잡이(보드 › 위에서 본 신당 › 건물) · '‹ 위에서 보기' · 45초 무입력(story.ts).
+     햇볕 지도(TASK_15): 내려앉고 1.2초 뒤 저절로 켜진다(끄면 이야기가 열려 있는 동안 기억). 켜진 동안 시간 흐름은 멈추고(하루 전체 결과라서)
+       막대 대신 '하루 동안 해가 드는 시간 · 10월 30일', 왼쪽 아래 범례, 가리키면 '이 자리 하루 n시간'. 밤 시각이어도 그대로 보인다.
    · 그 밖의 디오라마 장: 기울어진 전체 보기(1× 해 그림, 날짜 탭 하지·오늘·동지 + 시각 막대 + 해 높이), 건물을 누르면 그 자리에서 고르기(다가가지 않음).
      밤 프레임이면 무대 바탕이 밤 파랑 + 별.
    · board + stores: 보드로 돌아와 가게 단추 옆 해 눈금(TASK_07).
    · 무대·전환은 sunStage.ts, 고르기는 select.ts, 디오라마 속 주민은 dioWalkers.ts. 닫히면(destroy) 모두 DOM 에서 지운다. 그림 내용(픽셀)에 기대지 않는다. */
 interface Frame { h: number; elev: number; az: number; file: string; night?: boolean }
 interface Manifest { dates: Record<string, string>; frames: Record<string, Frame[]>; size?: number[]; local?: LocalFrame; transition?: Partial<TransVideo>; idmap?: { file: string }; axon?: Aff;
-  hi?: { top: string; idmap_top: string; idmap_axon: string; today: string[] }; subway?: SubwaySpec; island?: { latlng: number[][] } }
+  hi?: { top: string; idmap_top: string; idmap_axon: string; today: string[] }; subway?: SubwaySpec; island?: { latlng: number[][] };
+  sunhours?: { image: string; values: string; max_h?: number; legend: [number, string][] } }
 interface DaySun { hours: number; of: number; slots: string; start: string }
 interface StoreSun { id: string; name: string; [day: string]: DaySun | string | unknown }
 interface PageL { view?: 'diorama' | 'board'; date?: string; hour?: number; autoplay?: boolean; stores?: string; diagram?: string; mode?: string }
 
 const DATES = ['summer', 'equinox', 'today', 'winter'];   /* 춘분 그림은 있다(TASK_13) — 건물 카드만 춘분 수치가 없어 '오늘' 값으로 */
-const STEP_MS = 900, LIVE_MS = 1200, LOOP_REST_MS = 1500, ZMAX = 3;
+const STEP_MS = 900, LIVE_MS = 1200, LOOP_REST_MS = 1500, ZMAX = 3, HEAT_MS = 1200;
 const SUN = '#f0a850', SHADE = '#9a7a60';                 /* 해 눈금: 해 = 밤 하늘 노을 노랑(night.ts), 그늘 = 범례 안내 글자 회갈색(board.css .kb-note) */
 const NS = 'http://www.w3.org/2000/svg';
 /* 일조 사선 단면(10-28, 「건축법 시행령」 제86조): 높이 10 m 까지는 북쪽 땅 경계에서 1.5 m, 그 위는 높이의 1/2 이상 떨어진다.
@@ -78,26 +81,36 @@ export const diorama: Renderer = async (c: LayerCtx) => {
   const crumbs = document.createElement('nav'); crumbs.className = 'kb-dio-crumbs'; crumbs.setAttribute('aria-label', '길잡이'); crumbs.hidden = true;
   crumbs.innerHTML = '<button type="button" data-l="0">지도</button><i>›</i><button type="button" data-l="1">위에서 본 신당</button><i class="z">›</i><b class="z">건물</b>';
   const upBtn = document.createElement('button'); upBtn.type = 'button'; upBtn.className = 'kb-dio-up'; upBtn.textContent = '‹ 위에서 보기'; upBtn.hidden = true;
+  /* 햇볕 지도: 켜고 끄는 단추 · 범례 · 가리킨 자리 값 */
+  const SH_ = m.sunhours, heatBtn = document.createElement('button'); heatBtn.type = 'button'; heatBtn.className = 'kb-dio-heatbtn'; heatBtn.textContent = '햇볕 지도'; heatBtn.hidden = true; heatBtn.setAttribute('aria-pressed', 'false');
+  const heatKey = document.createElement('div'); heatKey.className = 'kb-dio-heatkey'; heatKey.hidden = true;
+  if (SH_) { const mx = SH_.max_h || 10;
+    heatKey.innerHTML = `<b>햇볕 드는 시간</b><i style="background:linear-gradient(90deg,${SH_.legend.map(([h, col]) => `${col} ${((h / mx) * 100).toFixed(0)}%`).join(',')})"></i>`
+      + `<span>${[0, 2, 4, 6, 8, 10].map((h) => `<em style="left:${((h / mx) * 100).toFixed(0)}%">${h}${h === 10 ? '시간' : ''}</em>`).join('')}</span><small>3D 모형으로 계산 · 8–17시 한 시간마다</small>`; }
+  const heatTag = document.createElement('div'); heatTag.className = 'kb-dio-heattag'; heatTag.setAttribute('aria-hidden', 'true');
   c.host.appendChild(stage);
   const st = mountSunStage({ stage, host: c.host, area, base, size: [SW, SH], trans: tr as TransVideo, local: m.local, fetchImg,
     boardAt: (lat, lng) => { const ctm = c.root.getScreenCTM(); if (!ctm) return null; const [x, y] = c.toBoard(lat, lng), q = new DOMPoint(x, y).matrixTransform(ctm), r = stage.getBoundingClientRect(); return [q.x - r.left, q.y - r.top]; },
     onCam: () => camMoved() });
-  stage.append(crumbs, upBtn);
+  stage.append(crumbs, upBtn, heatBtn, heatKey, heatTag);
   st.preload();
 
   let date = dates.includes('today') ? 'today' : dates[0], idx = 0, view: 'diorama' | 'board' | null = null, level = 0, flow = false, pageL: PageL = {};
   let timer = 0, liveT = 0, live = false, gaugeG: SVGGElement | null = null, preloadRun = 0;
   let walkers: DioWalkers | null = null, talkT = 0, camHeld = false, hiQueued = false;
+  let heatPref = true, heatOn = false, heatT = 0;   /* heatPref: 사람이 끈 것을 이야기가 열려 있는 동안 기억 */
 
   /* 건물 고르기 */
   const select = hiOk ? mountSelect({ world: st.world, size: [SW, SH], plan: planAff, axon: m.axon!, idmapPlan: base + m.hi!.idmap_top, idmapAxon: base + m.idmap!.file,
     load: () => c.load('sun-buildings.json') as Promise<{ b: Bld[] }>, cover: (el) => c.cover(el), date: () => (level === 2 ? 'today' : date), scale: () => st.cam.s,
-    idmapAxon2: base + m.hi!.idmap_axon, frameImg: () => st.frontImg(), islandSrc: base + (m.hi!.today[0] || '') }) : null;
+    idmapAxon2: base + m.hi!.idmap_axon, frameImg: () => st.frontImg(), islandSrc: base + (m.hi!.today[0] || ''),
+    heatSrc: m.sunhours ? base + m.sunhours.image : undefined, valuesSrc: m.sunhours ? base + m.sunhours.values : undefined }) : null;
   if (select) { void fetchImg(base + m.hi!.top); void select.ensure('plan'); }   /* 위에서 본 그림 + 그 idmap 을 먼저 */
   /* 하늘을 나는 2호선(subway.ts): 기울어진 보기에 내려앉은 뒤에만 */
   const subway = m.subway && m.axon ? mountSubway({ world: st.world, base, spec: m.subway, axon: m.axon, local: m.local, island: m.island?.latlng, night: () => isNight(), scale: () => st.cam.s }) : null;
   if (new URLSearchParams(location.search).has('lift_check')) Object.assign(window, { __liftCheck: (lat: number, lng: number) => st.check(lat, lng), __liftLocal: m.local,
-    __sun: () => ({ view: st.view, cam: st.cam, landing: st.lastLanding, level, contain: st.contain(), sel: select?.selected?.i ?? -1, train: subway?.playing ?? false }) });   /* 확인용 */
+    __sun: () => ({ view: st.view, cam: st.cam, landing: st.lastLanding, level, contain: st.contain(), sel: select?.selected?.i ?? -1, train: subway?.playing ?? false,
+      heat: { on: heatOn, shown: select?.heatShown ?? false, ms: select?.heatMs ?? 0, live: !!liveT } }) });   /* 확인용 */
 
   /* 조작 막대(상자 아래 칸) */
   const ctl = document.createElement('div'); ctl.className = 'kb-dio-ctl';
@@ -149,6 +162,8 @@ export const diorama: Renderer = async (c: LayerCtx) => {
     stage.classList.toggle('night', !!f?.night && (st.view === 'axon' || st.view === 'zoom')); walkers?.page({ h: '', body: '' }, !!f?.night); select?.setNight(!!f?.night);
     tabEls.forEach((b, i) => { const on = dates[i] === date; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); });
     tabs.hidden = level === 2; play.hidden = level === 2;
+    const hm = level === 2 && heatOn; row.hidden = hm;
+    if (hm) read.innerHTML = `<b>하루 동안 해가 드는 시간</b> · ${(m.dates.today || '').split(' · ')[0]}`;
     range.max = String(Math.max(0, frames(date).length - 1)); range.value = String(idx);
     play.textContent = timer ? '❚❚' : '▶'; play.setAttribute('aria-label', timer ? '멈춤' : '재생');
   }
@@ -159,11 +174,20 @@ export const diorama: Renderer = async (c: LayerCtx) => {
   function start() { if (timer || !c.alive()) return; c.hold(true); timer = window.setTimeout(tick, STEP_MS); paint(); }
   function stop() { if (!timer) return; clearTimeout(timer); timer = 0; c.hold(false); if (c.alive()) paint(); }
   /* level 2: 시간이 저절로 흐른다(1.2초에 한 시간). 45초 자동 닫기는 막지 않는다 — 가만히 두면 한 단계씩 물러난다 */
-  const liveTick = () => { if (!c.alive() || !live || level !== 2) return; setIdx(idx >= frames(date).length - 1 ? 0 : idx + 1); liveT = window.setTimeout(liveTick, idx >= frames(date).length - 1 ? LIVE_MS + LOOP_REST_MS : LIVE_MS); };
+  const liveTick = () => { liveT = 0; if (!c.alive() || !live || level !== 2 || heatOn) return; setIdx(idx >= frames(date).length - 1 ? 0 : idx + 1); liveT = window.setTimeout(liveTick, idx >= frames(date).length - 1 ? LIVE_MS + LOOP_REST_MS : LIVE_MS); };
   function startLive() { live = true; clearTimeout(liveT); liveT = window.setTimeout(liveTick, LIVE_MS); }
-  function pauseLive() { clearTimeout(liveT); }
-  function resumeLive() { if (live && level === 2) { clearTimeout(liveT); liveT = window.setTimeout(liveTick, LIVE_MS); } }
-  function stopLive() { live = false; clearTimeout(liveT); }
+  function pauseLive() { clearTimeout(liveT); liveT = 0; }
+  function resumeLive() { if (live && level === 2 && !heatOn) { clearTimeout(liveT); liveT = window.setTimeout(liveTick, LIVE_MS); } }
+  function stopLive() { live = false; clearTimeout(liveT); liveT = 0; }
+  /* 햇볕 지도 켜기·끄기: 켜면 시간 흐름을 멈추고, 끄면 다시 흐른다 */
+  function setHeat(on: boolean) {
+    clearTimeout(heatT); heatT = 0; on = on && !!SH_ && !!select && level === 2;
+    heatOn = on; select?.setHeat(on); heatBtn.setAttribute('aria-pressed', String(on)); heatBtn.classList.toggle('on', on); heatKey.hidden = !on; heatTag.classList.remove('on');
+    if (on) pauseLive(); else resumeLive();
+    paint();
+  }
+  function armHeat() { clearTimeout(heatT); heatT = 0; heatBtn.hidden = !SH_ || level !== 2; if (heatPref && SH_) { void select?.heatLoad(); heatT = window.setTimeout(() => { if (c.alive() && level === 2 && heatPref) setHeat(true); }, HEAT_MS); } }
+  function dropHeat() { clearTimeout(heatT); heatT = 0; heatBtn.hidden = true; if (heatOn) { heatOn = false; select?.setHeat(false); heatKey.hidden = true; heatTag.classList.remove('on'); heatBtn.classList.remove('on'); heatBtn.setAttribute('aria-pressed', 'false'); } }
 
   const frameSrc = () => { const f = frames(date)[idx]; return f ? base + f.file : ''; };
   function setLevel(l: number) {
@@ -193,12 +217,12 @@ export const diorama: Renderer = async (c: LayerCtx) => {
     date = 'today'; setLevel(2); idx = frameAt('today', pageL.hour ?? 14);
     const src = frameSrc(); paint(false); slotFor();
     if (!hiQueued) { hiQueued = true; preload(hiList().map((f) => f.file)); }
-    subway?.stop();
-    st.zoomIn(anchorOf(b), zoomCam(b), src, () => { if (!c.alive() || level !== 2) return; select.setMode('axon'); select.select(i); select.enter(); paint(); void people(true); startLive(); subway?.arm(); });
+    subway?.stop(); if (heatPref && SH_) void select.heatLoad();   /* 햇볕 지도도 영상이 도는 동안 받아 둔다 */
+    st.zoomIn(anchorOf(b), zoomCam(b), src, () => { if (!c.alive() || level !== 2) return; select.setMode('axon'); select.select(i); select.enter(); paint(); void people(true); startLive(); subway?.arm(); armHeat(); });
   }
   /* 2 → 1: 위에서 본 신당으로 */
   function zoomOut() {
-    const b = select?.selected; stopLive(); walkers?.stop(); select?.clear(); select?.setMode('plan');
+    const b = select?.selected; dropHeat(); stopLive(); walkers?.stop(); select?.clear(); select?.setMode('plan');
     setLevel(1); slotFor(); stage.classList.remove('night');
     const done = () => { if (c.alive() && level === 1) select?.setMode('plan'); };
     subway?.stop();
@@ -207,10 +231,10 @@ export const diorama: Renderer = async (c: LayerCtx) => {
   function enterView() {
     if (flow && hiOk) {   /* plan(level 1) — 이미 zoom 이면 그대로 */
       if (st.view === 'zoom' && level === 2) { setLevel(2); slotFor(); paint(); return; }
-      walkers?.stop(); stage.classList.remove('night'); select?.clear(); select?.setMode('plan');
+      dropHeat(); walkers?.stop(); stage.classList.remove('night'); select?.clear(); select?.setMode('plan');
       subway?.stop(); setLevel(1); slotFor(); st.toPlan(base + m.hi!.top, () => undefined); return;
     }
-    stopLive(); select?.clear(); select?.setMode('axon');
+    dropHeat(); stopLive(); select?.clear(); select?.setMode('axon');
     const wasZoom = level === 2; setLevel(0);
     if (wasZoom) idx = frameAt(date, pageL.hour ?? 12);   /* 다가간 보기에서 오면 hi 목록 → 1× 목록으로 자리 다시 */
     slotFor(); paint(false);
@@ -220,13 +244,13 @@ export const diorama: Renderer = async (c: LayerCtx) => {
 
   /* 무대 위 포인터: 가리키기 · 누르기 · 끌기(level 2 옮기기) · 휠(level 2 확대) */
   let down: { x: number; y: number; cam: Cam; moved: boolean } | null = null, hraf = 0;
-  const onUI = (e: Event) => !!(e.target as Element).closest?.('.kb-dio-crumbs,.kb-dio-up,.kb-dio-hit');
+  const onUI = (e: Event) => !!(e.target as Element).closest?.('.kb-dio-crumbs,.kb-dio-up,.kb-dio-hit,.kb-dio-heatbtn,.kb-dio-heatkey');
   stage.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (onUI(e)) return; stop(); down = { x: e.clientX, y: e.clientY, cam: { ...st.cam }, moved: false }; if (level === 2) { try { stage.setPointerCapture(e.pointerId); } catch { /* 없음 */ } } });
   stage.addEventListener('pointermove', (e) => {
     if (down && level === 2 && st.view === 'zoom' && (down.moved || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5)) { down.moved = true; st.setCam(clampCam({ ...down.cam, tx: down.cam.tx + e.clientX - down.x, ty: down.cam.ty + e.clientY - down.y })); return; }
     if (!select || e.pointerType === 'touch' || onUI(e) || (st.view !== 'plan' && st.view !== 'zoom' && st.view !== 'axon')) return;
     cancelAnimationFrame(hraf); const { clientX: x, clientY: y } = e;
-    hraf = requestAnimationFrame(() => { const i = select.hoverAt(x, y); stage.classList.toggle('kb-pick', i >= 0); });
+    hraf = requestAnimationFrame(() => { const i = select.hoverAt(x, y); stage.classList.toggle('kb-pick', i >= 0); heatRead(x, y); });
   }, { passive: true });
   stage.addEventListener('pointerup', (e) => {
     const d = down; down = null; if (!d || d.moved || onUI(e) || !select) return;
@@ -236,7 +260,14 @@ export const diorama: Renderer = async (c: LayerCtx) => {
       if (level === 2) { const b = select.building(i)!, a = st.areaBox(), u = project(m.axon!, b.c[0], b.c[1], b.h / 2), cm = st.cam; st.tween(clampCam({ s: cm.s, tx: a.x + a.w / 2 - cm.s * u[0], ty: a.y + a.h / 2 - cm.s * u[1] }), 300); } });
   });
   stage.addEventListener('pointercancel', () => { down = null; });
-  stage.addEventListener('pointerleave', () => { cancelAnimationFrame(hraf); select?.hoverAt(-1e5, -1e5); stage.classList.remove('kb-pick'); });
+  stage.addEventListener('pointerleave', () => { cancelAnimationFrame(hraf); select?.hoverAt(-1e5, -1e5); stage.classList.remove('kb-pick'); heatTag.classList.remove('on'); });
+  /* 햇볕 지도 위를 가리키면 그 자리 값(보이는 겹 안에서만) */
+  function heatRead(x: number, y: number) {
+    const v = heatOn && level === 2 ? select?.heatAt(x, y) ?? null : null;
+    if (v == null) { heatTag.classList.remove('on'); return; }
+    const r = stage.getBoundingClientRect(); heatTag.textContent = `이 자리 하루 ${v.toFixed(1)}시간`;
+    heatTag.style.left = (x - r.left).toFixed(0) + 'px'; heatTag.style.top = (y - r.top).toFixed(0) + 'px'; heatTag.classList.add('on');
+  }
   stage.addEventListener('wheel', (e) => { e.stopPropagation(); if (level !== 2 || st.view !== 'zoom') return; e.preventDefault();
     const r = stage.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, cm = st.cam, tc = st.contain(), s = Math.min(tc.s * ZMAX, Math.max(tc.s, cm.s * Math.exp(-e.deltaY * 0.0015)));
     st.setCam(clampCam({ s, tx: px - ((px - cm.tx) * s) / cm.s, ty: py - ((py - cm.ty) * s) / cm.s })); }, { passive: false });
@@ -246,6 +277,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
   let craf = 0; function camMoved() { cancelAnimationFrame(craf); craf = requestAnimationFrame(() => select?.redraw()); }
   crumbs.addEventListener('click', (e) => { const l = (e.target as Element).closest?.('[data-l]'); if (!l) return; e.stopPropagation(); if (!api.back!()) c.close(); });   /* 길잡이: 한 단계 위로 */
   upBtn.addEventListener('click', (e) => { e.stopPropagation(); if (level === 2) zoomOut(); });
+  heatBtn.addEventListener('click', (e) => { e.stopPropagation(); if (level !== 2) return; heatPref = !heatOn; setHeat(heatPref); });
 
   /* 해 눈금(보드 장, 10-28 정리): 단추·이름표 위 층(top)에. 자리는 이름표처럼 욕심쟁이 배치, 떨어져 놓이면 홈질 실로 잇는다.
      글씨가 화면에서 12px 보다 작으면 카메라를 가게들 쪽으로 한 단계(×1.6) 당겼다가 이 장을 떠나면 되돌린다 */
@@ -293,12 +325,12 @@ export const diorama: Renderer = async (c: LayerCtx) => {
       const L = (p.layer || {}) as PageL; pageL = L;
       stop(); gaugeG?.remove(); gaugeG = null; camBack();
       view = L.view === 'board' ? 'board' : 'diorama'; flow = view === 'diorama' && L.mode === 'select' && hiOk;
-      if (view === 'board') { subway?.stop(); stopLive(); walkers?.stop(); select?.clear(); setLevel(0); stage.classList.remove('live', 'night'); st.toBoard(() => undefined); slotFor(); void gauges(L.stores); return; }
+      if (view === 'board') { dropHeat(); subway?.stop(); stopLive(); walkers?.stop(); select?.clear(); setLevel(0); stage.classList.remove('live', 'night'); st.toBoard(() => undefined); slotFor(); void gauges(L.stores); return; }
       if (!flow) { if (L.date && m.frames[L.date]) date = L.date; else if (!m.frames[date]) date = dates[0]; if (level !== 2) idx = frameAt(date, L.hour ?? frames(date)[idx]?.h ?? 12); preload(frames(date).map((f) => f.file)); }
       enterView();
     },
     destroy(instant) {
-      stop(); stopLive(); preloadRun++; gaugeG?.remove(); view = null; clearInterval(talkT); walkers?.destroy(); walkers = null; select?.destroy(); subway?.destroy(); if (instant) camHeld = false; else camBack();
+      dropHeat(); stop(); stopLive(); preloadRun++; gaugeG?.remove(); view = null; clearInterval(talkT); walkers?.destroy(); walkers = null; select?.destroy(); subway?.destroy(); if (instant) camHeld = false; else camBack();
       const finish = () => { if (alive !== finish) return; alive = null; st.kill(); c.host.classList.remove('kb-dio-on', 'kb-dio-fab'); stage.remove(); };
       alive = finish;
       if (instant || st.view === 'none') { finish(); return; }
