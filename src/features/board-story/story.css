@@ -443,3 +443,19 @@ html.kb-story-focus .kb .kb-props .kb-prop:not(.kb-keep){opacity:.25!important}
 .kb-sub-trail path{fill:none;stroke:#3cd26e;stroke-linecap:round;stroke-linejoin:round}
 .kb-sub-trail path.g{stroke-opacity:.28}
 .kb-sub-trail path.c{stroke-opacity:.95}
+/* 위에서 본 신당 길잡이(TASK_21, planGuide.ts): 무대 빈 칸 아래 가운데 천 카드 + 시범 건물을 3초마다 톡 누르는 손·고리 */
+.kb-dio-guide{position:absolute;z-index:2;transform:translateX(-50%);pointer-events:none;opacity:0;transition:opacity .35s ease}
+.kb-dio-guide.on{opacity:1}
+.kb-dio-guide-in{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 22px 11px;background:linear-gradient(#fbf3e2f2,#fbf3e2f2),var(--kb-cream) url(/board/linen.webp);background-size:auto,120px;border:2px solid var(--kb-wine);border-radius:7px;box-shadow:0 4px 10px #2e3b4340;color:var(--kb-wine);font-family:var(--font-ui);text-align:center;white-space:nowrap;zoom:var(--ui)}
+.kb-dio-guide-in b{font-size:21px;font-weight:800;letter-spacing:-.3px}
+.kb-dio-guide-in span{font-size:14px;font-weight:600;color:var(--kb-stitch)}
+.kb-dio-hand{position:absolute;z-index:2;width:0;height:0;pointer-events:none;opacity:0;transition:opacity .35s ease}
+.kb-dio-hand.on{opacity:1}
+#map .kb-dio-hand svg{position:absolute;inset:auto;left:0;top:0;shape-rendering:auto;will-change:auto;width:calc(40px * var(--ui, 1));height:calc(40px * var(--ui, 1));transform:translate(-43.75%,-12.5%);overflow:visible;filter:drop-shadow(0 2px 2px #2e3b4359)}
+#map .kb-dio-hand path{fill:var(--kb-cream);stroke:var(--kb-wine);stroke-width:1.5;stroke-linejoin:round}
+.kb-dio-tapring{position:absolute;left:0;top:0;width:calc(46px * var(--ui, 1));height:calc(46px * var(--ui, 1));border:3px solid var(--kb-wine);border-radius:50%;transform:translate(-50%,-50%) scale(.3);opacity:0}
+#map .kb-dio-hand.tap svg{animation:kb-hand 3s ease both}
+.kb-dio-hand.tap .kb-dio-tapring{animation:kb-tapring 3s ease-out both}
+@keyframes kb-hand{0%{opacity:0;transform:translate(calc(-43.75% + 28px),calc(-12.5% + 30px))}20%{opacity:1;transform:translate(-43.75%,-12.5%) scale(1)}30%{transform:translate(-43.75%,-12.5%) scale(.84)}40%{transform:translate(-43.75%,-12.5%) scale(1)}75%{opacity:1;transform:translate(-43.75%,-12.5%)}100%{opacity:0;transform:translate(calc(-43.75% + 18px),calc(-12.5% + 22px))}}
+@keyframes kb-tapring{0%,29%{opacity:0;transform:translate(-50%,-50%) scale(.3)}31%{opacity:.9;transform:translate(-50%,-50%) scale(.35)}70%,100%{opacity:0;transform:translate(-50%,-50%) scale(1.6)}}
+@media(prefers-reduced-motion:reduce){html:not(.kb-on) #map .kb-dio-hand.tap svg,html:not(.kb-on) .kb-dio-hand.tap .kb-dio-tapring{animation:none}html:not(.kb-on) #map .kb-dio-hand.tap svg{opacity:1}}

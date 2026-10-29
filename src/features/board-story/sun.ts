@@ -3,6 +3,7 @@ import { mountSunStage, project, type Aff, type Cam, type LocalFrame, type Trans
 import { mountDioWalkers, type DioWalkers } from './dioWalkers';
 import { mountSelect, centre, type Bld } from './select';
 import { mountSubway, type SubwaySpec } from './subway';
+import { mountPlanGuide } from './planGuide';
 import { kbLog } from '../../shared/lib/kbLog';
 
 /* 해 이야기(10-28) — layer.type "diorama". 장의 layer 칸: view "diorama" | "board", date, hour, autoplay, stores, diagram, mode.
@@ -113,6 +114,23 @@ export const diorama: Renderer = async (c: LayerCtx) => {
     more: () => c.fold(false, { user: true }),
     heatSrc: m.sunhours ? base + m.sunhours.image : undefined, valuesSrc: m.sunhours ? base + m.sunhours.values : undefined }) : null;
   if (select) { void fetchImg(base + m.hi!.top); void select.ensure('plan'); }   /* 위에서 본 그림 + 그 idmap 을 먼저 */
+  /* 위에서 본 신당 길잡이(planGuide.ts): 시범 건물 = 분석 자료·용도가 있는 건물 중 바닥 면적이 가운데쯤(40–70 %)이고 섬 가운데(건물 가운데들의 가운데값)에 가장 가까운 것 — 늘 같은 건물 */
+  let demo = -2;
+  const demoPick = () => {
+    const D = select?.buildings; if (!D) return -1;
+    const foot = (b: Bld) => Math.abs((b.xy[0] || []).reduce((a, p, k, q) => { const n = q[(k + 1) % q.length]; return a + p[0] * n[1] - n[0] * p[1]; }, 0)) / 2;
+    const L = D.filter((b) => b && !b.removed && b.sun && b.info?.use && b.xy?.length).map((b) => ({ b, a: foot(b), uv: project(planAff, b.c[0], b.c[1], 0) }));
+    if (!L.length) return -1;
+    const med = (v: number[]) => v.sort((x, y) => x - y)[Math.floor(v.length / 2)], as = L.map((q) => q.a).sort((x, y) => x - y), a0 = as[Math.floor(as.length * 0.4)], a1 = as[Math.floor(as.length * 0.7)];
+    const cu = med(L.map((q) => q.uv[0])), cv = med(L.map((q) => q.uv[1]));
+    return L.filter((q) => q.a >= a0 && q.a <= a1).reduce((best, q) => (Math.hypot(q.uv[0] - cu, q.uv[1] - cv) < Math.hypot(best.uv[0] - cu, best.uv[1] - cv) ? q : best)).b.i;
+  };
+  const guide = select ? mountPlanGuide({ stage, area: () => st.areaBox(),
+    spot: () => { if (demo === -2 && select.buildings) demo = demoPick(); const b = demo >= 0 ? select.building(demo) : null; if (!b) return null; const [u, v] = project(planAff, b.c[0], b.c[1], 0), cm = st.cam; return [cm.s * u + cm.tx, cm.s * v + cm.ty]; },
+    mark: (on) => { if (demo >= 0 && level === 1 && st.view === 'plan') select.hoverIndex(on ? demo : -1); },
+    ready: () => !!c.alive() && view === 'diorama' && flow && level === 1 && st.view === 'plan' }) : null;
+  let planPeeked = false;   /* 해를 처음 열어 고르기 장에 내려앉으면 상자를 4초 펴 제목·첫 줄을 보여 준다(level 2 와 같이) */
+  const planLanded = () => { if (!c.alive() || level !== 1 || view !== 'diorama') return; subway?.arm('plan'); guide?.arm(); if (!planPeeked) { planPeeked = true; peek(); } };
   /* 하늘을 나는 2호선(subway.ts): 내려앉은 보기마다(위에서 본 신당 = plan 영상, 기울어진 보기 = axon 영상), 전환 중엔 멈춤 */
   const subway = m.subway && m.axon ? mountSubway({ world: st.world, base, spec: m.subway, axon: m.axon, top: tr?.aff_t00, local: m.local, island: m.island?.latlng, night: () => isNight(), scale: () => st.cam.s, zoom: () => level === 2 }) : null;
   if (new URLSearchParams(location.search).has('lift_check')) Object.assign(window, { __liftCheck: (lat: number, lng: number) => st.check(lat, lng), __liftLocal: m.local,
@@ -199,13 +217,13 @@ export const diorama: Renderer = async (c: LayerCtx) => {
   const frameSrc = () => { const f = frames(date)[idx]; return f ? base + f.file : ''; };
   function setLevel(l: number) {
     if (l !== level) kbLog('sun:level', `${level} → ${l}`);
-    level = l; stage.dataset.level = String(l); crumbs.hidden = !flow || l === 0; upBtn.hidden = l !== 2;
+    level = l; stage.dataset.level = String(l); if (l !== 1) guide?.disarm(); crumbs.hidden = !flow || l === 0; upBtn.hidden = l !== 2;
     stage.classList.toggle('live', view === 'diorama');
     clearTimeout(peekT); c.fold(flow && view === 'diorama' && (l === 1 || l === 2));   /* 고르기 장(위에서 본 신당·건물)은 접은 채로 */
   }
-  /* level 2 에 내려앉으면: 상자를 4초 덮어 펴 카드 첫 줄 → 다시 접기 */
+  /* level 2(그리고 처음 고르기 장)에 내려앉으면: 상자를 4초 덮어 펴 카드 첫 줄 → 다시 접기 */
   let peekT = 0;
-  function peek() { clearTimeout(peekT); c.fold(false, { peek: true }); peekT = window.setTimeout(() => { if (c.alive() && level === 2) c.fold(true, { peek: true }); }, PEEK_MS); }
+  function peek() { clearTimeout(peekT); c.fold(false, { peek: true }); peekT = window.setTimeout(() => { if (c.alive() && (level === 1 || level === 2)) c.fold(true, { peek: true }); }, PEEK_MS); }
   function slotFor() {
     if (view === 'board') { c.slot(pageL.stores ? keyRow : null); return; }
     if (flow && level === 1) { c.slot(hint); return; }
@@ -236,7 +254,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
   function zoomOut() {
     const b = select?.selected; dropHeat(); stopLive(); walkers?.stop(); select?.clear(); select?.setMode('plan');
     setLevel(1); slotFor(); stage.classList.remove('night');
-    const done = () => { if (c.alive() && level === 1) { select?.setMode('plan'); subway?.arm('plan'); } };
+    const done = () => { if (c.alive() && level === 1) { select?.setMode('plan'); planLanded(); } };
     subway?.stop();
     if (b) st.zoomOut(anchorOf(b), base + m.hi!.top, done); else st.toPlan(base + m.hi!.top, done);
   }
@@ -244,7 +262,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
     if (flow && hiOk) {   /* plan(level 1) — 이미 zoom 이면 그대로 */
       if (st.view === 'zoom' && level === 2) { setLevel(2); slotFor(); paint(); return; }
       dropHeat(); walkers?.stop(); stage.classList.remove('night'); select?.clear(); select?.setMode('plan');
-      subway?.stop(); setLevel(1); slotFor(); st.toPlan(base + m.hi!.top, () => { if (c.alive() && level === 1 && view === 'diorama') subway?.arm('plan'); }); return;
+      subway?.stop(); setLevel(1); slotFor(); st.toPlan(base + m.hi!.top, planLanded); return;
     }
     dropHeat(); stopLive(); select?.clear(); select?.setMode('axon');
     const wasZoom = level === 2; setLevel(0);
@@ -260,10 +278,10 @@ export const diorama: Renderer = async (c: LayerCtx) => {
   const navigable = () => st.settled && ((level === 2 && st.view === 'zoom') || (level === 1 && st.view === 'plan'));   /* 끌기·휠: 다가간 보기와 위에서 본 신당, 전환이 끝난 뒤 */
   stage.addEventListener('pointerdown', (e) => { e.stopPropagation(); if (onUI(e)) return; stop(); down = { x: e.clientX, y: e.clientY, cam: { ...st.cam }, moved: false }; if (navigable()) { try { stage.setPointerCapture(e.pointerId); } catch { /* 없음 */ } } });
   stage.addEventListener('pointermove', (e) => {
-    if (down && navigable() && (down.moved || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5)) { down.moved = true; select?.hoverAt(-1e5, -1e5); st.setCam(clampCam({ ...down.cam, tx: down.cam.tx + e.clientX - down.x, ty: down.cam.ty + e.clientY - down.y })); return; }
+    if (down && navigable() && (down.moved || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5)) { down.moved = true; guide?.drag(); select?.hoverAt(-1e5, -1e5); st.setCam(clampCam({ ...down.cam, tx: down.cam.tx + e.clientX - down.x, ty: down.cam.ty + e.clientY - down.y })); return; }
     if (!select || e.pointerType === 'touch' || onUI(e) || (st.view !== 'plan' && st.view !== 'zoom' && st.view !== 'axon')) return;
     cancelAnimationFrame(hraf); const { clientX: x, clientY: y } = e;
-    hraf = requestAnimationFrame(() => { const i = select.hoverAt(x, y); stage.classList.toggle('kb-pick', i >= 0); heatRead(x, y); });
+    hraf = requestAnimationFrame(() => { const i = select.hoverAt(x, y); if (level === 1) guide?.hover(i); stage.classList.toggle('kb-pick', i >= 0); heatRead(x, y); });
   }, { passive: true });
   stage.addEventListener('pointerup', (e) => {
     const d = down; down = null; if (!d || d.moved || onUI(e) || !select) return;
@@ -273,7 +291,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
       if (level === 2) { const b = select.building(i)!, a = st.areaBox(), u = project(m.axon!, b.c[0], b.c[1], b.h / 2), cm = st.cam; st.tween(clampCam({ s: cm.s, tx: a.x + a.w / 2 - cm.s * u[0], ty: a.y + a.h / 2 - cm.s * u[1] }), 300); } });
   });
   stage.addEventListener('pointercancel', () => { down = null; });
-  stage.addEventListener('pointerleave', () => { cancelAnimationFrame(hraf); select?.hoverAt(-1e5, -1e5); stage.classList.remove('kb-pick'); heatTag.classList.remove('on'); });
+  stage.addEventListener('pointerleave', () => { cancelAnimationFrame(hraf); guide?.hover(-1); select?.hoverAt(-1e5, -1e5); stage.classList.remove('kb-pick'); heatTag.classList.remove('on'); });
   /* 햇볕 지도 위를 가리키면 그 자리 값(보이는 겹 안에서만) */
   function heatRead(x: number, y: number) {
     const v = heatOn && level === 2 ? select?.heatAt(x, y) ?? null : null;
@@ -287,7 +305,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
   stage.addEventListener('click', (e) => e.stopPropagation());
   /* 그림 칸을 벗어나지 않게: 무대 가운데가 늘 그림 안에 */
   function clampCam(cm: Cam): Cam { const a = st.areaBox(), cx = a.x + a.w / 2, cy = a.y + a.h / 2; return { s: cm.s, tx: Math.min(cx, Math.max(cx - cm.s * SW, cm.tx)), ty: Math.min(cy, Math.max(cy - cm.s * SH, cm.ty)) }; }
-  let craf = 0; function camMoved() { cancelAnimationFrame(craf); craf = requestAnimationFrame(() => select?.redraw()); }
+  let craf = 0; function camMoved() { cancelAnimationFrame(craf); craf = requestAnimationFrame(() => { select?.redraw(); guide?.place(); }); }
   crumbs.addEventListener('click', (e) => { const l = (e.target as Element).closest?.('[data-l]'); if (!l) return; e.stopPropagation(); if (!api.back!()) c.close(); });   /* 길잡이: 한 단계 위로 */
   upBtn.addEventListener('click', (e) => { e.stopPropagation(); if (level === 2) zoomOut(); });
   heatBtn.addEventListener('click', (e) => { e.stopPropagation(); if (level !== 2) return; heatPref = !heatOn; setHeat(heatPref); });
@@ -338,12 +356,12 @@ export const diorama: Renderer = async (c: LayerCtx) => {
       const L = (p.layer || {}) as PageL; pageL = L;
       stop(); gaugeG?.remove(); gaugeG = null; camBack();
       view = L.view === 'board' ? 'board' : 'diorama'; flow = view === 'diorama' && L.mode === 'select' && hiOk;
-      if (view === 'board') { c.fold(false); dropHeat(); subway?.stop(); stopLive(); walkers?.stop(); select?.clear(); setLevel(0); stage.classList.remove('live', 'night'); st.toBoard(() => undefined); slotFor(); void gauges(L.stores); return; }
+      if (view === 'board') { c.fold(false); guide?.disarm(); dropHeat(); subway?.stop(); stopLive(); walkers?.stop(); select?.clear(); setLevel(0); stage.classList.remove('live', 'night'); st.toBoard(() => undefined); slotFor(); void gauges(L.stores); return; }
       if (!flow) { if (L.date && m.frames[L.date]) date = L.date; else if (!m.frames[date]) date = dates[0]; if (level !== 2) idx = frameAt(date, L.hour ?? frames(date)[idx]?.h ?? 12); preload(frames(date).map((f) => f.file)); }
       enterView();
     },
     destroy(instant) {
-      clearTimeout(peekT); dropHeat(); stop(); stopLive(); preloadRun++; gaugeG?.remove(); view = null; clearInterval(talkT); walkers?.destroy(); walkers = null; select?.destroy(); subway?.destroy(); if (instant) camHeld = false; else camBack();
+      clearTimeout(peekT); dropHeat(); stop(); stopLive(); preloadRun++; gaugeG?.remove(); view = null; clearInterval(talkT); walkers?.destroy(); walkers = null; guide?.destroy(); select?.destroy(); subway?.destroy(); if (instant) camHeld = false; else camBack();
       const finish = () => { if (alive !== finish) return; alive = null; st.kill(); c.host.classList.remove('kb-dio-on', 'kb-dio-fab'); stage.remove(); };
       alive = finish;
       if (instant || st.view === 'none') { finish(); return; }

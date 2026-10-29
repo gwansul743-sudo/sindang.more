@@ -266,9 +266,10 @@ export function mountSelect(o: SelectOptions) {
     return el;
   }
   /* 가리키기: plan 은 바닥 윤곽 + 이름표, axon 은 윗면만 옅게 */
-  function hoverAt(cx: number, cy: number) {
+  function hoverAt(cx: number, cy: number) { return dead ? -1 : hoverIndex(idAt(cx, cy)); }
+  function hoverIndex(i: number) {   /* 건물 i 를 가리킨 것처럼(-1 = 지움) — 위에서 본 신당 길잡이도 쓴다 */
     if (dead) return -1;
-    const i = idAt(cx, cy), b = i >= 0 ? data?.[i] : null;
+    const b = i >= 0 ? data?.[i] : null;
     hover.setAttribute('d', b && b !== sel ? (mode === 'axon' ? topOf(b) + (b.tower?.length ? verts(b.xy, 0, TOWER_Z) + verts(b.tower, TOWER_Z, b.h) : verts(b.xy, 0, b.h)) : topOf(b)) : '');   /* axon 은 테두리만(막을 하나 더 만들지 않는다) */
     if (mode === 'plan' && b) {
       const k = 1 / Math.max(0.05, o.scale()), [u, v] = project(o.plan, b.c[0], b.c[1], 0), t = shortName(b), FS = 12 * k, w = t.length * FS * 0.9 + 14 * k, h = 22 * k;
@@ -288,11 +289,11 @@ export function mountSelect(o: SelectOptions) {
     return vals[(v * IW + u) * 4] / 25;
   }
   return {
-    ensure, ensureHi, idAt, hoverAt, select, clear, heatAt, get maskMs() { return hiMs; }, get heatMs() { return heatMs; }, get heatShown() { return heat.classList.contains('on'); },
+    ensure, ensureHi, idAt, hoverAt, hoverIndex, select, clear, heatAt, get maskMs() { return hiMs; }, get heatMs() { return heatMs; }, get heatShown() { return heat.classList.contains('on'); },
     heatLoad, setHeat(on: boolean) { heatOn = on; if (on) void heatLoad().then(() => { if (!dead) showHeat(); }); else showHeat(); },
     setNight(n: boolean) { if (n === night) return; night = n; tint(); },
     setMode(m: Mode) { mode = m; hover.setAttribute('d', ''); nameG.classList.remove('on'); draw(); },
-    get mode() { return mode; }, get selected() { return sel; }, building: (i: number) => data?.[i] ?? null,
+    get mode() { return mode; }, get selected() { return sel; }, building: (i: number) => data?.[i] ?? null, get buildings() { return data; },
     refresh() { if (sel) { draw(); o.cover(card(sel, day())); } },   /* 날짜가 바뀌었을 때 */
     redraw() { if (sel) draw(); if (nameG.classList.contains('on')) nameG.classList.remove('on'); },   /* 카메라가 바뀌었을 때(꼬리표 크기) */
     enter() { svg.classList.remove('enter'); info.classList.remove('enter'); void svg.getBoundingClientRect(); svg.classList.add('enter'); info.classList.add('enter'); },   /* 내려앉은 뒤 차례로 그려지기 */
