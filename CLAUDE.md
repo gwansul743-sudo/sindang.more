@@ -135,7 +135,7 @@ interviews  id, source(form|shop), answers(json), summary_md, store_id?, created
 - hover(터치는 첫 탭): 머리 위 hook 말풍선. 판정은 그려진 몸 칸(`scene.ts` overBody)을 매 프레임 `HoverProbe` 가 본다. 새 말풍선이 옛 것을 닫고, 큰 대화 상자·전시 연출 중엔 안 뜬다. 전시 보드에선 보드 전체에서 + 버튼(×1.6)을 데스크톱 1번·좁은 창 2번 누른 배율부터(`hoverZooms`).
 - 누르면(터치는 두 번째 탭, 누르는 칸 44px) 큰 대화 상자(이름표 '가게 · 이름', Skip »). 그 가게 카드를 펴고 주민 쪽으로 줌인, 자동 순환 멈춤, 주민은 멈춰 섬(`walker.hold`). 폰은 카드 대신 이름표 옆 '가게 카드 ›'.
 - 머리 위 세모 표시는 `kind: "form"`(시민 인터뷰) 주민에게만 — **초록**(10-28, `chief.json` mark.formColors). 이장님 세모는 빨강 그대로.
-- **이장님·매니저님 인터뷰 + 영상(10-29)**: 전시 연출이 끝난 뒤(rest)에만. hover(터치는 첫 탭 — 카메라가 그 사람을 비춤) → 머리 위 말풍선('이야기 듣기 ›', 6초, 지도 빈 곳을 누르면 닫힘) → 말풍선이나 사람을 누르면 큰 대화 상자(`chief-talk`)에 인터뷰 + 왼쪽 아래 **'▶ 영상 보기'**(`features/video-player`, 구글 드라이브 플레이어). 영상을 보는 동안 상자는 장을 넘기지 않고 기다린다(`talk.pause/resume`). 대본·영상 링크는 `chief-talk.json`(`interview`·`video` — 연출 중 인사 `pages`엔 영상 단추 없음)·`manager-talk.json`(`hook`·`pages`·`video`). 글은 영상 자막을 그대로 옮기고 장만 나눴다.
+- **이장님·매니저님 인터뷰 영상(10-29)**: 전시 연출이 끝난 뒤(rest)에만. hover(터치는 첫 탭 — 카메라가 그 사람을 비춤) → 머리 위 말풍선(6초, 지도 빈 곳을 누르면 닫힘). **이장님**은 말풍선 후킹 한 마디(`chief-talk.json` `hook`) + **'영상 보기 ›'** → 영상 플레이어 바로(큰 상자 대본 없음 — 사용자 결정). **매니저님**은 '이야기 듣기 ›' → 큰 대화 상자(`manager-talk.json` `pages`, 영상 자막 그대로) + 왼쪽 아래 **'▶ 영상 보기'**; 영상을 보는 동안 상자는 장을 넘기지 않고 기다린다(`talk.pause/resume`). 플레이어는 가게 카드 영상과 같은 `features/video-player`(구글 드라이브). 연출 중 이장님 인사 `pages`엔 영상 없음.
 - **상인회 매니저님**(`content/characters/manager.json`): 이장님과 같은 배우(`actors/chief.ts`, `seated` — 폴짝 안 뜀, 앉은 자세 `art.pants/legs`), 옷·세모 같고 머리만 검은 가르마·선글라스 없음. 전시 보드의 작은 벤치(`kiosk-board.json` `managerAt`, bench-s 위)에 앉아 있고 이장님처럼 연출 뒤에만 보인다(`.wk-chief .wk-manager`). 작은 말풍선(`speech`)은 이장님과 한 개를 번갈아 쓴다(`speechActor`). `check_screen` 주민 수 +1.
 
 **구글폼 → 시민 인터뷰 주민** (서버·크론 없음):

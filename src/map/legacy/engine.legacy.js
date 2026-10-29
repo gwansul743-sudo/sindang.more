@@ -283,17 +283,18 @@ export function bootLegacy(DATA){
   });
   const CHIEF_LINES = ['오호! 처음 보는 얼굴이구먼!\n**신당 5길**에 어서와!!', '잠깐 이야기 좀 듣고 갈 텐가?'];
   /* 대화가 끝난 뒤(rest) 이장님에게 마우스를 올리면(터치는 탭) 머리 위 말풍선으로 한 줄(10-23). 다 찍히고 2.8초 뒤 스스로 닫힌다 — rest 라 큰 상자로 넘어가지 않는다 */
-  const CHIEF_AGAIN = ['허허, 또 왔구먼!\n아직 못 가 본 가게가 있나?'];
+  const CHIEF_AGAIN = () => [DATA.chiefTalk?.hook || '허허, 또 왔구먼!\n아직 못 가 본 가게가 있나?'];   /* 10-29: 영상으로 끌어들이는 후킹 한 마디(chief-talk.json hook) */
   /* 말풍선 규칙(10-26, 이장님·주민 똑같이): 작은 말풍선끼리는 새로 나온 쪽이 이긴다(떠 있던 다른 말풍선은 닫힌다). 큰 대화 상자가 열려 있으면 hover 말풍선은 안 뜬다.
      hook 함수는 말풍선이 떴거나 이미 떠 있으면 true — false 면 HoverProbe 가 0.2초 뒤 다시 묻는다(다시 판정하기) */
   function chiefHook(){ if(!npcReady() || talk.visible) return false; if(speech.visible && speechActor === chiefActor) return true;
-    npcSay(chiefActor, CHIEF_AGAIN, DATA.chiefTalk?.interview ? chiefOpen : null); return true; }   /* 10-29: 말풍선을 누르면(또는 이장님을 한 번 더) 인터뷰 상자 + '영상 보기' */
-  /* 이장님·매니저님 인터뷰 상자(10-29) — 연출이 끝난 뒤(rest)에만. 주민 대화(villagerOpen)와 같은 2단: hover(터치는 첫 탭) 말풍선 → 누르면 큰 상자. 상자엔 '▶ 영상 보기'(구글 드라이브 인터뷰 영상, 가게 카드 영상과 같은 플레이어).
-     영상을 보는 동안 상자는 장을 넘기지 않고 기다린다(talk.pause/resume). 카메라는 그 사람 쪽으로(주민과 같은 배율, 아래 상자를 피해 조금 위에) */
+    npcSay(chiefActor, CHIEF_AGAIN(), parseVideo(DATA.chiefTalk?.video) ? chiefVideo : null, '영상 보기 ›'); return true; }   /* 10-29: 말풍선의 '영상 보기 ›'(또는 이장님을 한 번 더) → 인터뷰 영상 바로. 이장님은 큰 상자 대본 없음(사용자 결정) */
+  /* 이장님 영상·매니저님 인터뷰 상자(10-29) — 연출이 끝난 뒤(rest)에만. 주민 대화(villagerOpen)와 같은 2단: hover(터치는 첫 탭) 말풍선 → 누르면.
+     · 이장님: 말풍선 '영상 보기 ›' → 영상 플레이어(가게 카드 영상과 같은 features/video-player, 구글 드라이브). 닫히면 무입력을 다시 센다.
+     · 매니저님: 말풍선 '이야기 듣기 ›' → 큰 상자(대본) + 상자 왼쪽 아래 '▶ 영상 보기'. 영상을 보는 동안 상자는 장을 넘기지 않고 기다린다(talk.pause/resume). 카메라는 그 사람 쪽으로(주민과 같은 배율, 아래 상자를 피해 조금 위에) */
   const NPC_HOOK_MS = 6000;   /* 말풍선이 남는 시간(주민의 마우스 3초·터치 8초 사이) — 그 안에 누르면 상자 */
   let npcHookT = null;
-  function npcSay(actor, lines, open){ villagerDone(); speech.hide(); clearTimeout(npcHookT); speechActor = actor;
-    speech.say(lines, open ? { onTap: open, cta: '이야기 듣기 ›', stay: true } : undefined);
+  function npcSay(actor, lines, open, cta = '이야기 듣기 ›'){ villagerDone(); speech.hide(); clearTimeout(npcHookT); speechActor = actor;
+    speech.say(lines, open ? { onTap: open, cta, stay: true } : undefined);
     if(open) npcHookT = setTimeout(() => { if(speech.visible && speechActor === actor && kioskStage === 'rest') speech.hide(); }, NPC_HOOK_MS); }
   const npcSpeechOff = () => { if(kioskStage === 'rest' && speech.visible) speech.hide(); };   /* 지도 빈 곳을 누르면(주민 말풍선과 같이) */
   const videoButton = (url, label) => { const v = parseVideo(url); return v ? { onClick: () => { talk.pause(); vplayer.open(v, { label, onClose: () => talk.resume() }); } } : undefined; };
@@ -301,7 +302,7 @@ export function bootLegacy(DATA){
   function npcOpen(actor, script){ if(!npcReady() || !actor || talk.visible) return; villagerDone(); speech.hide(); stopCycle(); speechActor = actor;
     talk.start(script);
     centerOn(actor.x + actor.ox, actor.y + actor.oy, focusZoom(), desktop() ? V.ph * 0.1 : V.ph * 0.14); }
-  function chiefOpen(){ const T = DATA.chiefTalk; if(!T?.interview) return; npcOpen(chiefActor, { name: T.name, pages: T.interview, video: videoButton(T.video, T.interviewTitle || T.name) }); }
+  function chiefVideo(){ const T = DATA.chiefTalk, v = parseVideo(T?.video); if(!v || !npcReady()) return; villagerDone(); speech.hide(); stopCycle(); vplayer.open(v, { label: T.videoTitle || T.name, onClose: () => idle() }); }
   function managerHook(){ const T = DATA.managerTalk; if(!npcReady() || !T || talk.visible) return false; if(speech.visible && speechActor === managerActor) return true;
     npcSay(managerActor, [T.hook], managerOpen); return true; }
   function managerOpen(){ const T = DATA.managerTalk; if(!T) return; npcOpen(managerActor, { name: T.name, pages: T.pages, video: videoButton(T.video, T.title || T.name) }); }
@@ -780,7 +781,7 @@ export function bootLegacy(DATA){
     const chief = new Chief(scene.layer, DATA.characters.body, DATA.characters.chief); scene.add(chief); chiefActor = chief;
     chief.makeHoverable();
     chief.hover.onHover = P => hoverNear() && topAt(chief.g, P) && chiefHook();   /* 주민과 같은 몸 판정 칸·다시 판정하기(10-26) */
-    npcBind(chief, chiefHook, chiefOpen);   /* 10-29: 말풍선이 떠 있으면 인터뷰 상자 */
+    npcBind(chief, chiefHook, chiefVideo);   /* 10-29: 말풍선이 떠 있으면 바로 영상 */
     catActor = new Cat(scene.layer, DATA.characters.cat, chief); scene.add(catActor);
     /* 상인회 매니저님(10-29): 이장님과 같은 배우(Chief) — 옷도 같고 세모도 같은 빨강, 머리만 다르고 선글라스가 없다. 보드의 작은 벤치에 앉아 있다(chiefTo). 이장님처럼 연출 뒤에만 보인다(.wk-chief → body.chief-hidden·showChief) */
     if(DATA.characters.manager && DATA.managerTalk){
