@@ -1,4 +1,4 @@
-/* 이장님 — 정해진 자리에 서 있다가, 포인터가 다가오면 폴짝 뛰고 손을 흔든 뒤 꾸벅 인사. 머리 위에 빨간 세모(NPC 표시). 발밑 이름표는 chief.json 에 name 이 있을 때만(10-28 '신당 5길' 이름표를 뺐다).
+/* 이장님 — 정해진 자리에 서 있다가, 포인터가 다가오면 폴짝 뛰고 손을 흔든 뒤 꾸벅 인사. 머리 위에 빨간 세모(NPC 표시). 발밑 이름표는 chief.json 에 name 이 있을 때만(10-29 '회장님', 매니저님은 '매니저님').
    자리와 도안·색·표시·이름은 content/characters/chief.json.
    상인회 매니저님(10-29, content/characters/manager.json)도 같은 배우다 — seated(벤치에 앉음)면 손은 흔들어도 폴짝 뛰지 않는다. cls 로 g 에 class 를 더 붙인다(wk-manager). */
 import { el } from '../svg';
@@ -62,8 +62,8 @@ export class Chief implements Actor {
     else this.fs.show(this.mode === 'bow' ? 'bow' : 'front0');
     const mb = still ? 0 : Math.floor(now / 520) % 2;   /* 세모: 0.52초마다 한 칸 오르내림 */
     if (mb !== this.markB) { this.mark.setAttribute('transform', `translate(${-SW / 2},${-FEET - mb})`); this.markB = mb; }
-    /* 이름표: g 안의 1단위 = 화면 q px 이므로 px/q 로 환산. 랜드마크 이름표와 같은 글자 크기 공식 */
-    if (this.label && q !== this.labelQ) { const fs = Math.min(15, Math.max(10, 9 + s * 1.2)); this.label.setAttribute('font-size', String(fs / q)); this.label.setAttribute('y', String((fs + 4) / q)); this.labelQ = q; }
+    /* 이름표: g 안의 1단위 = 화면 q px 이므로 px/q 로 환산. 10-29 '회장님'·'매니저님' — 랜드마크 이름표보다 작게(9~12px) */
+    if (this.label && q !== this.labelQ) { const fs = Math.min(12, Math.max(9, 8 + s * 0.8)); this.label.setAttribute('font-size', String(fs / q)); this.label.setAttribute('y', String((fs + 4) / q)); this.labelQ = q; }
     f.place(this, sx, sy, 1, hop, mul);
   }
 }
