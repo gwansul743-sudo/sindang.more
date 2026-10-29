@@ -113,8 +113,8 @@ export const diorama: Renderer = async (c: LayerCtx) => {
     more: () => c.fold(false, { user: true }),
     heatSrc: m.sunhours ? base + m.sunhours.image : undefined, valuesSrc: m.sunhours ? base + m.sunhours.values : undefined }) : null;
   if (select) { void fetchImg(base + m.hi!.top); void select.ensure('plan'); }   /* 위에서 본 그림 + 그 idmap 을 먼저 */
-  /* 하늘을 나는 2호선(subway.ts): 기울어진 보기에 내려앉은 뒤에만 */
-  const subway = m.subway && m.axon ? mountSubway({ world: st.world, base, spec: m.subway, axon: m.axon, local: m.local, island: m.island?.latlng, night: () => isNight(), scale: () => st.cam.s, zoom: () => level === 2 }) : null;
+  /* 하늘을 나는 2호선(subway.ts): 내려앉은 보기마다(위에서 본 신당 = plan 영상, 기울어진 보기 = axon 영상), 전환 중엔 멈춤 */
+  const subway = m.subway && m.axon ? mountSubway({ world: st.world, base, spec: m.subway, axon: m.axon, top: tr?.aff_t00, local: m.local, island: m.island?.latlng, night: () => isNight(), scale: () => st.cam.s, zoom: () => level === 2 }) : null;
   if (new URLSearchParams(location.search).has('lift_check')) Object.assign(window, { __liftCheck: (lat: number, lng: number) => st.check(lat, lng), __liftLocal: m.local,
     __sun: () => ({ view: st.view, cam: st.cam, landing: st.lastLanding, level, contain: st.contain(), sel: select?.selected?.i ?? -1, train: subway?.playing ?? false,
       heat: { on: heatOn, shown: select?.heatShown ?? false, ms: select?.heatMs ?? 0, live: !!liveT } }) });   /* 확인용 */
@@ -236,7 +236,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
   function zoomOut() {
     const b = select?.selected; dropHeat(); stopLive(); walkers?.stop(); select?.clear(); select?.setMode('plan');
     setLevel(1); slotFor(); stage.classList.remove('night');
-    const done = () => { if (c.alive() && level === 1) select?.setMode('plan'); };
+    const done = () => { if (c.alive() && level === 1) { select?.setMode('plan'); subway?.arm('plan'); } };
     subway?.stop();
     if (b) st.zoomOut(anchorOf(b), base + m.hi!.top, done); else st.toPlan(base + m.hi!.top, done);
   }
@@ -244,7 +244,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
     if (flow && hiOk) {   /* plan(level 1) — 이미 zoom 이면 그대로 */
       if (st.view === 'zoom' && level === 2) { setLevel(2); slotFor(); paint(); return; }
       dropHeat(); walkers?.stop(); stage.classList.remove('night'); select?.clear(); select?.setMode('plan');
-      subway?.stop(); setLevel(1); slotFor(); st.toPlan(base + m.hi!.top, () => undefined); return;
+      subway?.stop(); setLevel(1); slotFor(); st.toPlan(base + m.hi!.top, () => { if (c.alive() && level === 1 && view === 'diorama') subway?.arm('plan'); }); return;
     }
     dropHeat(); stopLive(); select?.clear(); select?.setMode('axon');
     const wasZoom = level === 2; setLevel(0);
