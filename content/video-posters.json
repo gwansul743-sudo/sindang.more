@@ -1,0 +1,5 @@
+{
+  "_설명": "영상 카드 썸네일(10-28). 키 = 가게 이름(실DB 와 똑같이), 값 = public/ 아래 그림. 없으면 가게 표지 사진, 그것도 없으면 어두운 칸",
+  "신당소머리국밥": "/video-posters/sindang-someori.webp",
+  "오시여호프": "/video-posters/osiyeo-hof.webp"
+}

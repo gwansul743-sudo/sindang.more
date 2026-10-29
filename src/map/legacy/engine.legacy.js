@@ -37,6 +37,8 @@ import { onPullDown } from '../../shared/lib/sheetDrag';
 import { mountPhotoViewer } from '../../features/photo-viewer/viewer';
 import { mountStory } from '../../features/board-story/story';
 import { kbLog } from '../../shared/lib/kbLog';   /* 전시 상태가 바뀐 까닭(개발용, TASK_20) */
+import { mountVideoPlayer, parseVideo } from '../../features/video-player/player';
+import VIDEO_POSTERS from '../../../content/video-posters.json';
 
 export function bootLegacy(DATA){
 /* ═══════════════ CORE (투영 · 팬줌 · 가게 점 · 카드 · 관리 · 인트로) ═══════════════ */
@@ -67,6 +69,7 @@ export function bootLegacy(DATA){
     { showAt: dotShowAt, onCluster: (members, x, y) => { if(!picking) openCluster(members, x, y); } }), gDots = dots.g;
   /* 겹친 가게 말풍선: 숫자 점을 누르면 지도 위에 사진·이름 목록이 뜨고, 하나를 고르면 카드가 열린다. 점이 떨어지면(확대) 자동으로 닫힌다 */
   const viewer = mountPhotoViewer();   /* 카드 사진 크게 보기(10-26) */
+  const vplayer = mountVideoPlayer();   /* 카드 영상 크게 보기(10-28): 카드엔 썸네일만, 누르면 화면 가운데에서 재생 */
   const clusterPop = document.createElement('div'); clusterPop.id = 'cluster-pop'; document.getElementById('map').appendChild(clusterPop);   /* map 변수는 뒤에서 선언된다 */
   /* 묶음 말풍선 목록에서만: 영상이 있는 가게 썸네일 가운데에 픽셀 재생 표시(10-28) — 유튜브 로고를 지도 분위기로(모서리 깎은 빨간 판 + 계단 세모). 색은 tokens.css .cl-vid */
   const VID_BADGE = '<svg class="cl-vid" viewBox="0 0 14 10" aria-label="영상" role="img"><path class="b" d="M1 0h12v1h1v8h-1v1H1V9H0V1h1z"/><path class="t" d="M5 2h1v6H5zM6 3h1v4H6zM7 4h1v2H7z"/></svg>';
@@ -153,12 +156,12 @@ export function bootLegacy(DATA){
     speech.hide(); talk.hide(); if(!cycling && !keepVillager) villagerDone();
     current = s; dots.select(s._dot);
     const up = s.status==='up', href = s.ig || IG;
-    const list = STORES, idx = list.indexOf(s)+1, vid = renderVideo(s.video), photos = s.photos || (s.photoUrl ? [s.photoUrl] : []);   /* 영상이 있으면 포스터 칸에 사진 대신 플레이어 (10-21) */
+    const list = STORES, idx = list.indexOf(s)+1, vid = renderVideo(s), photos = s.photos || (s.photoUrl ? [s.photoUrl] : []);   /* 영상이 있으면 포스터 칸에 사진 대신 플레이어 (10-21) */
     card.classList.toggle('has-video', !!vid.embed);   /* 영상 카드(10-28): 인스타 버튼·안내 문구 없이 영상이 카드 폭을 다 쓴다(theme CSS 대신 tokens.css) */
     card.innerHTML = `
       <button class="x" aria-label="닫기" onclick="closeCard()">✕</button>
       <div class="ig-meta"><span class="account">@sindang.more</span><span class="num">${idx} / ${list.length}</span></div>
-      ${vid.embed ? `<div class="poster video">${vid.embed}</div>` : photos.length > 1 ? renderGallery(photos) : `<div class="poster ${up?'up':''} ${s.photoUrl?'photo':''}" ${s.photoUrl?`style="background-image:url('${esc(s.photoUrl)}')"`:''}><div class="grid"></div><div class="poster-brand">MORE · SINDANG</div><div class="poster-tag">${esc(s.issue||'')}</div><div class="poster-title">${up?'Coming<br>soon':esc(s.name)}</div></div>`}
+      ${vid.embed ? vid.embed : photos.length > 1 ? renderGallery(photos) : `<div class="poster ${up?'up':''} ${s.photoUrl?'photo':''}" ${s.photoUrl?`style="background-image:url('${esc(s.photoUrl)}')"`:''}><div class="grid"></div><div class="poster-brand">MORE · SINDANG</div><div class="poster-tag">${esc(s.issue||'')}</div><div class="poster-title">${up?'Coming<br>soon':esc(s.name)}</div></div>`}
       <div class="detail">
         <h3>${esc(s.name)}</h3>
         ${up?'<p class="copy">인터뷰가 끝나면 이 자리에 카드뉴스가 올라옵니다.</p>':''}
@@ -179,9 +182,13 @@ export function bootLegacy(DATA){
     const pst = card.querySelector('.poster.photo');
     if(pst) pst.addEventListener('click', e => { if(!pst.classList.contains('photo') || e.target.closest('.pg-nav')) return;
       const tr = pst.querySelector('.pg-track'), k = tr ? Math.round(tr.scrollLeft / (tr.clientWidth || 1)) : 0; viewer.open(photos, k, s.name); });
-    const vf = card.querySelector('.poster.video iframe, .poster.video video');
-    driveFit.disconnect(); if(vf && vf.classList.contains('drive')) driveFit.observe(vf.parentElement);
-    if(vf){ vf.parentElement.classList.add('skel'); const done = () => vf.parentElement.classList.remove('skel'); vf.addEventListener(vf.tagName === 'VIDEO' ? 'loadeddata' : 'load', done, { once: true }); vf.addEventListener('error', done, { once: true }); setTimeout(done, 12000); }
+    /* 영상 썸네일(10-28): 썸네일을 받기 전엔 스켈레톤, 못 받으면 어두운 칸. 누르면 크게 보기(features/video-player) */
+    const vt = card.querySelector('.poster.vthumb');
+    if(vt){ const pu = vt.dataset.poster || '';
+      if(pu){ const img = new Image(); img.src = pu;
+        if(!img.complete){ vt.classList.add('skel'); img.onload = () => vt.classList.remove('skel');
+          img.onerror = () => { vt.classList.remove('skel'); vt.classList.add('nopic'); vt.style.backgroundImage = ''; }; } }
+      vt.addEventListener('click', () => vplayer.open(parseVideo(s.video), { poster: pu, label: s.name })); }
     sheet.classList.add('open'); side.classList.add('has'); side.classList.remove('closed');
     /* 폰 바텀시트는 'INTERVIEW' 제목까지만 보이는 높이로 연다(나머지는 시트 안에서 스크롤). 인터뷰가 없으면 기본 높이 */
     sheet.scrollTop = 0; const ih = card.querySelector('.interview .ih');
@@ -212,17 +219,14 @@ export function bootLegacy(DATA){
     withSide(true, () => { if(typeof then === 'function') then(); }); }   /* 카드가 없으면 사이드바도 접는다(다 접힌 뒤 지도 폭을 다시 재고 then) */
   /* 영상: 포스터 칸에 들어갈 플레이어(embed) 또는, 끼워 넣을 수 없는 주소면 인스타 버튼 아래 링크 버튼(link).
      구글 드라이브(공유 링크) → 미리보기 iframe, 유튜브 → embed, mp4/webm 주소 → <video> (10-21) */
-  /* 드라이브 플레이어는 폭 512px 아래에선 영상을 최소 크기로 그리고 가운데만 잘라 보인다(재생 중에도). 그래서 560×315 로 그려 칸 폭에 맞게 줄인다(10-26, tokens.css) */
-  const DRIVE_W = 560, driveFit = new ResizeObserver(es => es.forEach(e => e.target.style.setProperty('--vk', e.contentRect.width / DRIVE_W)));
-  function renderVideo(url){
-    url = (url||'').trim(); if(!url) return {};
-    const drive = url.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([\w-]+)/);
-    const yt = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([\w-]+)/);
-    const frame = (src, cls = '') => ({ embed: `<iframe class="${cls}" src="${esc(src)}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy" title="영상"></iframe>` });
-    if(drive) return frame(`https://drive.google.com/file/d/${drive[1]}/preview`, 'drive');
-    if(yt) return frame(`https://www.youtube.com/embed/${yt[1]}?rel=0&playsinline=1`);
-    if(/\.(mp4|webm|mov|m4v)(\?|$)/i.test(url)) return { embed: `<video src="${esc(url)}" controls playsinline preload="metadata"></video>` };
-    return { link: `<a class="ig-link video-link" href="${esc(url)}" target="_blank" rel="noopener"><span>영상 보기</span><span>↗</span></a>` };
+  /* 10-28: 카드엔 플레이어 대신 썸네일 + 재생 단추(embed). 썸네일 = content/video-posters.json(가게 이름) → 표지 사진 → 없으면 어두운 칸.
+     드라이브 560×315 줄이기는 이제 크게 보기(features/video-player)에서 좁은 화면일 때만 */
+  const PLAY_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.6v14.8a1 1 0 0 0 1.52.85l12.1-7.4a1 1 0 0 0 0-1.7L8.52 3.75A1 1 0 0 0 7 4.6z"/></svg>';
+  function renderVideo(s){
+    const url = (s.video||'').trim(); if(!url) return {};
+    if(!parseVideo(url)) return { link: `<a class="ig-link video-link" href="${esc(url)}" target="_blank" rel="noopener"><span>영상 보기</span><span>↗</span></a>` };
+    const pu = VIDEO_POSTERS[s.name] || s.photoUrl || '';
+    return { embed: `<button type="button" class="poster video vthumb${pu?'':' nopic'}"${pu?` data-poster="${esc(pu)}" style="background-image:url('${esc(pu)}')"`:''} aria-label="${esc(s.name)} 인터뷰 영상 재생"><span class="vt-shade"></span><span class="vt-play">${PLAY_ICON}</span><span class="vt-tag">INTERVIEW FILM</span></button>` };
   }
   function renderInterview(text){
     if(!text || !text.trim()) return '';
@@ -438,8 +442,9 @@ export function bootLegacy(DATA){
      iframe 을 누른 뒤(포커스가 그 안에 있는 동안)를 재생 중으로 본다 — 바깥을 누르면 풀린다. 다 보고 자리를 뜬 경우를 위해 iframe 은 VIDEO_MAX_MS 뒤엔 풀어 준다. 전체화면도 재생 중 */
   const VIDEO_MAX_MS = 60 * 1000; let frameAt = 0;
   const inCardFrame = () => { const a = document.activeElement; return !!(a && a.tagName === 'IFRAME' && a.closest('#card .poster.video')); };
+  const VIEW_MAX_MS = 10 * 60 * 1000;   /* 10-28: 영상 크게 보기가 떠 있는 동안 = 재생 중. 띄워 두고 자리를 뜬 경우를 위해 10분 뒤엔 닫는다 */
   function videoPlaying(){
-    const v = card.querySelector('.poster.video video'); if(v && !v.paused && !v.ended) return true;
+    if(vplayer.visible){ if(performance.now() - vplayer.openedAt < VIEW_MAX_MS) return true; vplayer.close(); }
     if(document.fullscreenElement || document.webkitFullscreenElement) return true;
     return inCardFrame() && performance.now() - frameAt < VIDEO_MAX_MS;
   }
@@ -517,7 +522,7 @@ export function bootLegacy(DATA){
      전시 모드 ON/OFF 상태는 그대로 — 인트로가 끝나면 다시 시작.
      부드럽게(10-28): 인트로를 먼저 덮고(.back — 0.4s 페이드, visibility 지연 없음) 다 덮인 뒤에 그 아래서 보드 끄기·카드 닫기·사이드바·카메라를 한꺼번에 정리한다.
      전엔 인트로가 나타나는 같은 프레임에 이것들이 몰려 SVG 전체를 다시 그리는 게 보였고(지지직), visibility 가 .18s 늦게 켜져 툭 튀어나왔다 */
-  function playIntro(why = 'MORE'){ if(introOpen) return; kbLog('intro', why); story?.close(true, '인트로 다시(' + why + ')'); introOpen=true; clearTimeout(introT); stopCycle(); stopHomeCycle(); villagerDone(); speech.hide(); talk.hide(); closeCluster(); viewer.close();
+  function playIntro(why = 'MORE'){ if(introOpen) return; kbLog('intro', why); story?.close(true, '인트로 다시(' + why + ')'); introOpen=true; clearTimeout(introT); stopCycle(); stopHomeCycle(); villagerDone(); speech.hide(); talk.hide(); closeCluster(); viewer.close(); vplayer.close();
     const quick = matchMedia('(prefers-reduced-motion: reduce)').matches;
     intro.classList.remove('open'); intro.classList.add('back'); void intro.offsetWidth;   /* 숨은 채로 표지 애니메이션을 처음으로 되돌린 뒤 */
     requestAnimationFrame(() => intro.classList.remove('done'));
