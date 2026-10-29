@@ -213,7 +213,8 @@ export function bootLegacy(DATA){
       img.onerror = () => { sl.style.backgroundImage = ''; if(k === 0) gal.classList.remove('skel'); }; });
   }
   function step(d){ const i=(STORES.indexOf(current)+d+STORES.length)%STORES.length; select(STORES[i], true); }
-  function closeCard(then){ closeCluster(); if(current){ dots.select(null); current=null; } sheet.classList.remove('open'); document.getElementById('side').classList.remove('has'); apply();
+  function closeCard(then){ closeCluster(); if(current){ dots.select(null); current=null; } if(board) board.select(null);   /* 10-29: 고른 단추(커진 단추)도 원래대로 */
+    sheet.classList.remove('open'); document.getElementById('side').classList.remove('has'); apply();
     withSide(true, () => { if(typeof then === 'function') then(); }); }   /* 카드가 없으면 사이드바도 접는다(다 접힌 뒤 지도 폭을 다시 재고 then) */
   /* 영상: 포스터 칸에 들어갈 플레이어(embed) 또는, 끼워 넣을 수 없는 주소면 인스타 버튼 아래 링크 버튼(link).
      구글 드라이브(공유 링크) → 미리보기 iframe, 유튜브 → embed, mp4/webm 주소 → <video> (10-21) */
