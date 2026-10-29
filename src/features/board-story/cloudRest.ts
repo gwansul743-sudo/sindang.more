@@ -1,4 +1,5 @@
 import type { LayerCtx, Renderer } from './layers';
+import { textW, onFonts } from './textFit';
 
 /* 구름·나무 이야기 겹 그림(10-28) — 해 이야기처럼 이야기를 열 때 받는다(첫 화면 무게). 자리는 모두 ctx.toBoard(위경도)로, 섬 밖은 kb-clip.
    · shade(구름): layer.show null(숨김) · "heat_summer"(한여름 햇볕 노출 지도, 상자 막대그래프 = 해마다 더운 날) · "shade"(그늘길 리본).
@@ -112,9 +113,11 @@ export const shade: Renderer = async (c: LayerCtx) => {
       const g = el('g', { class: 'kb-heat-call' }, calls);
       el('path', { class: 'ld', d: `M${bx.toFixed(1)} ${by.toFixed(1)}L${tx.toFixed(1)} ${(up ? ty + TH : ty).toFixed(1)}`, 'stroke-width': (1.4 / sc).toFixed(2) }, g);
       el('circle', { class: 'dt', cx: bx.toFixed(1), cy: by.toFixed(1), r: (3.5 / sc).toFixed(2), 'stroke-width': (1.4 / sc).toFixed(2) }, g);
-      el('rect', { x: tx.toFixed(1), y: ty.toFixed(1), width: w.toFixed(1), height: TH.toFixed(1), rx: (4 / sc).toFixed(1), 'stroke-width': (1.5 / sc).toFixed(2) }, g);
-      el('rect', { class: 'st', x: (tx + 3 / sc).toFixed(1), y: (ty + 3 / sc).toFixed(1), width: (w - 6 / sc).toFixed(1), height: (TH - 6 / sc).toFixed(1), rx: (3 / sc).toFixed(1), 'stroke-width': (1.2 / sc).toFixed(2), 'stroke-dasharray': `${(5 / sc).toFixed(1)} ${(3 / sc).toFixed(1)}` }, g);
-      const t = el('text', { x: (tx + PAD).toFixed(1), y: (ty + TH / 2).toFixed(1), 'font-size': FS.toFixed(1) }, g); t.textContent = text;
+      const r0 = el('rect', { x: tx.toFixed(1), y: ty.toFixed(1), width: w.toFixed(1), height: TH.toFixed(1), rx: (4 / sc).toFixed(1), 'stroke-width': (1.5 / sc).toFixed(2) }, g);
+      const r1 = el('rect', { class: 'st', x: (tx + 3 / sc).toFixed(1), y: (ty + 3 / sc).toFixed(1), width: (w - 6 / sc).toFixed(1), height: (TH - 6 / sc).toFixed(1), rx: (3 / sc).toFixed(1), 'stroke-width': (1.2 / sc).toFixed(2), 'stroke-dasharray': `${(5 / sc).toFixed(1)} ${(3 / sc).toFixed(1)}` }, g);
+      const t = el('text', { x: (tx + PAD).toFixed(1), y: (ty + TH / 2).toFixed(1), 'font-size': FS.toFixed(1) }, g) as SVGTextElement; t.textContent = text;
+      const fit = () => { const w2 = textW(t, FS) + 2 * PAD; r0.setAttribute('width', w2.toFixed(1)); r1.setAttribute('width', (w2 - 6 / sc).toFixed(1)); };   /* 잰 글씨 폭으로(TASK_21) */
+      fit(); onFonts(fit);
     };
     tag(hot, '그늘 없는 길 · 하루 12시간 넘게 해', true); tag(cool, '건물 그늘 골목 · 4시간 이하', false);
   }
@@ -223,9 +226,11 @@ export const rest: Renderer = async (c: LayerCtx) => {
       el('path', { class: 'kb-rs-pic', d: `M${x - s * 1.6} ${y}h${s * 1.2}M${x - s * 1.5} ${y}v${s * 0.6}M${x - s * 0.5} ${y}v${s * 0.6}M${x - s * 1.6} ${y - s * 0.45}h${s * 1.2}`
         + `M${x + s * 0.3} ${y + s * 0.6}v${-s * 1.4}h${s * 0.4}l${s * 1.1} ${s * 1.4}M${x + s * 0.3} ${y - s * 0.4}h${s * 0.4}`, 'stroke-width': (2 * u).toFixed(2) }, g); }
     if (toilet) { const [x, y] = P(toilet.latlng), s = 1.4 * u, t = el('g', { class: 'kb-rs-wc', transform: `translate(${x.toFixed(1)},${(y + 26 * u).toFixed(1)}) scale(${s.toFixed(3)})` }, g);
-      el('path', { d: pill(0, 0, 54, 20, 4), fill: '#7d2030' }, t);
-      el('path', { d: 'M-20 -5a2 2 0 1 0 .01 0ZM-12 -5a2 2 0 1 0 .01 0ZM-22 -2h4v8h-4ZM-14 -2h4l1.5 5h-2v3h-3v-3h-2Z', fill: '#fbf3e2' }, t);
-      el('text', { x: 6, y: 0.5, class: 'kb-rs-wct' }, t).textContent = '화장실'; }
+      const bg = el('path', { fill: '#7d2030' }, t), ic = el('path', { d: 'M-20 -5a2 2 0 1 0 .01 0ZM-12 -5a2 2 0 1 0 .01 0ZM-22 -2h4v8h-4ZM-14 -2h4l1.5 5h-2v3h-3v-3h-2Z', fill: '#fbf3e2' }, t);
+      const tt = el('text', { y: 0.5, class: 'kb-rs-wct' }, t) as SVGTextElement; tt.textContent = '화장실';
+      /* 알약 = 여백 8 + 그림 14 + 사이 4 + 잰 글씨 폭 + 여백 8(TASK_21: 고정 54 라 글씨가 넘쳤다) */
+      const fit = () => { const W = 8 + 14 + 4 + textW(tt, 11) + 8, x0 = -W / 2; bg.setAttribute('d', pill(0, 0, W, 20, 4)); ic.setAttribute('transform', `translate(${(x0 + 8 + 22).toFixed(1)},0)`); tt.setAttribute('x', (x0 + 8 + 14 + 4).toFixed(1)); };
+      fit(); requestAnimationFrame(fit); onFonts(fit); }
     return g;
   }
   /* 가로수: 펠트 수관 + 가로수가 없는 골목 구역 */
@@ -258,7 +263,7 @@ export const rest: Renderer = async (c: LayerCtx) => {
       const s = el('image', { class: 'kb-rs-p', 'data-hit': '1', style: `--i:${i}`, href: '/board/bench.webp', x: (x - B * 0.6).toFixed(1), y: (y - B * 0.55).toFixed(1), width: (B * 1.17).toFixed(1), height: B.toFixed(1) }, g);
       el('image', { class: 'kb-rs-pp', style: `--i:${i}`, href: '/board/hedge.webp', x: (x + B * 0.38).toFixed(1), y: (y - B * 0.15).toFixed(1), width: (B * 0.5).toFixed(1), height: (B * 0.3).toFixed(1) }, g);
       el('text', { class: 'kb-rs-num kb-rs-pp', style: `--i:${i}`, x: (x - R * 0.95).toFixed(1), y: (y - R * 0.8).toFixed(1), 'font-size': (12 * u).toFixed(1) }, g).textContent = String(i + 1);
-      const show = () => { const p = list[i], t = `쉼터까지 ${Math.round(p.walk_min)}분 · 오후 그늘 ${Math.round((p.shade15 ?? 0) * 100)}%`, w = t.length * 12.2 * u + 16 * u, h = 24 * u;
+      const show = () => { const p = list[i], t = `쉼터까지 ${Math.round(p.walk_min)}분 · 오후 그늘 ${Math.round((p.shade15 ?? 0) * 100)}%`; tipT.textContent = t; const w = textW(tipT as SVGTextElement, 13 * u) + 16 * u, h = 24 * u;   /* 잰 글씨 폭(TASK_21) */
         tipR.setAttribute('x', (x - w / 2).toFixed(1)); tipR.setAttribute('y', (y - R - h - 6 * u).toFixed(1)); tipR.setAttribute('width', w.toFixed(1)); tipR.setAttribute('height', h.toFixed(1));
         tipT.setAttribute('x', x.toFixed(1)); tipT.setAttribute('y', (y - R - h / 2 - 6 * u).toFixed(1)); tipT.textContent = t; tip.classList.add('on'); };
       s.addEventListener('pointerenter', show); s.addEventListener('click', (e) => { e.stopPropagation(); show(); });

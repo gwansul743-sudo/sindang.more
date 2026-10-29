@@ -1,5 +1,6 @@
 import type { StoryLayerSpec, StoryPage, StoryTopic } from './story';
 import type { DioVillagers } from './dioWalkers';
+import { textW } from './textFit';
 
 /* 이야기 겹 그림(10-28) — 이야기가 열린 동안만 .kb-story-layer(보드 캔버스 좌표) 안에 그린다. 닫히면 story.ts 가 통째로 DOM 에서 지운다.
    렌더러 = (ctx) → { page(i, p) }: 열 때 한 번 불리고, 장이 바뀔 때마다 page() 로 상태만 바꾼다. 움직임은 opacity·scale 만(CSS). */
@@ -110,7 +111,7 @@ const buildingsAge: Renderer = async (c) => {
     const first = decades[ks[0]], last = decades[ks[ks.length - 1]];
     capT.textContent = h === 'all' ? `모든 건물 · ${n}채` : first === last ? `${first}년대 · ${n}채` : `${first}~${String(last).slice(2)}년대 · ${n}채`;
     capT.setAttribute('x', cx.toFixed(1)); capT.setAttribute('y', (cy - 34).toFixed(1));
-    const w = capT.textContent.length * 12.5 + 18; capR.setAttribute('x', (cx - w / 2).toFixed(1)); capR.setAttribute('y', (cy - 34 - 13).toFixed(1)); capR.setAttribute('width', w.toFixed(1)); capR.setAttribute('height', '26');
+    const w = textW(capT, 15) + 18;   /* 잰 글씨 폭(TASK_21) */ capR.setAttribute('x', (cx - w / 2).toFixed(1)); capR.setAttribute('y', (cy - 34 - 13).toFixed(1)); capR.setAttribute('width', w.toFixed(1)); capR.setAttribute('height', '26');
     capG.classList.remove('on'); void capG.getBoundingClientRect(); capG.classList.add('on');
   }
   /* 섬 밖 장소(layer.outside): 섬 가운데에서 그쪽 방향으로 섬 가장자리에 화살표 + '광희문 · 서쪽 약 1km' (+ 동그란 사진, 누르면 크게) */

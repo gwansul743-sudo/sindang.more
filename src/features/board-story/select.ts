@@ -1,4 +1,5 @@
 import { project, type Aff } from './sunStage';
+import { textW } from './textFit';
 
 /* 해 디오라마 — 건물 고르기(10-28, TASK_08 → TASK_12). 포인터는 sun.ts 가 받아(끌기와 누르기를 가려) 여기 함수를 부른다.
    · 어느 건물: 해 그림과 같은 카메라의 idmap(그림 px 의 RGB, B == 255 → 번호 = R + 256·G − 1)을 화면 밖 캔버스에 한 번 그려 두고 읽는다.
@@ -272,7 +273,8 @@ export function mountSelect(o: SelectOptions) {
     const b = i >= 0 ? data?.[i] : null;
     hover.setAttribute('d', b && b !== sel ? (mode === 'axon' ? topOf(b) + (b.tower?.length ? verts(b.xy, 0, TOWER_Z) + verts(b.tower, TOWER_Z, b.h) : verts(b.xy, 0, b.h)) : topOf(b)) : '');   /* axon 은 테두리만(막을 하나 더 만들지 않는다) */
     if (mode === 'plan' && b) {
-      const k = 1 / Math.max(0.05, o.scale()), [u, v] = project(o.plan, b.c[0], b.c[1], 0), t = shortName(b), FS = 12 * k, w = t.length * FS * 0.9 + 14 * k, h = 22 * k;
+      const k = 1 / Math.max(0.05, o.scale()), [u, v] = project(o.plan, b.c[0], b.c[1], 0), t = shortName(b), FS = 12 * k, h = 22 * k;
+      nameT.setAttribute('font-size', FS.toFixed(1)); nameT.textContent = t; const w = textW(nameT as SVGTextElement, FS) + 14 * k;   /* 잰 글씨 폭(TASK_21) */
       nameR.setAttribute('x', (u - w / 2).toFixed(1)); nameR.setAttribute('y', (v - h - 14 * k).toFixed(1)); nameR.setAttribute('width', w.toFixed(1)); nameR.setAttribute('height', h.toFixed(1)); nameR.setAttribute('rx', (3 * k).toFixed(1));
       nameT.setAttribute('x', u.toFixed(1)); nameT.setAttribute('y', (v - h / 2 - 14 * k).toFixed(1)); nameT.setAttribute('font-size', FS.toFixed(1)); nameT.textContent = t; nameG.classList.add('on');
     } else nameG.classList.remove('on');
