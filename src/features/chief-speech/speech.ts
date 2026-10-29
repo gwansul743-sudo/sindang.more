@@ -13,7 +13,7 @@ export interface SpeechOptions {
 }
 /* say 의 선택(10-26): onTap 이 있으면 말풍선 자체가 버튼 — 누르면 다음 줄 대신 onTap. cta 는 말풍선 아래쪽에 붙는 안내 한 줄('이야기 듣기 ›').
    setCta(10-28): 떠 있는 말풍선에 안내 줄만 붙인다(글자를 다시 찍지 않음) — hover 로 뜬 말풍선을 누르면 '이야기 듣기 ›' 가 붙는다 */
-export interface SayOptions { onTap?: () => void; cta?: string; stay?: boolean }   // stay(10-29): 마지막 줄 뒤에도 onEnd 로 닫지 않고 hide() 때까지 남는다(연출 뒤 이장님·매니저님의 '이야기 듣기' 말풍선)
+export interface SayOptions { onTap?: () => void; cta?: string; stay?: boolean; ctaButton?: boolean }   // ctaButton(10-29): 안내 줄을 글자 대신 와인색 알약 단추로(▶ 영상 보기 — 대화 상자의 영상 단추와 같은 모양)   // stay(10-29): 마지막 줄 뒤에도 onEnd 로 닫지 않고 hide() 때까지 남는다(연출 뒤 이장님·매니저님의 '이야기 듣기' 말풍선)
 export interface Speech { say(lines: string[], opts?: SayOptions): void; setCta(label: string): void; hide(): void; place(): void; readonly visible: boolean }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -67,7 +67,7 @@ export function mountSpeech(stage: HTMLElement, o: SpeechOptions): Speech {
   return {
     get visible() { return visible; },
     say(ls, opts) { clear(); lines = ls.slice(); i = 0; visible = true; onTap = opts?.onTap ?? null; stay = !!opts?.stay;
-      cta.textContent = opts?.cta ?? ''; el.classList.toggle('has-cta', !!opts?.cta); el.classList.toggle('tappable', !!onTap);
+      cta.textContent = opts?.cta ?? ''; el.classList.toggle('has-cta', !!opts?.cta); el.classList.toggle('tappable', !!onTap); el.classList.toggle('cta-button', !!opts?.ctaButton);
       el.classList.add('show'); place(); showLine(); },
     setCta(label) { if (!visible) return; cta.textContent = label; el.classList.toggle('has-cta', !!label); place(); },
     hide,

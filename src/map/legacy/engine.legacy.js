@@ -287,13 +287,13 @@ export function bootLegacy(DATA){
   /* 말풍선 규칙(10-26, 이장님·주민 똑같이): 작은 말풍선끼리는 새로 나온 쪽이 이긴다(떠 있던 다른 말풍선은 닫힌다). 큰 대화 상자가 열려 있으면 hover 말풍선은 안 뜬다.
      hook 함수는 말풍선이 떴거나 이미 떠 있으면 true — false 면 HoverProbe 가 0.2초 뒤 다시 묻는다(다시 판정하기) */
   function chiefHook(){ if(!npcReady() || talk.visible) return false; if(speech.visible && speechActor === chiefActor) return true;
-    npcSay(chiefActor, CHIEF_AGAIN(), parseVideo(DATA.chiefTalk?.video) ? chiefVideo : null, '영상 보기 ›'); return true; }   /* 10-29: 말풍선의 '영상 보기 ›'(또는 이장님을 한 번 더) → 인터뷰 영상 바로. 이장님은 큰 상자 대본 없음(사용자 결정) */
+    npcSay(chiefActor, CHIEF_AGAIN(), parseVideo(DATA.chiefTalk?.video) ? chiefVideo : null, '영상 보기', true); return true; }   /* 10-29: 말풍선의 '영상 보기 ›'(또는 이장님을 한 번 더) → 인터뷰 영상 바로. 이장님은 큰 상자 대본 없음(사용자 결정) */
   /* 이장님·매니저님 인터뷰 영상(10-29) — 연출이 끝난 뒤(rest)에만. 주민 hook 과 같은 2단: hover(터치는 첫 탭) 말풍선(후킹 한 마디 + '영상 보기 ›') → 누르면(또는 사람을 한 번 더) 영상 플레이어 바로
      (가게 카드 영상과 같은 features/video-player, 구글 드라이브). 둘 다 큰 상자 대본은 없다(사용자 결정). 닫히면 무입력을 다시 센다. 대본·링크: chief-talk.json(hook·video·videoTitle)·manager-talk.json(hook·video·title) */
   const NPC_HOOK_MS = 6000;   /* 말풍선이 남는 시간(주민의 마우스 3초·터치 8초 사이) — 그 안에 누르면 상자 */
   let npcHookT = null;
-  function npcSay(actor, lines, open, cta = '이야기 듣기 ›'){ villagerDone(); speech.hide(); clearTimeout(npcHookT); speechActor = actor;
-    speech.say(lines, open ? { onTap: open, cta, stay: true } : undefined);
+  function npcSay(actor, lines, open, cta = '이야기 듣기 ›', ctaButton = false){ villagerDone(); speech.hide(); clearTimeout(npcHookT); speechActor = actor;
+    speech.say(lines, open ? { onTap: open, cta, stay: true, ctaButton } : undefined);
     if(open) npcHookT = setTimeout(() => { if(speech.visible && speechActor === actor && kioskStage === 'rest') speech.hide(); }, NPC_HOOK_MS); }
   const npcSpeechOff = () => { if(kioskStage === 'rest' && speech.visible) speech.hide(); };   /* 지도 빈 곳을 누르면(주민 말풍선과 같이) */
   const npcReady = () => KIOSK && board && !introOpen && kioskStage === 'rest' && !vTalk.visible;
@@ -301,7 +301,7 @@ export function bootLegacy(DATA){
   const chiefVideo = () => { const T = DATA.chiefTalk; if(T) npcVideo(T.video, T.videoTitle || T.name); };
   const managerVideo = () => { const T = DATA.managerTalk; if(T) npcVideo(T.video, T.title || T.name); };
   function managerHook(){ const T = DATA.managerTalk; if(!npcReady() || !T || talk.visible) return false; if(speech.visible && speechActor === managerActor) return true;
-    npcSay(managerActor, [T.hook], parseVideo(T.video) ? managerVideo : null, '영상 보기 ›'); return true; }
+    npcSay(managerActor, [T.hook], parseVideo(T.video) ? managerVideo : null, '영상 보기', true); return true; }
   /* 누르기(10-29, 주민 bindVillager 와 같이): 말풍선이 떠 있으면 큰 상자, 아니면 말풍선부터(마우스는 hover 로 이미 떠 있어 바로 상자가 열린다). 터치 첫 탭은 카메라가 그 사람을 비춘다(focusVillager — 섬 가장자리의 매니저님 말풍선이 폰 화면 밖으로 잘리지 않게) */
   const npcBind = (actor, hook, open) => { let downType = '';
     actor.g.addEventListener('pointerdown', e => { downType = e.pointerType; });
