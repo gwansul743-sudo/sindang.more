@@ -16,6 +16,8 @@ import kioskArea from '../../content/map/kiosk-area.json';
 import kioskBoard from '../../content/map/kiosk-board.json';
 import kioskCut from '../../content/map/kiosk-cut.json';
 import chiefTalk from '../../content/characters/chief-talk.json';
+import manager from '../../content/characters/manager.json';
+import managerTalk from '../../content/characters/manager-talk.json';
 import { loadLandmarks } from '../entities/landmark/load';
 import type { Store } from '../entities/store/types';
 import type { EngineData } from '../map/engine';
@@ -34,12 +36,13 @@ export function loadContent(stores: Store[]): EngineData {
     landmarks,
     pixelDefs: withLand(terrainDefs),   // 랜드마크·장식 그림(content/landmarks·map/decor 의 *.pixel.txt)은 index.html 의 #px-defs 에 정적으로(표지와 같이 쓴다, vite.config.ts staticShell)
     terrain: withLand(terrain).replace('<!--PROPS-->', uses),
-    characters: { head, body, wave, palette, looks, chief, cat },
+    characters: { head, body, wave, palette, looks, chief, cat, manager },
     stores,
     kioskArea: { name: kioskArea.name, polygon: kioskArea.polygon.map(([lat, lng]) => [lat, lng] as [number, number]) },
     villagers: Object.values(villagerFiles).filter((v) => v.pages && v.pages.length >= 3).map((v) => ({ id: v.id, kind: v.kind, name: v.name, store: v.store, look: v.look, hook: v.hook, pages: v.pages.slice(0, 8) })),   /* 3장 미만은 띄우지 않고, 8장 넘으면 자른다(설계 메모) */
-    chiefTalk: { name: chiefTalk.name, pages: chiefTalk.pages },
+    chiefTalk: { name: chiefTalk.name, pages: chiefTalk.pages, video: chiefTalk.video, interview: chiefTalk.interview, interviewTitle: chiefTalk.interviewTitle },
+    managerTalk: { name: managerTalk.name, hook: managerTalk.hook, pages: managerTalk.pages, video: managerTalk.video, title: managerTalk.title },
     kioskCut: { name: kioskCut.name, polygon: kioskCut.polygon.map(([lat, lng]) => [lat, lng] as [number, number]) },
-    kioskBoard: { hideRoads: (kioskBoard as { hideRoads?: (number[] | number[][])[] }).hideRoads, hideMain: (kioskBoard as { hideMain?: (number[] | number[][])[] }).hideMain, showRoads: (kioskBoard as { showRoads?: (number[] | number[][])[] }).showRoads, route: (kioskBoard as { route?: number[][] }).route, title: kioskBoard.title, sub: (kioskBoard as { sub?: string }).sub, titleAt: kioskBoard.titleAt, titleImg: (kioskBoard as { titleImg?: (string | number)[] }).titleImg, labelAt: (kioskBoard as { labelAt?: Record<string, number[]> }).labelAt, featured: (kioskBoard as { featured?: string[] }).featured, chiefAt: kioskBoard.chiefAt, props: kioskBoard.props, sky: kioskBoard.sky, waves: kioskBoard.waves },
+    kioskBoard: { hideRoads: (kioskBoard as { hideRoads?: (number[] | number[][])[] }).hideRoads, hideMain: (kioskBoard as { hideMain?: (number[] | number[][])[] }).hideMain, showRoads: (kioskBoard as { showRoads?: (number[] | number[][])[] }).showRoads, route: (kioskBoard as { route?: number[][] }).route, title: kioskBoard.title, sub: (kioskBoard as { sub?: string }).sub, titleAt: kioskBoard.titleAt, titleImg: (kioskBoard as { titleImg?: (string | number)[] }).titleImg, labelAt: (kioskBoard as { labelAt?: Record<string, number[]> }).labelAt, featured: (kioskBoard as { featured?: string[] }).featured, chiefAt: kioskBoard.chiefAt, managerAt: (kioskBoard as { managerAt?: number[] }).managerAt, props: kioskBoard.props, sky: kioskBoard.sky, waves: kioskBoard.waves },
   };
 }

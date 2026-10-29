@@ -127,7 +127,7 @@ export function bootLegacy(DATA){
     if(V.moved) return;
     if(picking){ const [lat,lng] = unproj(...V.toMap(e.clientX, e.clientY));
       form.latlng.value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`; endPick(); return; }
-    if(!e.target.closest('.dot,.col-pill,.cluster,.wk-talk')) { closeCluster(); collapseSide(); if(villager && !vTalk.visible) villagerDone(); else endPeek(true); }   /* 카드가 열려 있으면 카드만, 아니면 빈 사이드바도 접는다 (10-21) */
+    if(!e.target.closest('.dot,.col-pill,.cluster,.wk-talk')) { closeCluster(); collapseSide(); if(villager && !vTalk.visible) villagerDone(); else endPeek(true); npcSpeechOff(); }   /* 카드가 열려 있으면 카드만, 아니면 빈 사이드바도 접는다 (10-21) */
   });
 
   /* 카드 */
@@ -273,19 +273,45 @@ export function bootLegacy(DATA){
     const done = (run) => { stage.removeEventListener('transitionend', onEnd); clearTimeout(t); sideDone = null; sideAnimating = false; const fns = sideThens; sideThens = []; if(run){ V.fit(); fns.forEach(f => f()); } };   /* 접힘이 끝난 뒤의 지도 폭으로 다시 재고 출발 — 안 재면 옛 폭으로 중심을 잡아 치우친다 (10-21) */
     sideDone = done; stage.addEventListener('transitionend', onEnd); }
   let chiefActor = null, catActor = null, chiefHome = null;   /* 이장님 배우 (WALKERS 에서 채움) — 말풍선이 머리 위를 따라간다. chiefHome: 평소 자리 */
-  const talk = mountTalk(stage, { onEnd: () => kioskRest() });   /* 큰 말풍선(인터뷰). 작은 말풍선의 인사가 끝나면 시작. 마지막 장이 닫히면 범례·주민 */
+  let managerActor = null, managerHome = null, speechActor = null;   /* 상인회 매니저님(10-29, 이장님과 같은 Chief 배우 — 보드의 작은 벤치에 앉아 있다). speechActor: 지금 작은 말풍선(speech)이 따라가는 사람(이장님·매니저님이 한 말풍선을 번갈아 쓴다) */
+  const talk = mountTalk(stage, { onEnd: () => { if(kioskStage === 'play') kioskRest(); else idle(); } });   /* 큰 말풍선(인터뷰). 작은 말풍선의 인사가 끝나면 시작. 마지막 장이 닫히면 범례·주민. 연출 뒤(rest)의 이장님·매니저님 인터뷰가 닫히면 무입력을 다시 센다(10-29) */
   /* 말풍선은 #map 안(10-28): 범례·확대 버튼·카드·관리 창 같은 UI 를 덮지 않고 그 아래로 지나간다(speech.css z-index) */
   const speech = mountSpeech(map, {
-    anchor: () => { if(!chiefActor || chiefActor.g.getAttribute('display') === 'none') return null; const r = chiefActor.g.getBoundingClientRect(), st = map.getBoundingClientRect(); return { x: r.left + r.width / 2 - st.left, y: r.top - st.top }; },
+    anchor: () => { const a = speechActor || chiefActor; if(!a || a.g.getAttribute('display') === 'none') return null; const r = a.g.getBoundingClientRect(), st = map.getBoundingClientRect(); return { x: r.left + r.width / 2 - st.left, y: r.top - st.top }; },
     bounds: () => { const m = map.getBoundingClientRect(); return { left: 0, top: 0, width: m.width, height: m.height }; },
-    onEnd: () => { if(KIOSK && !introOpen && kioskStage === 'play' && DATA.chiefTalk) talk.start(DATA.chiefTalk); },
+    onEnd: () => { if(KIOSK && !introOpen && kioskStage === 'play' && DATA.chiefTalk) talk.start({ name: DATA.chiefTalk.name, pages: DATA.chiefTalk.pages }); },   /* 연출 인사엔 영상 단추 없음(인터뷰·영상은 연출 뒤 chiefOpen, 10-29) */
   });
   const CHIEF_LINES = ['오호! 처음 보는 얼굴이구먼!\n**신당 5길**에 어서와!!', '잠깐 이야기 좀 듣고 갈 텐가?'];
   /* 대화가 끝난 뒤(rest) 이장님에게 마우스를 올리면(터치는 탭) 머리 위 말풍선으로 한 줄(10-23). 다 찍히고 2.8초 뒤 스스로 닫힌다 — rest 라 큰 상자로 넘어가지 않는다 */
   const CHIEF_AGAIN = ['허허, 또 왔구먼!\n아직 못 가 본 가게가 있나?'];
   /* 말풍선 규칙(10-26, 이장님·주민 똑같이): 작은 말풍선끼리는 새로 나온 쪽이 이긴다(떠 있던 다른 말풍선은 닫힌다). 큰 대화 상자가 열려 있으면 hover 말풍선은 안 뜬다.
      hook 함수는 말풍선이 떴거나 이미 떠 있으면 true — false 면 HoverProbe 가 0.2초 뒤 다시 묻는다(다시 판정하기) */
-  function chiefHook(){ if(!KIOSK || introOpen || kioskStage !== 'rest' || talk.visible || vTalk.visible) return false; if(speech.visible) return true; villagerDone(); speech.say(CHIEF_AGAIN); return true; }
+  function chiefHook(){ if(!npcReady() || talk.visible) return false; if(speech.visible && speechActor === chiefActor) return true;
+    npcSay(chiefActor, CHIEF_AGAIN, DATA.chiefTalk?.interview ? chiefOpen : null); return true; }   /* 10-29: 말풍선을 누르면(또는 이장님을 한 번 더) 인터뷰 상자 + '영상 보기' */
+  /* 이장님·매니저님 인터뷰 상자(10-29) — 연출이 끝난 뒤(rest)에만. 주민 대화(villagerOpen)와 같은 2단: hover(터치는 첫 탭) 말풍선 → 누르면 큰 상자. 상자엔 '▶ 영상 보기'(구글 드라이브 인터뷰 영상, 가게 카드 영상과 같은 플레이어).
+     영상을 보는 동안 상자는 장을 넘기지 않고 기다린다(talk.pause/resume). 카메라는 그 사람 쪽으로(주민과 같은 배율, 아래 상자를 피해 조금 위에) */
+  const NPC_HOOK_MS = 6000;   /* 말풍선이 남는 시간(주민의 마우스 3초·터치 8초 사이) — 그 안에 누르면 상자 */
+  let npcHookT = null;
+  function npcSay(actor, lines, open){ villagerDone(); speech.hide(); clearTimeout(npcHookT); speechActor = actor;
+    speech.say(lines, open ? { onTap: open, cta: '이야기 듣기 ›', stay: true } : undefined);
+    if(open) npcHookT = setTimeout(() => { if(speech.visible && speechActor === actor && kioskStage === 'rest') speech.hide(); }, NPC_HOOK_MS); }
+  const npcSpeechOff = () => { if(kioskStage === 'rest' && speech.visible) speech.hide(); };   /* 지도 빈 곳을 누르면(주민 말풍선과 같이) */
+  const videoButton = (url, label) => { const v = parseVideo(url); return v ? { onClick: () => { talk.pause(); vplayer.open(v, { label, onClose: () => talk.resume() }); } } : undefined; };
+  const npcReady = () => KIOSK && board && !introOpen && kioskStage === 'rest' && !vTalk.visible;
+  function npcOpen(actor, script){ if(!npcReady() || !actor || talk.visible) return; villagerDone(); speech.hide(); stopCycle(); speechActor = actor;
+    talk.start(script);
+    centerOn(actor.x + actor.ox, actor.y + actor.oy, focusZoom(), desktop() ? V.ph * 0.1 : V.ph * 0.14); }
+  function chiefOpen(){ const T = DATA.chiefTalk; if(!T?.interview) return; npcOpen(chiefActor, { name: T.name, pages: T.interview, video: videoButton(T.video, T.interviewTitle || T.name) }); }
+  function managerHook(){ const T = DATA.managerTalk; if(!npcReady() || !T || talk.visible) return false; if(speech.visible && speechActor === managerActor) return true;
+    npcSay(managerActor, [T.hook], managerOpen); return true; }
+  function managerOpen(){ const T = DATA.managerTalk; if(!T) return; npcOpen(managerActor, { name: T.name, pages: T.pages, video: videoButton(T.video, T.title || T.name) }); }
+  /* 누르기(10-29, 주민 bindVillager 와 같이): 말풍선이 떠 있으면 큰 상자, 아니면 말풍선부터(마우스는 hover 로 이미 떠 있어 바로 상자가 열린다). 터치 첫 탭은 카메라가 그 사람을 비춘다(focusVillager — 섬 가장자리의 매니저님 말풍선이 폰 화면 밖으로 잘리지 않게) */
+  const npcBind = (actor, hook, open) => { let downType = '';
+    actor.g.addEventListener('pointerdown', e => { downType = e.pointerType; });
+    actor.g.addEventListener('click', e => { e.stopPropagation(); if(V.moved) return;
+      const type = downType || e.pointerType || (matchMedia('(hover: none)').matches ? 'touch' : 'mouse'); downType = '';
+      if(speech.visible && speechActor === actor && !talk.visible) open();
+      else if(hook() && type !== 'mouse') focusVillager(actor); }); };
   /* hover 판정 보조: 그 자리 맨 위에 실제로 이 캐릭터가 있나(가게 점·말풍선·패널 등에 가려져 있으면 아니다). 커서 밑으로 걸어 들어온 경우도 이것으로 본다 */
   const topAt = (g, P) => { const t = document.elementFromPoint(P.cx, P.cy); return !!t && g.contains(t); };
   /* 전시 보드에선 충분히 다가갔을 때만 hover 말풍선(10-26 사용자 요청): 보드 전체 화면(kioskTarget)에서 + 버튼(×1.6) hoverZooms() 번만큼 확대한 배율부터.
@@ -385,7 +411,8 @@ export function bootLegacy(DATA){
       else if(i < 0) walkerScene.add(w); } }
   const walkersTo = (which) => { if(!walkerGraphs) return; walkers.forEach(w => w.setGraph(walkerGraphs[which])); parkExtras(which === 'kiosk'); };   /* 주민을 보드 위 길 ⇄ 평소 큰 길로 — 보이지 않을 때만 */
   /* 이장님을 보드 자리 ⇄ 평소 자리로 (고양이는 이장님을 따라간다) */
-  const chiefTo = (onBoard) => { if(!chiefActor) return; if(!chiefHome) chiefHome = { x: chiefActor.x, y: chiefActor.y }; const p = onBoard ? board.chiefAt() : [chiefHome.x, chiefHome.y]; chiefActor.x = p[0]; chiefActor.y = p[1]; if(catActor){ catActor.x = p[0]; catActor.y = p[1]; } };
+  const chiefTo = (onBoard) => { if(!chiefActor) return; if(!chiefHome) chiefHome = { x: chiefActor.x, y: chiefActor.y }; const p = onBoard ? board.chiefAt() : [chiefHome.x, chiefHome.y]; chiefActor.x = p[0]; chiefActor.y = p[1]; if(catActor){ catActor.x = p[0]; catActor.y = p[1]; }
+    if(managerActor){ if(!managerHome) managerHome = { x: managerActor.x, y: managerActor.y }; const q = onBoard ? board.managerAt() : [managerHome.x, managerHome.y]; managerActor.x = q[0]; managerActor.y = q[1]; } };   /* 매니저님: 보드의 작은 벤치(10-29) */
   let kioskStage = 'off';   /* off | play | rest */
   /* 차례 번호(10-23): 전시 연출을 시작·멈출 때마다 올린다. 사이드바 접힘·커튼·지연 시작처럼 늦게 도착하는 콜백은 자기 차례가 아니면 아무것도 안 한다
      — 인트로를 다시 열거나 버튼을 빠르게 눌렀을 때 뒤에서 옛 연출이 계속 돌던 것을 막는다 */
@@ -410,7 +437,7 @@ export function bootLegacy(DATA){
       const t2 = kioskTarget(); centerOn(t2.x, t2.y, t2.s, 0);
       /* ⑧ 이장님: 먼저 이장님 쪽으로 두 단계(×1.6²) 줌인하고, 도착하면 등장·말풍선 → 큰 상자(10-23). 대화가 끝나면 kioskRest 가 보드 전체로 물러난다 */
       board.play({ onChief: () => { if(my !== kioskSeq || !KIOSK) return; const [cx, cy] = board.chiefAt(), t = kioskTarget();
-        V.centerOn(cx, cy - 12, t.s * 1.6 ** 2, 0, () => { if(my !== kioskSeq || !KIOSK) return; showChief(true); speech.say(CHIEF_LINES); }, true); } }); }); }   /* always: 줌인 도중 지도를 눌러 비행이 끊겨도 이장님은 그 자리에서 나온다(10-26) */
+        V.centerOn(cx, cy - 12, t.s * 1.6 ** 2, 0, () => { if(my !== kioskSeq || !KIOSK) return; showChief(true); speechActor = chiefActor; speech.say(CHIEF_LINES); }, true); } }); }); }   /* always: 줌인 도중 지도를 눌러 비행이 끊겨도 이장님은 그 자리에서 나온다(10-26) */
   /* 전시 연출을 그 자리에서 다 멈추고 평소 상태로(카메라·사이드바는 부르는 쪽이 정한다) */
   function stopKiosk(){ kbLog('kiosk:stop'); story?.close(true, 'kiosk:stop'); viewer.close(); closeCluster(); kioskSeq++; clearTimeout(kioskStartT); stopCycle(); kioskStage = 'off'; syncSkip?.(); speech.hide(); talk.hide(); villagerDone(); showChief(false); board?.hide(); walkersTo('home'); chiefTo(false); sideDone?.(false); }
   function kioskRest(){ if(!KIOSK || !board || kioskStage !== 'play') return; kbLog('kiosk:rest'); kioskStage = 'rest'; syncSkip?.(); idle(); board.rest(); const t = kioskTarget(), k = REST_ZOOM(), [cx, cy] = board.chiefAt(); centerOn(cx + (t.x - cx) / k, cy + (t.y - cy) / k, t.s * k, 0); }
@@ -753,8 +780,14 @@ export function bootLegacy(DATA){
     const chief = new Chief(scene.layer, DATA.characters.body, DATA.characters.chief); scene.add(chief); chiefActor = chief;
     chief.makeHoverable();
     chief.hover.onHover = P => hoverNear() && topAt(chief.g, P) && chiefHook();   /* 주민과 같은 몸 판정 칸·다시 판정하기(10-26) */
-    chief.g.addEventListener('click', e => { e.stopPropagation(); if(V.moved) return; chiefHook(); });
+    npcBind(chief, chiefHook, chiefOpen);   /* 10-29: 말풍선이 떠 있으면 인터뷰 상자 */
     catActor = new Cat(scene.layer, DATA.characters.cat, chief); scene.add(catActor);
+    /* 상인회 매니저님(10-29): 이장님과 같은 배우(Chief) — 옷도 같고 세모도 같은 빨강, 머리만 다르고 선글라스가 없다. 보드의 작은 벤치에 앉아 있다(chiefTo). 이장님처럼 연출 뒤에만 보인다(.wk-chief → body.chief-hidden·showChief) */
+    if(DATA.characters.manager && DATA.managerTalk){
+      const mgr = new Chief(scene.layer, DATA.characters.body, { ...DATA.characters.manager, mark: DATA.characters.chief.mark, cls: 'wk-manager' }); scene.add(mgr); managerActor = mgr;
+      mgr.makeHoverable();
+      mgr.hover.onHover = P => hoverNear() && topAt(mgr.g, P) && managerHook();
+      npcBind(mgr, managerHook, managerOpen); }
     document.body.classList.add('chief-hidden');   /* 전시 모드 연출 뒤에만 보인다 (showChief) */
     scene.start();
   }

@@ -16,6 +16,14 @@
 .talk .tk-act{position:absolute;right:14px;top:-13px;z-index:1;padding:3px 10px;background:#fbf3e2;color:#8c1e32;border:1px solid #8c1e32;border-radius:2px;font:700 13px var(--font-ui);line-height:1.35;cursor:pointer}
 .talk .tk-act[hidden]{display:none}
 
+/* 영상 보기(10-29): 상자 안 왼쪽 아래(쪽수 맞은편) 작은 와인색 알약 단추 — 세모 + '영상 보기'. 이장님·매니저님 인터뷰 영상(구글 드라이브)을 features/video-player 로 띄운다 */
+.talk .tk-video{position:absolute;left:14px;bottom:8px;z-index:1;display:inline-flex;align-items:center;gap:5px;padding:3px 9px 3px 7px;border:1px solid #8c1e32;border-radius:999px;background:#8c1e32;color:#fff4df;font:700 11px/1.2 var(--font-ui);letter-spacing:-.2px;cursor:pointer;box-shadow:0 1px 0 #5a0f1e;transition:transform .15s ease,background-color .15s ease}
+.talk .tk-video svg{width:9px;height:9px;fill:currentColor}
+.talk .tk-video:hover,.talk .tk-video:focus-visible{background:#a52a40;transform:translateY(-1px)}
+.talk .tk-video:active{transform:none}
+.talk .tk-video[hidden]{display:none}
+.talk.has-video .tk-lines{padding-bottom:18px}   /* 마지막 줄이 단추와 겹치지 않게 */
+
 /* 건너뛰기(10-26): 상자 안 오른쪽 위(홈질선 안쪽), 쪽수와 같은 색의 작은 글자. 첫 줄과 겹치지 않게 글 칸 오른쪽을 비운다 */
 .talk .tk-skip{position:absolute;right:12px;top:9px;z-index:1;padding:2px 4px;border:0;background:none;color:#9b3d49;font:700 11px/1.2 var(--font-ui);letter-spacing:-.2px;opacity:.75;cursor:pointer}
 .talk .tk-skip:hover,.talk .tk-skip:focus-visible{opacity:1}

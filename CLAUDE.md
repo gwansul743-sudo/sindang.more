@@ -15,7 +15,8 @@
 | Cloudflare Pages 배포 · Supabase 저장·로그인 · 카카오 주소→좌표 | ✅ |
 | 전시 보드(전시 모드) · 자동 순환 · 주민 대화 · 구글폼 주민 · 카드 사진 여러 장·사진 뷰어·영상 | ✅ |
 | 팬·줌 렉 1차 수정(§8) | ✅ |
-| **남은 전시 기능**: 이장님 영상·자막, 이스터에그, 고정 행인 대본 채우기 | ⬜ §6 |
+| 이장님·매니저님 인터뷰 영상(큰 대화 상자 '▶ 영상 보기') · 상인회 매니저님 캐릭터(벤치) | ✅ 10-29 |
+| **남은 전시 기능**: 이스터에그, 고정 행인 대본 채우기 | ⬜ §6 |
 | 전시 뒤 정리(⑦ 조립·React 부품화·스타일·렉 근본 해결) | ⬜ §7 |
 
 ## 3. 폴더 지도
@@ -23,14 +24,14 @@
 sindang.more/
 ├─ content/            ★ 그림·좌표·파츠·대본. 코드 아님. 정본(옛 HTML에서 다시 추출하지 않음)
 │  ├─ landmarks/       랜드마크 그림(*.pixel.txt) + landmarks.json
-│  ├─ characters/      parts/·palette.json·looks.json·chief.json·cat.json · villagers/*.json(주민 대본) · form-samples.json
+│  ├─ characters/      parts/·palette.json·looks.json·chief.json·chief-talk.json(인사+인터뷰+영상)·manager.json·manager-talk.json(매니저님)·cat.json · villagers/*.json(주민 대본) · form-samples.json
 │  └─ map/             roads.json, land.json, props.json, terrain*, decor/ · kiosk-cut.json(재단선) · kiosk-board.json(보드 장식·하늘·제목 자리)
 ├─ src/
 │  ├─ map/             ★ 지도 엔진. React·Supabase·features 모름(`shared`만 본다)
 │  │  ├─ engine.ts     바깥 얼굴(아직 임시 엔진을 켜기만 함 → ⑦에서 진짜 조립)
 │  │  ├─ projection · viewport · day · night · svg · layers/ · sprites/ · actors/(roadGraph·scene·walker·chief·cat)
 │  │  └─ legacy/engine.legacy.js   임시 엔진(카드·관리 폼·인트로·전시 모드·자동 순환). 부품화 끝나면 삭제
-│  ├─ features/        theme-toggle · admin-gate · kiosk-board(★ 전시 보드) · chief-speech · chief-talk(큰 대화 상자) · villagers(주민 대본·구글폼 주민) · photo-viewer · click-burst · intro-foil
+│  ├─ features/        theme-toggle · admin-gate · kiosk-board(★ 전시 보드) · chief-speech · chief-talk(큰 대화 상자 + ▶ 영상 보기) · video-player(영상 크게 보기) · villagers(주민 대본·구글폼 주민) · photo-viewer · click-burst · intro-foil
 │  ├─ entities/        타입 + store/api.ts(Supabase, DB 없으면 seed JSON) · villager/api.ts
 │  ├─ app/             App.tsx(조립), content.ts, legacy-markup.html(옛 마크업 — 빌드 때 index.html 에 정적으로 들어간다, §8)
 │  └─ shared/          styles/(tokens·낮·밤 CSS), lib/(supabase·auth·geocode·image)
@@ -67,7 +68,7 @@ node tools/check_screen.mjs   # 헤드리스 Chrome. 마지막 줄 "통과"
 **관련 자료**: `~/Documents/경관데이터/dashboard/`(같은 위경도 체계 건물·상가·인터뷰). 거기 `config.json`엔 과금 API 키가 평문 — **절대 복사 금지**.
 
 ## 6. 남은 전시 기능 (기능 하나 → 확인 → 커밋)
-- **이장님 영상·자막**: 이장님 클릭 → `features/chief/`가 `<video>` + 동물의 숲식 자막 상자. 영상 `public/chief/chief.mp4` 20MB 이하, 자막 `content/chief/subtitles.json`.
+- ~~이장님 영상·자막~~ → 10-29 **드라이브 영상 + 큰 대화 상자**로 했다(아래 §10 '이장님·매니저님 인터뷰'). 영상은 저장소에 두지 않는다(구글 드라이브 링크, 가게 카드 영상과 같은 플레이어).
 - **이스터에그**: 상단 "MORE" 5회 클릭 → 경관 대시보드(별도 Pages 프로젝트). `features/easter-egg/`.
 - **고정 행인 대본**: `content/characters/villagers/*.json` 추가(형식 §9 주민).
 - 구글폼 연결은 사용자 몫(`tools/apps-script/설치_안내.md`). service role 키는 Apps Script 스크립트 속성에만.
@@ -134,6 +135,8 @@ interviews  id, source(form|shop), answers(json), summary_md, store_id?, created
 - hover(터치는 첫 탭): 머리 위 hook 말풍선. 판정은 그려진 몸 칸(`scene.ts` overBody)을 매 프레임 `HoverProbe` 가 본다. 새 말풍선이 옛 것을 닫고, 큰 대화 상자·전시 연출 중엔 안 뜬다. 전시 보드에선 보드 전체에서 + 버튼(×1.6)을 데스크톱 1번·좁은 창 2번 누른 배율부터(`hoverZooms`).
 - 누르면(터치는 두 번째 탭, 누르는 칸 44px) 큰 대화 상자(이름표 '가게 · 이름', Skip »). 그 가게 카드를 펴고 주민 쪽으로 줌인, 자동 순환 멈춤, 주민은 멈춰 섬(`walker.hold`). 폰은 카드 대신 이름표 옆 '가게 카드 ›'.
 - 머리 위 세모 표시는 `kind: "form"`(시민 인터뷰) 주민에게만 — **초록**(10-28, `chief.json` mark.formColors). 이장님 세모는 빨강 그대로.
+- **이장님·매니저님 인터뷰 + 영상(10-29)**: 전시 연출이 끝난 뒤(rest)에만. hover(터치는 첫 탭 — 카메라가 그 사람을 비춤) → 머리 위 말풍선('이야기 듣기 ›', 6초, 지도 빈 곳을 누르면 닫힘) → 말풍선이나 사람을 누르면 큰 대화 상자(`chief-talk`)에 인터뷰 + 왼쪽 아래 **'▶ 영상 보기'**(`features/video-player`, 구글 드라이브 플레이어). 영상을 보는 동안 상자는 장을 넘기지 않고 기다린다(`talk.pause/resume`). 대본·영상 링크는 `chief-talk.json`(`interview`·`video` — 연출 중 인사 `pages`엔 영상 단추 없음)·`manager-talk.json`(`hook`·`pages`·`video`). 글은 영상 자막을 그대로 옮기고 장만 나눴다.
+- **상인회 매니저님**(`content/characters/manager.json`): 이장님과 같은 배우(`actors/chief.ts`, `seated` — 폴짝 안 뜀, 앉은 자세 `art.pants/legs`), 옷·세모 같고 머리만 검은 가르마·선글라스 없음. 전시 보드의 작은 벤치(`kiosk-board.json` `managerAt`, bench-s 위)에 앉아 있고 이장님처럼 연출 뒤에만 보인다(`.wk-chief .wk-manager`). 작은 말풍선(`speech`)은 이장님과 한 개를 번갈아 쓴다(`speechActor`). `check_screen` 주민 수 +1.
 
 **구글폼 → 시민 인터뷰 주민** (서버·크론 없음):
 ```

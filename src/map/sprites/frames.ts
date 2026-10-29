@@ -26,14 +26,14 @@ export function walkerFrames(parts: CharacterParts, style: HairStyle, bun?: bool
   return F;
 }
 
-export interface ChiefArt { head: Rows; headWave: Rows; torso: Rows; torsoWave: Rows; torsoBow: Rows; arm: Extra[][] }
+export interface ChiefArt { head: Rows; headWave: Rows; torso: Rows; torsoWave: Rows; torsoBow: Rows; arm: Extra[][]; pants?: string; legs?: Rows }   /* pants·legs: 있으면 공용 바지·다리 대신(매니저님 앉은 자세, 10-29) */
 export function chiefFrames(body: BodyParts, A: ChiefArt): Record<string, Grid> {
-  const b = body.front;
+  const b = body.front, pants = A.pants ?? b.pants, legs = A.legs ?? b.stand;
   return {
-    front0: outline(compose(A.head, A.torso, b.pants, b.stand)),
-    wave0: outline(compose(A.headWave, A.torsoWave, b.pants, b.stand, A.arm[0])),
-    wave1: outline(compose(A.headWave, A.torsoWave, b.pants, b.stand, A.arm[1])),
-    bow: outline(compose(['...............'].concat(A.head), A.torsoBow, b.pants, b.stand)),   /* 머리가 한 칸 내려온 모습 */
+    front0: outline(compose(A.head, A.torso, pants, legs)),
+    wave0: outline(compose(A.headWave, A.torsoWave, pants, legs, A.arm[0])),
+    wave1: outline(compose(A.headWave, A.torsoWave, pants, legs, A.arm[1])),
+    bow: outline(compose(['...............'].concat(A.head), A.torsoBow, pants, legs)),   /* 머리가 한 칸 내려온 모습 */
   };
 }
 

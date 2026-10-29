@@ -1,5 +1,6 @@
 /* 이장님 — 정해진 자리에 서 있다가, 포인터가 다가오면 폴짝 뛰고 손을 흔든 뒤 꾸벅 인사. 머리 위에 빨간 세모(NPC 표시). 발밑 이름표는 chief.json 에 name 이 있을 때만(10-28 '신당 5길' 이름표를 뺐다).
-   자리와 도안·색·표시·이름은 content/characters/chief.json. */
+   자리와 도안·색·표시·이름은 content/characters/chief.json.
+   상인회 매니저님(10-29, content/characters/manager.json)도 같은 배우다 — seated(벤치에 앉음)면 손은 흔들어도 폴짝 뛰지 않는다. cls 로 g 에 class 를 더 붙인다(wk-manager). */
 import { el } from '../svg';
 import { SW, FEET, SHADOW, mountFrames, type FrameSet, type Palette } from '../sprites/compose';
 import { chiefFrames, type BodyParts, type ChiefArt } from '../sprites/frames';
@@ -7,6 +8,8 @@ import { HIT_TOP, HIT_H, overBody, HoverProbe, type Actor, type Frame } from './
 
 export interface ChiefData {
   name?: string;   // 발밑 이름표 (없으면 안 그림)
+  seated?: boolean;   // 앉아 있다(폴짝 안 뜀) — 매니저님
+  cls?: string;       // g 에 덧붙일 class
   x: number; y: number; col: Palette; art: ChiefArt;
   mark: { outline: string; fill: string; shine: string; colors: { outline: string; fill: string; shine: string } };
 }
@@ -19,14 +22,15 @@ export class Chief implements Actor {
   private mode: 'stand' | 'wave' | 'bow' = 'stand'; private until = 0; private nextPause = rnd(8, 16);
   private armed = true; private waveMin = 0; private waveEnd = 0;
   waveStart = 0;                                   /* 고양이가 꼬리 박자를 맞추는 데 읽는다 */
+  private seated: boolean;
   get waving() { return this.mode === 'wave'; }
   onClick?: () => void;
   hitHalf = 6.5;                  /* 몸 판정 칸 가로 반폭(칸). 모자까지 가로 13칸 */
   hover = new HoverProbe();       /* 엔진이 hover.onHover 를 단다 */
 
   constructor(parent: SVGGElement, body: BodyParts, c: ChiefData) {
-    this.x = c.x; this.y = c.y;
-    this.g = el('g', { class: 'wk wk-chief' }, parent);
+    this.x = c.x; this.y = c.y; this.seated = !!c.seated;
+    this.g = el('g', { class: 'wk wk-chief' + (c.cls ? ' ' + c.cls : '') }, parent);
     el('path', { d: SHADOW, fill: '#24382d', opacity: '.22', transform: `translate(${-SW / 2},${-FEET})` }, this.g);
     this.fs = mountFrames(this.g, chiefFrames(body, c.art), c.col); this.body = this.fs.body;
     this.mark = el('g', { class: 'wk-mark' }, this.g); const M = c.mark;
@@ -54,7 +58,7 @@ export class Chief implements Actor {
     if (this.mode === 'bow' && now > this.until) { this.mode = 'stand'; this.waveEnd = now; }
     if (this.mode === 'stand' && kiosk && !still) { this.nextPause -= dt; if (this.nextPause <= 0) { this.mode = 'wave'; this.waveStart = now; this.waveMin = now + rnd(1500, 2400); this.nextPause = rnd(10, 22); } }   /* 전시 모드: 가끔 먼저 인사 */
     let hop = 0;
-    if (this.mode === 'wave') { const wt = now - this.waveStart, fr = Math.floor(wt / 170) % 2; this.fs.show('wave' + fr); hop = wt < 110 ? 1 : wt < 230 ? 2 : wt < 330 ? 1 : 1 - fr; }
+    if (this.mode === 'wave') { const wt = now - this.waveStart, fr = Math.floor(wt / 170) % 2; this.fs.show('wave' + fr); if (!this.seated) hop = wt < 110 ? 1 : wt < 230 ? 2 : wt < 330 ? 1 : 1 - fr; }
     else this.fs.show(this.mode === 'bow' ? 'bow' : 'front0');
     const mb = still ? 0 : Math.floor(now / 520) % 2;   /* 세모: 0.52초마다 한 칸 오르내림 */
     if (mb !== this.markB) { this.mark.setAttribute('transform', `translate(${-SW / 2},${-FEET - mb})`); this.markB = mb; }

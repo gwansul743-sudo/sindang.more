@@ -7,7 +7,7 @@ import './player.css';
      드라이브는 자동 재생을 받지 않아 열린 뒤 한 번 더 눌러야 한다. 유튜브·mp4 는 바로 재생.
    · 닫기: 영상 밖(어두운 곳) 누르기 · Esc · 오른쪽 위 ✕. iframe 안을 누르면 키가 iframe 으로 가므로 ✕ 를 둔다(사진 뷰어와 다른 점). */
 export type VideoSource = { kind: 'drive' | 'youtube' | 'file'; src: string };
-export interface VideoPlayer { open(v: VideoSource, opt?: { poster?: string; label?: string }): void; close(): void; readonly visible: boolean; readonly openedAt: number }
+export interface VideoPlayer { open(v: VideoSource, opt?: { poster?: string; label?: string; onClose?: () => void }): void; close(): void; readonly visible: boolean; readonly openedAt: number }   // onClose(10-29): 닫힐 때 한 번(이장님·매니저님 대화 상자가 장 넘김을 이어 간다)
 
 /* 영상 주소 → 끼워 넣을 수 있는 원본. 못 끼우면 null(카드가 '영상 보기' 링크로) */
 export function parseVideo(url: string | null | undefined): VideoSource | null {
@@ -28,7 +28,7 @@ export function mountVideoPlayer(): VideoPlayer {
     + '<button type="button" class="vv-x" aria-label="영상 닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>';
   document.body.appendChild(el);
   const box = el.querySelector('.vv-box') as HTMLElement, media = el.querySelector('.vv-media') as HTMLElement, label = el.querySelector('.vv-label') as HTMLElement;
-  let visible = false, openedAt = 0, kind: VideoSource['kind'] = 'file', back: Element | null = null;
+  let visible = false, openedAt = 0, kind: VideoSource['kind'] = 'file', back: Element | null = null, onClose: (() => void) | undefined;
 
   function layout() {
     const w = Math.min(el.clientWidth * BOX_W, el.clientHeight * BOX_H * AR), h = w / AR;
@@ -36,8 +36,8 @@ export function mountVideoPlayer(): VideoPlayer {
     const f = media.querySelector('iframe.drive') as HTMLElement | null;   // 좁으면 560×315 로 그려 줄이고, 넓으면 칸 그대로
     if (f) { const small = w < DRIVE_MIN; f.classList.toggle('fit', small); f.style.transform = small ? `scale(${w / DRIVE_W})` : ''; }
   }
-  function open(v: VideoSource, opt: { poster?: string; label?: string } = {}) {
-    back = document.activeElement; kind = v.kind;
+  function open(v: VideoSource, opt: { poster?: string; label?: string; onClose?: () => void } = {}) {
+    back = document.activeElement; kind = v.kind; onClose = opt.onClose;
     box.style.backgroundImage = opt.poster ? `url("${opt.poster.replace(/"/g, '%22')}")` : '';
     label.textContent = opt.label || ''; el.setAttribute('aria-label', `${opt.label || ''} 영상`);
     media.textContent = '';
@@ -54,6 +54,7 @@ export function mountVideoPlayer(): VideoPlayer {
   function close() {
     if (!visible) return; visible = false; el.classList.remove('show'); el.hidden = true; media.textContent = '';   // iframe 을 떼어 내야 소리가 멈춘다
     if (back instanceof HTMLElement) back.focus({ preventScroll: true });
+    const fn = onClose; onClose = undefined; fn?.();
   }
   el.addEventListener('click', (e) => { if (!(e.target as Element).closest('.vv-box')) close(); });   // 영상 밖(✕ 포함)
   document.addEventListener('keydown', (e) => { if (visible && e.key === 'Escape') { e.preventDefault(); close(); } });

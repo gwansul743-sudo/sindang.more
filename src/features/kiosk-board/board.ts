@@ -8,7 +8,7 @@ import { type XY, type Box, bboxOf, distToPoly, inPoly, pathOf, roadsInside, pol
    · 켜진 동안 html.kb-on: 섬 위 원래 층은 사라지고(1.1s) 바다는 시안 색. 엔진은 카메라(view)·이장님·주민 그래프(roadPath·land)만 맡는다. */
 
 export interface BoardStore { id: string; name: string; x: number; y: number; category?: string; status?: string }
-export interface BoardContent { hideRoads?: HideShape[]; hideMain?: HideShape[]; showRoads?: HideShape[]; route?: number[][]; title?: string; sub?: string; titleAt?: number[]; titleImg?: (string | number)[]; labelAt?: Record<string, number[]>; featured?: string[]; chiefAt?: number[]; props?: (string | number)[][]; sky?: (string | number)[][]; waves?: number[][] }
+export interface BoardContent { hideRoads?: HideShape[]; hideMain?: HideShape[]; showRoads?: HideShape[]; route?: number[][]; title?: string; sub?: string; titleAt?: number[]; titleImg?: (string | number)[]; labelAt?: Record<string, number[]>; featured?: string[]; chiefAt?: number[]; managerAt?: number[]; props?: (string | number)[][]; sky?: (string | number)[][]; waves?: number[][] }
 export interface BoardOptions {
   svg: SVGSVGElement; before: Element;            // 이 요소 앞에 끼운다(주민 층 앞)
   host: HTMLElement;                              // 범례(HTML)를 붙일 지도 칸
@@ -31,6 +31,7 @@ export interface Board {
   roadPath(): string;                                         // 지도 좌표의 길(주민 그래프)
   land: BoardLand;                                            // 섬 덩어리(지도 좌표)
   chiefAt(): XY;                                              // 이장님 자리(지도 좌표)
+  managerAt(): XY;                                            // 상인회 매니저님 자리(지도 좌표, 작은 벤치 위 — kiosk-board.json managerAt, 10-29)
   storyTargets(): { topic: string; el: SVGGraphicsElement }[];  // 이야기 상자(10-28, features/board-story): data-story 가 붙은 하늘·소품 그림
   storyLayer: SVGGElement;                                    // 이야기 겹 그림을 넣을 층(길 위, 장식·제목·단추 아래 — 10-28 건물 겹 그림 위로 집·나무가 보이게). 이야기가 닫히면 비운다
   toBoard(x: number, y: number): XY;                          // 지도 좌표(실제 자리) → 보드 캔버스(길과 같은 변환 R)
@@ -244,6 +245,7 @@ export function mountBoard(o: BoardOptions): Board {
     const out: Box[] = [];
     if (c.titleImg) { const [, ix, iy, iw, ih] = c.titleImg.map(Number); out.push({ x0: ix, y0: iy, x1: ix + iw, y1: iy + ih }); } else out.push({ x0: tx - 10, y0: ty - 70, x1: tx + 330, y1: ty + 12 });
     const [hx, hy] = c.chiefAt || [905, 430]; out.push({ x0: hx - 16, y0: hy - 40, x1: hx + 16, y1: hy + 6 });
+    const [mx, my] = c.managerAt || [1234, 340]; out.push({ x0: mx - 16, y0: my - 40, x1: mx + 16, y1: my + 6 });   /* 매니저님(10-29) */
     return out;
   };
   const propBoxes: Box[] = (c.props || []).map(([kind, x, y, h]) => { const w = +h * (PROP_W[kind] ?? 0.84) * 0.8; return { x0: +x - w / 2, y0: +y - +h * 0.85, x1: +x + w / 2, y1: +y }; });
@@ -456,6 +458,7 @@ export function mountBoard(o: BoardOptions): Board {
     get on() { return on; }, land: { polygon: ISLAND.map(toMap), bounds: { x0: ib.x0 + C.x, y0: ib.y0 + C.y, x1: ib.x1 + C.x, y1: ib.y1 + C.y }, contains: (x, y) => inPoly(ISLAND, x - C.x, y - C.y) },
     view: () => ({ x: cx0, y: cy0, w: CW, h: CH, iw: ib.x1 - ib.x0 }),
     chiefAt: () => toMap([(c.chiefAt || [905, 430])[0], (c.chiefAt || [905, 430])[1]]),
+    managerAt: () => toMap([(c.managerAt || [1234, 340])[0], (c.managerAt || [1234, 340])[1]]),
     roadPath: () => roadMapD,
     storyTargets: () => [...g.querySelectorAll<SVGGraphicsElement>('[data-story]')].map((e) => ({ topic: e.dataset.story!, el: e })),
     storyLayer, islandPath: islandD, toBoard: (x, y) => R.to(x, y),
