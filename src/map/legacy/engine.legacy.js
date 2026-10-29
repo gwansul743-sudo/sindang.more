@@ -286,29 +286,35 @@ export function bootLegacy(DATA){
   const CHIEF_AGAIN = () => [DATA.chiefTalk?.hook || '허허, 또 왔구먼!\n아직 못 가 본 가게가 있나?'];   /* 10-29: 영상으로 끌어들이는 후킹 한 마디(chief-talk.json hook) */
   /* 말풍선 규칙(10-26, 이장님·주민 똑같이): 작은 말풍선끼리는 새로 나온 쪽이 이긴다(떠 있던 다른 말풍선은 닫힌다). 큰 대화 상자가 열려 있으면 hover 말풍선은 안 뜬다.
      hook 함수는 말풍선이 떴거나 이미 떠 있으면 true — false 면 HoverProbe 가 0.2초 뒤 다시 묻는다(다시 판정하기) */
-  function chiefHook(){ if(!npcReady() || talk.visible) return false; if(speech.visible && speechActor === chiefActor) return true;
-    npcSay(chiefActor, CHIEF_AGAIN(), parseVideo(DATA.chiefTalk?.video) ? chiefVideo : null, '영상 보기', true); return true; }   /* 10-29: 말풍선의 '영상 보기 ›'(또는 이장님을 한 번 더) → 인터뷰 영상 바로. 이장님은 큰 상자 대본 없음(사용자 결정) */
+  function chiefHook(full){ if(!npcReady() || talk.visible) return false; if(speech.visible && speechActor === chiefActor) return true;
+    npcSay(chiefActor, CHIEF_AGAIN(), parseVideo(DATA.chiefTalk?.video) ? chiefVideo : null, full); return true; }   /* 10-29: 말풍선 → '▶ 영상 보기' → 인터뷰 영상 바로. 이장님은 큰 상자 대본 없음(사용자 결정) */
   /* 이장님·매니저님 인터뷰 영상(10-29) — 연출이 끝난 뒤(rest)에만. 주민 hook 과 같은 2단: hover(터치는 첫 탭) 말풍선(후킹 한 마디 + '영상 보기 ›') → 누르면(또는 사람을 한 번 더) 영상 플레이어 바로
      (가게 카드 영상과 같은 features/video-player, 구글 드라이브). 둘 다 큰 상자 대본은 없다(사용자 결정). 닫히면 무입력을 다시 센다. 대본·링크: chief-talk.json(hook·video·videoTitle)·manager-talk.json(hook·video·title) */
-  const NPC_HOOK_MS = 6000;   /* 말풍선이 남는 시간(주민의 마우스 3초·터치 8초 사이) — 그 안에 누르면 상자 */
-  let npcHookT = null;
-  function npcSay(actor, lines, open, cta = '이야기 듣기 ›', ctaButton = false){ villagerDone(); speech.hide(); clearTimeout(npcHookT); speechActor = actor;
-    speech.say(lines, open ? { onTap: open, cta, stay: true, ctaButton } : undefined);
-    if(open) npcHookT = setTimeout(() => { if(speech.visible && speechActor === actor && kioskStage === 'rest') speech.hide(); }, NPC_HOOK_MS); }
+  /* 주민 hook 과 같은 3단(10-29 사용자 요청): hover → 말풍선이 한 자씩 찍힌다(단추 없음) → 한 번 누르면(말풍선이든 사람이든) 글이 다 보이고 '▶ 영상 보기' 단추가 붙는다(full) → 한 번 더 누르면 영상.
+     터치는 hover 가 없으니 첫 탭에 단추까지(full) 바로, 두 번째 탭에 영상. 말풍선은 NPC_HOOK_MS(단추가 붙은 뒤엔 NPC_FULL_MS) 동안 남는다 */
+  const NPC_HOOK_MS = 6000, NPC_FULL_MS = 10000, NPC_CTA = '영상 보기';
+  let npcHookT = null, npcOpen = null, npcFull = false;   /* npcOpen: 지금 말풍선의 영상 열기, npcFull: 단추가 붙었나 */
+  const npcTimer = (actor, ms) => { clearTimeout(npcHookT); npcHookT = setTimeout(() => { if(speech.visible && speechActor === actor && kioskStage === 'rest') speech.hide(); }, ms); };
+  function npcSay(actor, lines, open, full = false){ villagerDone(); speech.hide(); speechActor = actor; npcOpen = open; npcFull = !!open && full;
+    speech.say(lines, open ? { onTap: () => npcAdvance(actor), cta: npcFull ? NPC_CTA : undefined, ctaButton: npcFull, stay: true } : undefined);
+    npcTimer(actor, npcFull ? NPC_FULL_MS : NPC_HOOK_MS); }
+  function npcAdvance(actor){ if(!speech.visible || speechActor !== actor || !npcOpen) return;
+    if(npcFull){ npcOpen(); return; }
+    npcFull = true; speech.reveal(); speech.setCta(NPC_CTA, true); npcTimer(actor, NPC_FULL_MS); }
   const npcSpeechOff = () => { if(kioskStage === 'rest' && speech.visible) speech.hide(); };   /* 지도 빈 곳을 누르면(주민 말풍선과 같이) */
   const npcReady = () => KIOSK && board && !introOpen && kioskStage === 'rest' && !vTalk.visible;
   function npcVideo(url, label){ const v = parseVideo(url); if(!v || !npcReady()) return; villagerDone(); speech.hide(); stopCycle(); vplayer.open(v, { label, onClose: () => idle() }); }
   const chiefVideo = () => { const T = DATA.chiefTalk; if(T) npcVideo(T.video, T.videoTitle || T.name); };
   const managerVideo = () => { const T = DATA.managerTalk; if(T) npcVideo(T.video, T.title || T.name); };
-  function managerHook(){ const T = DATA.managerTalk; if(!npcReady() || !T || talk.visible) return false; if(speech.visible && speechActor === managerActor) return true;
-    npcSay(managerActor, [T.hook], parseVideo(T.video) ? managerVideo : null, '영상 보기', true); return true; }
-  /* 누르기(10-29, 주민 bindVillager 와 같이): 말풍선이 떠 있으면 큰 상자, 아니면 말풍선부터(마우스는 hover 로 이미 떠 있어 바로 상자가 열린다). 터치 첫 탭은 카메라가 그 사람을 비춘다(focusVillager — 섬 가장자리의 매니저님 말풍선이 폰 화면 밖으로 잘리지 않게) */
-  const npcBind = (actor, hook, open) => { let downType = '';
+  function managerHook(full){ const T = DATA.managerTalk; if(!npcReady() || !T || talk.visible) return false; if(speech.visible && speechActor === managerActor) return true;
+    npcSay(managerActor, [T.hook], parseVideo(T.video) ? managerVideo : null, full); return true; }
+  /* 누르기(10-29, 주민 bindVillager 와 같이): 말풍선이 떠 있으면 다음 단계(글 다 보이기+단추 → 영상), 아니면 말풍선부터(터치는 단추까지 바로). 터치 첫 탭은 카메라가 그 사람을 비춘다(focusVillager — 섬 가장자리의 매니저님 말풍선이 폰 화면 밖으로 잘리지 않게) */
+  const npcBind = (actor, hook) => { let downType = '';
     actor.g.addEventListener('pointerdown', e => { downType = e.pointerType; });
     actor.g.addEventListener('click', e => { e.stopPropagation(); if(V.moved) return;
       const type = downType || e.pointerType || (matchMedia('(hover: none)').matches ? 'touch' : 'mouse'); downType = '';
-      if(speech.visible && speechActor === actor && !talk.visible) open();
-      else if(hook() && type !== 'mouse') focusVillager(actor); }); };
+      if(speech.visible && speechActor === actor && !talk.visible) npcAdvance(actor);
+      else if(hook(type !== 'mouse') && type !== 'mouse') focusVillager(actor); }); };
   /* hover 판정 보조: 그 자리 맨 위에 실제로 이 캐릭터가 있나(가게 점·말풍선·패널 등에 가려져 있으면 아니다). 커서 밑으로 걸어 들어온 경우도 이것으로 본다 */
   const topAt = (g, P) => { const t = document.elementFromPoint(P.cx, P.cy); return !!t && g.contains(t); };
   /* 전시 보드에선 충분히 다가갔을 때만 hover 말풍선(10-26 사용자 요청): 보드 전체 화면(kioskTarget)에서 + 버튼(×1.6) hoverZooms() 번만큼 확대한 배율부터.
@@ -776,15 +782,15 @@ export function bootLegacy(DATA){
       refresh(); watchFormVillagers(refresh); }
     const chief = new Chief(scene.layer, DATA.characters.body, DATA.characters.chief); scene.add(chief); chiefActor = chief;
     chief.makeHoverable();
-    chief.hover.onHover = P => hoverNear() && topAt(chief.g, P) && chiefHook();   /* 주민과 같은 몸 판정 칸·다시 판정하기(10-26) */
-    npcBind(chief, chiefHook, chiefVideo);   /* 10-29: 말풍선이 떠 있으면 바로 영상 */
+    chief.hover.onHover = P => hoverNear() && topAt(chief.g, P) && chiefHook(false);   /* 주민과 같은 몸 판정 칸·다시 판정하기(10-26) */
+    npcBind(chief, chiefHook);   /* 10-29: 말풍선 → 단추 → 영상 */
     catActor = new Cat(scene.layer, DATA.characters.cat, chief); scene.add(catActor);
     /* 상인회 매니저님(10-29): 이장님과 같은 배우(Chief) — 옷도 같고 세모도 같은 빨강, 머리만 다르고 선글라스가 없다. 보드의 작은 벤치에 앉아 있다(chiefTo). 이장님처럼 연출 뒤에만 보인다(.wk-chief → body.chief-hidden·showChief) */
     if(DATA.characters.manager && DATA.managerTalk){
       const mgr = new Chief(scene.layer, DATA.characters.body, { ...DATA.characters.manager, mark: DATA.characters.chief.mark, cls: 'wk-manager' }); scene.add(mgr); managerActor = mgr;
       mgr.makeHoverable();
-      mgr.hover.onHover = P => hoverNear() && topAt(mgr.g, P) && managerHook();
-      npcBind(mgr, managerHook, managerVideo); }
+      mgr.hover.onHover = P => hoverNear() && topAt(mgr.g, P) && managerHook(false);
+      npcBind(mgr, managerHook); }
     document.body.classList.add('chief-hidden');   /* 전시 모드 연출 뒤에만 보인다 (showChief) */
     scene.start();
   }
