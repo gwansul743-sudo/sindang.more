@@ -60,7 +60,8 @@ const ISLAND = (() => { const cx = 887, cy = 452, rx = 560, ry = 300, n = 56, pt
   return pts; })();
 const NEAR = 12, BTN_R = 24, BTN_K = 0.7, TICK_STEP = 13;   /* BTN_K: 단추 배율(10-23 0.55 → 0.4 → 0.55 → 0.7) */
 const MINOR_K = 0.5, BUND_K = 0.78, TOUCH = 0.94, GAP = 1.5;   /* 10-28 위계: 작은 단추(강조 아닌 가게)는 큰 단추의 0.5배, 묶인 큰 단추는 0.78배, 묶음 안 단추 간격(1 = 딱 맞닿음, 작으면 살짝 포개 꿰맨 듯) */
-const MINOR_HIT = 14, LAB_FS = 15, LAB_PX = 8, LAB_PY = 5, MINOR_FS = 10;   /* 작은 단추 누르는 칸 반지름 · 이름표 글자 크기·안쪽 여백 · 작은 이름 글씨 크기(캔버스 단위) */
+const FEAT_K: number = MINOR_K;   /* 10-29 사용자 요청: 강조 가게도 단추 크기는 작은 단추와 같게(위계는 천 이름표로만). 예전 크기로 되돌리려면 1 */
+const MINOR_HIT = 14, LAB_FS = 14, LAB_PX = 7.5, LAB_PY = 4.5, MINOR_FS = 10;   /* 작은 단추 누르는 칸 반지름 · 이름표 글자 크기·안쪽 여백 · 작은 이름 글씨 크기(캔버스 단위) */
 const SLOW = Math.max(1, Number(new URLSearchParams(location.search).get('patch_slow')) || 1);
 const T0 = 400 + 300;    /* 어둠(0.4s) + 잠깐(0.3s) 뒤에 보드가 펴지기 시작한다. 빨간 재단선 그리기는 10-23 사용자 요청으로 뺐다(전엔 +1.0s) */
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -202,15 +203,15 @@ export function mountBoard(o: BoardOptions): Board {
         [[-6, -6], [6, -6], [-6, 6], [6, 6]].forEach(([hx, hy]) => el('circle', { class: 'kb-hole', cx: hx, cy: hy, r: 2.8 }, inner));
         el('path', { class: 'kb-thr', d: 'M-6 -6 L6 6 M6 -6 L-6 6' }, inner);
       }
-      if (!feat) el('circle', { class: 'kb-hit', r: MINOR_HIT / (BTN_K * MINOR_K) }, inner);   /* 작은 단추도 손가락으로 누르기 쉽게(보이지 않는 칸) */
+      if (!feat || FEAT_K < 1) el('circle', { class: 'kb-hit', r: MINOR_HIT / (BTN_K * MINOR_K) }, inner);   /* 작은 단추도 손가락으로 누르기 쉽게(보이지 않는 칸) */
       /* 이름표: 큰 단추는 크림 천 조각 + 안쪽 홈질 + 이름, 작은 단추는 작은 이름 글씨만(외곽선). 캔버스 단위, 배율 없음 */
       const lw = labW(s.name, feat), lh = feat ? LAB_FS + LAB_PY * 2 : MINOR_FS + 3;
-      const lab = el('g', { class: 'kb-lg' + (feat ? '' : ' minor') }, feat ? labG : minorLabG);
+      const lab = el('g', { class: 'kb-lg' + (feat ? '' : ' minor') }, feat ? labG : minorLabG), li = el('g', { class: 'kb-lgi' }, lab);   /* li: 고를 때 커지는 안쪽(바깥 lab 은 자리 transform 속성이라 CSS transform 을 못 쓴다, 10-29) */
       if (feat) {
-        el('rect', { class: 'kb-tag', x: -lw / 2, y: -lh / 2, width: lw, height: lh, rx: 3 }, lab);
-        el('rect', { class: 'kb-tag-st', x: -lw / 2 + 2.5, y: -lh / 2 + 2.5, width: lw - 5, height: lh - 5, rx: 1.5 }, lab);
+        el('rect', { class: 'kb-tag', x: -lw / 2, y: -lh / 2, width: lw, height: lh, rx: 3 }, li);
+        el('rect', { class: 'kb-tag-st', x: -lw / 2 + 2.5, y: -lh / 2 + 2.5, width: lw - 5, height: lh - 5, rx: 1.5 }, li);
       }
-      const t = el('text', { class: feat ? 'kb-lab' : 'kb-lab kb-lab-s', x: 0, y: 0.5 }, lab); t.textContent = s.name;
+      const t = el('text', { class: feat ? 'kb-lab' : 'kb-lab kb-lab-s', x: 0, y: 0.5 }, li); t.textContent = s.name;
       const b: Btn = { id: s.id, name: s.name, cat, feat, img, ox: x, oy: y, x, y, k: BTN_K, r: 0, bund: false, pos, g: bo, inner, lab, lw, lh, lx: 0, ly: 0 };
       if (feat) b.lead = el('line', { class: 'kb-lead' }, leadG);
       bo.addEventListener('click', (e) => { e.stopPropagation(); o.onStore(s.id); });
@@ -223,7 +224,7 @@ export function mountBoard(o: BoardOptions): Board {
   /* ── 자리 정하기 ── */
   const near = (a: Btn, c: Btn, ax: number, ay: number, cx: number, cy: number) => Math.hypot(ax - cx, ay - cy) < a.r + c.r + GAP;
   function arrange(grp: Btn[]) {   /* 묶음 하나: 실제 자리들의 가운데로 모아 맞닿게 */
-    grp.forEach((b) => { b.k = grp.length > 1 ? BTN_K * BUND_K : BTN_K; b.r = radius(b); b.bund = grp.length > 1; b.bc = undefined; b.x = b.ox; b.y = b.oy; });
+    grp.forEach((b) => { b.k = BTN_K * FEAT_K * (grp.length > 1 && FEAT_K === 1 ? BUND_K : 1); b.r = radius(b); b.bund = grp.length > 1; b.bc = undefined; b.x = b.ox; b.y = b.oy; });
     if (grp.length < 2) return;
     const n = grp.length, cx = grp.reduce((t, b) => t + b.ox, 0) / n, cy = grp.reduce((t, b) => t + b.oy, 0) / n, r = grp[0].r;
     const chord = 2 * r * TOUCH, rho = n === 2 ? chord / 2 : chord / (2 * Math.sin(Math.PI / n));
@@ -326,7 +327,7 @@ export function mountBoard(o: BoardOptions): Board {
     }
   }
   function layout() {
-    btns.forEach((b) => { b.k = b.feat ? BTN_K : BTN_K * MINOR_K; b.r = radius(b); b.x = b.ox; b.y = b.oy; b.bund = false; });
+    btns.forEach((b) => { b.k = b.feat ? BTN_K * FEAT_K : BTN_K * MINOR_K; b.r = radius(b); b.x = b.ox; b.y = b.oy; b.bund = false; });
     /* ① 큰 단추 묶음: 실제 자리에서 겹치는 것끼리 → 모아 붙인 뒤 다른 묶음·단추와 또 겹치면 합쳐서 다시 */
     const feat = btns.filter((b) => b.feat);
     let groups: Btn[][] = [];
@@ -361,7 +362,10 @@ export function mountBoard(o: BoardOptions): Board {
   document.fonts?.ready.then(() => { if (btns.length) { btns.forEach((b) => { b.lw = labW(b.name, b.feat); const [r1, r2] = b.lab.querySelectorAll('rect'); if (r1 && r2) { r1.setAttribute('x', String(-b.lw / 2)); r1.setAttribute('width', String(b.lw)); r2.setAttribute('x', String(-b.lw / 2 + 2.5)); r2.setAttribute('width', String(b.lw - 5)); } }); layout(); } });   /* 글꼴이 늦게 오면 이름 폭을 다시 재고 자리도 다시 */
   const parts = (b: Btn) => [b.g, b.lab, ...(b.lead ? [b.lead] : [])];
   const applyBtnState = () => {
-    btns.forEach((b) => { const off = !!filter && b.cat !== filter, sel = b.id === selected; parts(b).forEach((e) => { e.classList.toggle('dim', off); e.classList.toggle('sel', sel); }); });
+    btns.forEach((b) => { const off = !!filter && b.cat !== filter, sel = b.id === selected, was = b.g.classList.contains('sel');
+      if (was !== sel) b.g.style.animationDelay = '';   /* 업종 고를 때 붙은 순차 지연을 물려받지 않게 */
+      [b.g, b.lab].forEach((e) => { if (was && !sel) e.classList.add('unsel'); else if (sel) e.classList.remove('unsel'); });   /* 선택이 풀리면 1.4배에서 부드럽게 돌아온다(떼기만 하면 등장 모션이 다시 돈다, 10-29) */
+      parts(b).forEach((e) => { e.classList.toggle('dim', off); e.classList.toggle('sel', sel); }); });
   };
   const shownBtns = () => btns.slice().sort((a, b) => a.x - b.x);   /* 등장(rest) 순서: 왼쪽부터 */
 
@@ -419,9 +423,11 @@ export function mountBoard(o: BoardOptions): Board {
   function setFilter(cat: string | null) {
     if (filter !== cat) {
       const before = new Set(btns.filter(visible).map((b) => b.id)); filter = cat;
-      btns.forEach((b) => { if (!visible(b)) { b.g.classList.remove('pop'); b.g.style.animationDelay = ''; } });
+      btns.forEach((b) => { if (!visible(b)) { b.g.classList.remove('pop', 'pop2'); b.g.style.animationDelay = ''; } });
       applyBtnState();
-      btns.filter((b) => visible(b) && !before.has(b.id)).sort((a, b) => a.x - b.x).forEach((b, i) => { if (!b.g.classList.contains('in')) return; void b.g.getBBox(); b.g.style.animationDelay = `${Math.min(i * 35, 350)}ms`; b.g.classList.add('pop'); });
+      /* 10-29: 처음(전체 → 한 업종)에도 모션이 보이게 — 새로 보이게 된 단추만이 아니라 남는 단추 전부가 톡. 이미 pop 이 붙은 단추는 같은 모양의 pop2 로 바꿔 끼워 애니메이션을 다시 돌린다(떼면 kb-slam 이 돈다) */
+      void before;
+      btns.filter(visible).sort((a, b) => a.x - b.x).forEach((b, i) => { if (!b.g.classList.contains('in')) return; const again = b.g.classList.contains('pop'); b.g.classList.remove(again ? 'pop' : 'pop2'); b.g.classList.remove('unsel'); b.g.style.animationDelay = `${Math.min(i * 35, 350)}ms`; b.g.classList.add(again ? 'pop2' : 'pop'); });
     } else applyBtnState();
     ul.querySelectorAll('li').forEach((li) => li.classList.toggle('active', (li as HTMLElement).dataset.cat === filter)); }
   /* 리넨: 타일 사진을 캔버스에 깔아 큰 그림 하나로(<pattern> 은 줌아웃에서 줄무늬) */
@@ -472,9 +478,10 @@ export function mountBoard(o: BoardOptions): Board {
       at(() => { if (my === run) onChief(); }, tTitle + 500);                                             /* ⑧ 이장님(엔진) */
     },
     skip,
-    rest() { html.classList.add('kb-rest'); legend.classList.add('show'); if (btnsOn) return; btnsOn = true; const my = run; let fi = 0, mi = 0; shownBtns().forEach((b) => { const t = b.feat ? 250 + fi++ * 120 : 400 + mi++ * 40; at(() => { if (my === run) parts(b).forEach((e) => e.classList.add('in')); }, t); }); },   /* 큰 단추는 왼쪽부터 탕탕, 작은 단추는 그 사이로 촘촘히 */   /* ⑨ 범례·주민·단추(차례로 탕탕) */
+    rest() { html.classList.add('kb-rest'); legend.classList.add('show'); if (btnsOn) return; btnsOn = true; const my = run; at(() => { if (my === run) btns.forEach((b) => b.g.classList.add('in')); }, 250);
+      at(() => { if (my === run) btns.forEach((b) => [b.lab, b.lead].forEach((e) => e?.classList.add('in'))); }, 250 + 450); },   /* 이름표·실은 단추가 다 나온 뒤 한꺼번에(10-29) */   /* 단추가 모두 한꺼번에(0.25s), 단추 모션이 끝날 무렵 이름표·실이 한꺼번에 — 10-29 */   /* ⑨ 범례·주민·단추(차례로 탕탕) */
     hide() { ++run; on = false; reset(); g.classList.remove('mounted'); },
-    setStores, setFilter, select(id) { selected = id; applyBtnState(); },
+    setStores, setFilter, select(id) { selected = id; applyBtnState(); const b = btns.find((q) => q.id === id); if (b) [b.pos, b.lab, b.lead].forEach((e) => e?.parentNode?.appendChild(e)); },   /* 고른 단추·이름표·실은 커지므로 각 층의 맨 앞으로(10-29) */
     focusList: () => btns.filter((b) => !filter || b.cat === filter).sort((a, b) => a.x - b.x).map((b) => { const [x, y] = toMap([b.x, b.y]); return { id: b.id, x, y }; }),
     focus(id) { btns.forEach((b) => parts(b).forEach((e) => e.classList.toggle('focus', b.id === id))); },   /* 비추는 단추는 콩콩, 작은 단추는 이름표도 */
   };
