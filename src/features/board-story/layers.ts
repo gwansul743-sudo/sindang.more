@@ -13,7 +13,7 @@ export interface LayerCtx {
   slot(el: HTMLElement | null): void;                      // 상자 본문 아래 칸(범례·조작 막대). 닫히면 story.ts 가 비운다
   cover(el: HTMLElement | null): void;
   close(): void;                                           // 이야기 닫기(길잡이 '보드')                     // 상자 본문 자리를 잠시 이것으로(건물 카드). null 이면 본문으로
-  hold(on: boolean): void;                                 // true 인 동안 이야기 45초 자동 닫기를 멈춘다(자동 재생 중)
+  hold(on: boolean): void;                                 // true 인 동안 이야기 90초 자동 닫기를 멈춘다(자동 재생 중)
   host: HTMLElement;                                       // #map — HTML 겹(디오라마 무대)을 붙일 칸
   island: number[][];                                      // 섬 덩어리(보드 캔버스 좌표)
   openPhoto(urls: string[], i: number, label: string): void;   // 사진 크게 보기

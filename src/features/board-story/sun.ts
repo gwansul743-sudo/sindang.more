@@ -13,7 +13,7 @@ import { kbLog } from '../../shared/lib/kbLog';
        끌기 = 옮기기, 휠 = 확대(1–4배, 커서 기준), 다른 건물 누르기 = 그 건물로(0.3초에 가운데로, 영상 없음).
      level 1(위에서 본 신당)도 같은 조작(TASK_16): 끌기 = 옮기기, 휠 = 확대(맞춤의 1–4배, 커서 기준), 5 px 넘게 끈 것은 누르기가 아니다.
        옮기거나 키운 채로 고르면 지금 카메라에서 바로 기울며 다가간다(튀지 않는다).
-     한 단계 위로: ✕ · Esc · 길잡이(보드 › 위에서 본 신당 › 건물) · '‹ 위에서 보기' · 45초 무입력(story.ts).
+     한 단계 위로: ✕ · Esc · 길잡이(보드 › 위에서 본 신당 › 건물) · '‹ 위에서 보기' · 90초 무입력(story.ts).
      상자 접기(TASK_18): 고르기 장의 level 1·2 는 상자를 접어 3D 도시가 폭을 다 쓴다(글이 많은 다른 장은 편 채로). level 2 에 내려앉으면 상자를 4초 동안
        덮어 펴 카드 첫 줄을 보이고 다시 접는다(가리키고 있으면 그대로). 지도 위 정보 카드의 '자세히 ›' 가 상자를 편다. 사람이 고른 것은 장이 바뀔 때까지.
      햇볕 지도(TASK_15): 내려앉고 1.2초 뒤 저절로 켜진다(끄면 이야기가 열려 있는 동안 기억). 켜진 동안 시간 흐름은 멈추고(하루 전체 결과라서)
@@ -176,11 +176,11 @@ export const diorama: Renderer = async (c: LayerCtx) => {
   }
   function setDate(d: string) { const h = frames(date)[idx]?.h ?? 12; date = d; idx = frameAt(d, h); preload(frames(d).map((f) => f.file)); paint(); select?.refresh(); }   /* 고른 건물은 그대로, 날짜 값만 다시 */
   function setIdx(i: number) { idx = Math.max(0, Math.min(frames(date).length - 1, i)); paint(); }
-  /* 재생(▶, 기울어진 전체 보기): 저녁까지 돌고 마지막 장면에서 1.5초 쉬었다가 처음부터. 재생 중엔 이야기 45초 자동 닫기를 멈춘다 */
+  /* 재생(▶, 기울어진 전체 보기): 저녁까지 돌고 마지막 장면에서 1.5초 쉬었다가 처음부터. 재생 중엔 이야기 90초 자동 닫기를 멈춘다 */
   const tick = () => { if (!c.alive() || !timer) { stop(); return; } setIdx(idx >= frames(date).length - 1 ? 0 : idx + 1); timer = window.setTimeout(tick, idx >= frames(date).length - 1 ? STEP_MS + LOOP_REST_MS : STEP_MS); };
   function start() { if (timer || !c.alive()) return; c.hold(true); timer = window.setTimeout(tick, STEP_MS); paint(); }
   function stop() { if (!timer) return; clearTimeout(timer); timer = 0; c.hold(false); if (c.alive()) paint(); }
-  /* level 2: 시간이 저절로 흐른다(1.2초에 한 시간). 45초 자동 닫기는 막지 않는다 — 가만히 두면 한 단계씩 물러난다 */
+  /* level 2: 시간이 저절로 흐른다(1.2초에 한 시간). 90초 자동 닫기는 막지 않는다 — 가만히 두면 한 단계씩 물러난다 */
   const liveTick = () => { liveT = 0; if (!c.alive() || !live || level !== 2 || heatOn) return; setIdx(idx >= frames(date).length - 1 ? 0 : idx + 1); liveT = window.setTimeout(liveTick, idx >= frames(date).length - 1 ? LIVE_MS + LOOP_REST_MS : LIVE_MS); };
   function startLive() { live = true; clearTimeout(liveT); liveT = window.setTimeout(liveTick, LIVE_MS); }
   function pauseLive() { clearTimeout(liveT); liveT = 0; }
@@ -333,7 +333,7 @@ export const diorama: Renderer = async (c: LayerCtx) => {
   }
 
   const api: LayerCtl = {
-    back: () => { if (level === 2) { zoomOut(); return true; } return !!select?.clear(); },   /* ✕·Esc·길잡이·45초: 한 단계 위로 */
+    back: () => { if (level === 2) { zoomOut(); return true; } return !!select?.clear(); },   /* ✕·Esc·길잡이·90초: 한 단계 위로 */
     page(_i, p) {
       const L = (p.layer || {}) as PageL; pageL = L;
       stop(); gaugeG?.remove(); gaugeG = null; camBack();

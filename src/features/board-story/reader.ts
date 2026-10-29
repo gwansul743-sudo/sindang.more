@@ -6,7 +6,7 @@ import { pageHtml } from './pageHtml';
    ‹ › · ← → 로 앞뒤 쪽, '전체 쪽 보기' 로 돌아가기, 휠·끌기로 확대·이동(1×–2.5×), 두 번 누르면 원래대로.
    오른쪽(약 32%): 이야기 상자와 같은 글(제목·글쓴이·질문·본문·출처, pageHtml) + ✕.
    PDF 보기(도구 막대·내려받기·인쇄)는 어디에도 없다. 열 때 그 논문의 작은 그림을 받고, 큰 쪽은 열 때 + 다음 쪽.
-   · 닫기: ✕, Esc(큰 쪽 → 쪽 목록 → 닫기), 3분 동안 입력이 없으면 스스로. 이야기 45초 자동 닫기는 열린 동안 멈춘다(story.ts). */
+   · 닫기: ✕, Esc(큰 쪽 → 쪽 목록 → 닫기), 3분 동안 입력이 없으면 스스로. 이야기 90초 자동 닫기는 열린 동안 멈춘다(story.ts). */
 export interface Reader { readonly open: boolean; show(pdf: string, p: StoryPage): void; close(silent?: boolean): void; poke(): void; key(e: KeyboardEvent): void }
 interface Manifest { theses: Record<string, { pages: number; w: number; h: number }> }
 

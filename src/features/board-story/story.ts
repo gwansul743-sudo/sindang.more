@@ -14,7 +14,7 @@ import { kbLog } from '../../shared/lib/kbLog';
    · 겹 그림(layer): 주제 JSON 에 layer 가 있으면 열 때 storyLayer 에 그리고 닫을 때 DOM 에서 지운다(요소 수 = 팬·줌 렉, CLAUDE.md §8).
      그리는 쪽은 layers.ts 의 RENDERERS[type](별자리 constellation …). 장마다 page() 로 상태를 바꾼다(장의 layer 칸은 렌더러가 읽는다).
    · 장: h 제목 → author(작은 줄) → q(손글씨 한 줄 질문) → body → src(작게) → pdf 가 있으면 '논문 원문 보기'(reader.ts — 새 탭·PDF 보기 없이 쪽 그림을 펼쳐 읽는 틀).
-   · 닫기: ✕·Esc·보드 빈 곳. 카메라·단추·필터는 건드리지 않는다. 열린 채 45초 입력이 없으면 스스로 닫혀 자동 순환이 다시 돈다.
+   · 닫기: ✕·Esc·보드 빈 곳. 카메라·단추·필터는 건드리지 않는다. 열린 채 90초 입력이 없으면 스스로 닫혀 자동 순환이 다시 돈다.
    · 주제 JSON(content/board-story/*.json)은 처음 열 때 받는다(첫 화면 무게). 늦게 도착한 것은 seq 로 버린다.
    순수 UI: 엔진 상태는 옵션 함수로만 묻는다. */
 export interface StoryPage { h: string; body: string; img?: string | { file: string; cap?: string } | null; src?: string | null; author?: string | null; q?: string; pdf?: string | null; layer?: Record<string, unknown> | null }
@@ -52,7 +52,7 @@ async function loadTopic(id: string): Promise<StoryTopic | null> {
   const f = LOAD[`../../../content/board-story/${id}.json`]; if (!f) return null;
   return (cache[id] = await f());
 }
-const IDLE_CLOSE_MS = Number(new URLSearchParams(location.search).get('story_idle')) || 45000,   /* ?story_idle=ms: 확인용으로 줄이기 */
+const IDLE_CLOSE_MS = Number(new URLSearchParams(location.search).get('story_idle')) || 90000,   /* ?story_idle=ms: 확인용으로 줄이기 */
   HINT_MS = 9000, SHRINK = 0.15, MIN_HIT = 44;
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const NS = 'http://www.w3.org/2000/svg';
@@ -62,7 +62,7 @@ export function mountStory(o: StoryOptions): BoardStory {
   let cur: { topic: string; el: SVGGraphicsElement } | null = null, data: StoryTopic | null = null, page = 0, seq = 0;
   let panel: HTMLElement | null = null, dim: SVGPathElement | null = null, idleT = 0, hot: { topic: string; el: SVGGraphicsElement } | null = null, raf = 0, ctl: LayerCtl | null = null, held = false;
   const islandPts = (o.islandPath.match(/-?\d+\.?\d*/g) || []).map(Number).reduce<number[][]>((a, v, i, arr) => { if (i % 2 === 0) a.push([v, arr[i + 1]]); return a; }, []);   /* 섬 덩어리 꼭짓점(캔버스) */
-  const pdf = mountReader(() => { if (cur) armIdle(); });   /* 논문 읽기 틀이 닫히면 45초를 다시 센다(열린 동안은 멈춤) */
+  const pdf = mountReader(() => { if (cur) armIdle(); });   /* 논문 읽기 틀이 닫히면 90초를 다시 센다(열린 동안은 멈춤) */
   const hook = mountSpeech(o.host, {
     anchor: () => { if (!hot) return null; const r = hot.el.getBoundingClientRect(), m = o.host.getBoundingClientRect(); return { x: r.left + r.width / 2 - m.left, y: r.top + r.height * 0.1 - m.top }; },
     bounds: () => { const m = o.host.getBoundingClientRect(); return { left: 0, top: 0, width: m.width, height: m.height }; },
@@ -197,7 +197,7 @@ export function mountStory(o: StoryOptions): BoardStory {
     const src = imgSrc(p, imgBase(d.id)), cap = p.img && typeof p.img === 'object' ? p.img.cap || '' : '';
     panel!.querySelector('.kb-story-figbtn')?.addEventListener('click', () => o.openPhoto?.([src], 0, cap));
     const nx = d.pages[page + 1]; if (nx?.img) { const im = new Image(); im.src = imgSrc(nx, imgBase(d.id)); }   /* 다음 장 그림 미리 */
-    panel!.querySelector('.kb-story-pdf')?.addEventListener('click', () => { if (p.pdf) { clearTimeout(idleT); pdf.show(p.pdf, p); } });   /* 틀이 열린 동안 45초 자동 닫기는 멈춘다 */
+    panel!.querySelector('.kb-story-pdf')?.addEventListener('click', () => { if (p.pdf) { clearTimeout(idleT); pdf.show(p.pdf, p); } });   /* 틀이 열린 동안 90초 자동 닫기는 멈춘다 */
     panel!.querySelector('.kb-story-dots')!.innerHTML = d.pages.map((_, i) => `<i${i === page ? ' class="on"' : ''}></i>`).join('');
     panel!.querySelector('.kb-story-sdots')!.innerHTML = d.pages.map((_, i) => `<button type="button" data-p="${i}"${i === page ? ' class="on" aria-current="page"' : ''} aria-label="${i + 1}장"></button>`).join('');   /* 접힌 띠의 점 = 그 장으로 */
     if (page !== foldPage) { foldPage = page; userFold = null; }   /* 사람이 고른 접기는 장이 바뀔 때까지 */
@@ -232,9 +232,9 @@ export function mountStory(o: StoryOptions): BoardStory {
   function goTo(i: number) { if (!data) return; const n = Math.max(0, Math.min(data.pages.length - 1, i)); if (n !== page) { page = n; render(); } }
   const go = (dp: number) => goTo(page + dp);
 
-  /* 열린 동안: 입력이 오면 45초를 다시 센다, ← → Esc */
+  /* 열린 동안: 입력이 오면 90초를 다시 센다, ← → Esc */
   const step = (why: string) => { if (!ctl?.back?.()) return false; kbLog('story:level-up', `${cur?.topic} · ${why}`); return true; };   /* 한 단계 위로(고른 건물 풀기 등) */
-  const armIdle = () => { clearTimeout(idleT); on(); if (held) return; const my = seq; idleT = window.setTimeout(() => { if (my !== seq || !cur) return; if (step(`무입력 ${IDLE_CLOSE_MS / 1000}초`)) armIdle(); else close(false, `무입력 ${IDLE_CLOSE_MS / 1000}초`); }, IDLE_CLOSE_MS); };   /* 45초: 한 단계씩 물러난다(해 이야기 건물 → 위에서 본 신당 → 보드) */
+  const armIdle = () => { clearTimeout(idleT); on(); if (held) return; const my = seq; idleT = window.setTimeout(() => { if (my !== seq || !cur) return; if (step(`무입력 ${IDLE_CLOSE_MS / 1000}초`)) armIdle(); else close(false, `무입력 ${IDLE_CLOSE_MS / 1000}초`); }, IDLE_CLOSE_MS); };   /* 90초(ANSWER_20 A, 전엔 45초): 한 단계씩 물러난다(해 이야기 건물 → 위에서 본 신당 → 보드) */
   const onInput = () => { if (pdf.open) pdf.poke(); else if (cur && data && !held) armIdle(); };   /* 논문 틀이 열린 동안엔 그 3분만 센다 */
   const onKey = (e: KeyboardEvent) => {
     if (!cur || !data) return;
@@ -242,7 +242,7 @@ export function mountStory(o: StoryOptions): BoardStory {
     if (e.key !== 'Escape' && e.target instanceof HTMLInputElement) return;   /* 막대(range)에 포커스가 있으면 ← → 는 막대 것 */
     if (e.key === 'Escape') { e.preventDefault(); if (e.repeat) return; if (!step('Esc')) close(false, 'Esc'); }   /* 꾹 눌러 반복되는 Esc 는 한 번만(TASK_20) */ else if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); } else if (e.key === 'ArrowRight') { e.preventDefault(); go(1); }
   };
-  /* 탭이 숨으면(창 내림·다른 창) 45초를 멈추고, 돌아오면 새로 센다(TASK_20) — 숨은 동안 이야기가 닫혀 있던 것 */
+  /* 탭이 숨으면(창 내림·다른 창) 90초를 멈추고, 돌아오면 새로 센다(TASK_20) — 숨은 동안 이야기가 닫혀 있던 것 */
   document.addEventListener('visibilitychange', () => { if (!cur || !data) return; if (document.hidden) { clearTimeout(idleT); kbLog('story:idle-pause', '탭 숨김'); } else armIdle(); });
   let listening = false;
   const IN = ['pointerdown', 'pointermove', 'wheel', 'touchstart'] as const;

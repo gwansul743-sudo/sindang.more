@@ -427,11 +427,11 @@ export function bootLegacy(DATA){
   kioskBtn.onclick = () => { KIOSK=!KIOSK; renderKiosk(); if(introOpen) return; if(KIOSK){ showChief(false); closeCard(); kioskView(); } else kioskOff(); };
   renderKiosk();
   /* 쉬고 있을 때의 모습: 범례가 뜬 뒤 30초 동안 아무 입력이 없으면 카메라만 보드 전체 뷰로 돌아온다(연출은 다시 틀지 않는다) */
-  /* 자동 순환(10-23): 전시 보드가 쉬는 상태(rest)에서 30초 동안 입력이 없으면 가게 단추를 하나씩 줌인해 비춘다(6초씩, 왼쪽→오른쪽).
-     한 바퀴 뒤엔 보드 전체를 6초 보여 주고 다시. 범례 필터가 켜져 있으면 그 업종만. 클릭·터치·휠·키가 오면 바로 멈추고 다시 30초를 센다.
+  /* 자동 순환(10-23): 전시 보드가 쉬는 상태(rest)에서 IDLE_MS(20초) 동안 입력이 없으면 가게 단추를 하나씩 줌인해 비춘다(6초씩, 왼쪽→오른쪽).
+     한 바퀴 뒤엔 보드 전체를 6초 보여 주고 다시. 범례 필터가 켜져 있으면 그 업종만. 클릭·터치·휠·키가 오면 바로 멈추고 다시 20초를 센다.
      비출 때마다 단추를 눌렀을 때처럼 가게 카드(오른쪽 사이드바·폰 바텀시트)를 연다. 사이드바가 다 펴진 뒤(withSide) 카메라를 옮긴다 — 같이 돌리면 흔들린다.
      한 바퀴 끝의 보드 전체 뷰에선 카드를 닫고 사이드바를 접는다. 사람이 끼어들어 멈추면 열린 카드는 그대로 둔다 */
-  const IDLE_MS = 4000, DWELL_MS = 6000;
+  const IDLE_MS = 20000, DWELL_MS = 6000;   /* 20초(ANSWER_20 A, 전엔 4초): 이야기를 막 닫았거나 읽던 사람을 바로 내쫓지 않게 */
   let idleT = null, cycleT = null, cycleI = 0, cycling = false;
   const canCycle = () => KIOSK && board && !introOpen && kioskStage === 'rest' && !viewer.visible && !talk.visible && !speech.visible && !vTalk.visible && !vSpeech.visible && !clusterAt && !videoPlaying() && !story?.open && !document.hidden;   /* 이야기 상자가 열린 동안에도(10-28). 묶음 말풍선을 보고 있는 동안·영상 재생 중에도 쉬지 않는다 */
   /* 영상 재생 중엔 자동 순환을 하지 않는다(10-26). 카드의 <video> 는 paused 로 바로 안다. 유튜브·구글 드라이브 iframe 은 다른 출처라 재생 여부를 못 읽으니
@@ -497,7 +497,7 @@ export function bootLegacy(DATA){
   ['pointerup', 'pointercancel'].forEach(ev => window.addEventListener(ev, e => { downs.delete(e.pointerId); idle(); }, opt));
   window.addEventListener('blur', () => { downs.clear(); setTimeout(() => { if(inCardFrame()){ frameAt = performance.now(); idle(); } }); });   /* iframe 안을 누르면 창이 blur — 그때부터 재생 중 */
   ['play', 'pause', 'ended'].forEach(ev => window.addEventListener(ev, idle, opt));   /* <video> 재생·멈춤(버블 안 하는 이벤트라 capture 로). 멈추면 거기서부터 다시 센다 */
-  document.addEventListener('visibilitychange', () => { if(document.hidden){ clearTimeout(idleT); clearTimeout(homeIdleT); kbLog('idle:pause', '탭 숨김'); } else idle(); });   /* 숨은 동안 4초 자동 순환을 걸지 않고, 돌아오면 새로 센다(TASK_20) */
+  document.addEventListener('visibilitychange', () => { if(document.hidden){ clearTimeout(idleT); clearTimeout(homeIdleT); kbLog('idle:pause', '탭 숨김'); } else idle(); });   /* 숨은 동안 자동 순환을 걸지 않고, 돌아오면 새로 센다(TASK_20) */
   idle();
   function wake(){}   /* 예전엔 30초 뒤 자동 전환을 다시 걸었다. 호출 자리는 남겨 둔다 */
 
