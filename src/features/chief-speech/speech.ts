@@ -3,11 +3,11 @@ import './speech.css';
 /* 이장님 말풍선 — 전시 모드에서 카메라가 이장님에게 당겨진 뒤, 머리 위에 대사가 한 줄씩 뜬다(동물의 숲식 타자).
    · say(lines): 첫 줄을 타자로 찍고, 다 찍히면 holdMs 뒤 다음 줄. 마지막 줄은 hide() 때까지 남는다.
    · 말풍선을 누르면 바로 다음 줄(찍는 중이면 끝까지 바로 찍음).
-   · place(): 매 프레임 anchor()(이장님 머리 위 화면 좌표, #stage 기준)에 맞춰 옮긴다. 지도 칸 안으로 가둔다.
+   · place(): 매 프레임 anchor()(이장님 머리 위 화면 좌표, #map 기준)에 맞춰 옮긴다. 화면 끝에 가두지 않는다(가로만 조금 안쪽으로).
    · **굵게** 는 <b> 로(강조색). 순수 UI: 지도 엔진·데이터를 모른다. */
 export interface SpeechOptions {
-  anchor: () => { x: number; y: number } | null;   // 말풍선 꼬리 끝이 닿을 자리 (#stage 안 px). null 이면 숨김
-  bounds: () => { left: number; top: number; width: number; height: number };   // 가둘 영역 (#map, #stage 안 px)
+  anchor: () => { x: number; y: number } | null;   // 말풍선 꼬리 끝이 닿을 자리 (#map 안 px). null 이면 숨김
+  bounds: () => { left: number; top: number; width: number; height: number };   // 지도 칸 (#map 안 px) — 가로로 안쪽에 밀어 넣을 때만 쓴다
   charMs?: number; holdMs?: number;
   onEnd?: () => void;                              // 마지막 줄이 holdMs 동안 보인 뒤(또는 마지막 줄에서 클릭) 한 번. hide() 로 끊기면 안 부름
 }
@@ -77,9 +77,11 @@ export function mountSpeech(stage: HTMLElement, o: SpeechOptions): Speech {
   function place() {
     if (!visible) return;
     const a = o.anchor(); if (!a) { el.style.visibility = 'hidden'; return; }
-    const b = o.bounds(), r0 = el.getBoundingClientRect(), w = r0.width || 260, h = r0.height || 80;   /* 화면 px 기준(zoom 반영) */
-    const x = Math.max(b.left + w / 2 + 6, Math.min(b.left + b.width - w / 2 - 6, a.x));
-    const y = Math.max(b.top + h + 6, a.y - 10);
+    const b = o.bounds(), w = el.getBoundingClientRect().width || 260;   /* 화면 px 기준(zoom 반영) */
+    /* 말풍선은 언제나 사람 머리 위(10-28): 화면 끝에 가두지 않는다 — 가두면 지도를 움직일 때 말풍선만 화면 가장자리에 붙어 따라와 오류처럼 보였다.
+       가로만 꼬리가 몸 위에 남는 만큼(w/2 - 16)까지 안쪽으로 밀어 준다. 사람이 칸 밖으로 나가면 말풍선도 같이 나가 잘린다(#map overflow) */
+    const reach = Math.max(0, w / 2 - 16), xIn = Math.max(b.left + w / 2 + 6, Math.min(b.left + b.width - w / 2 - 6, a.x));
+    const x = Math.max(a.x - reach, Math.min(a.x + reach, xIn)), y = a.y - 10;
     const z = parseFloat(getComputedStyle(el).zoom as string) || 1;   /* 큰 화면에서 CSS zoom 이 걸리면 좌표도 그만큼 나눠야 제자리 */
     el.style.visibility = ''; el.style.left = x / z + 'px'; el.style.top = y / z + 'px';
     (el.querySelector('.sp-tail') as HTMLElement).style.left = `calc(50% - 7px + ${((a.x - x) / z).toFixed(1)}px)`;   /* 꼬리는 이장님 쪽으로 */

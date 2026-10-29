@@ -70,7 +70,7 @@ export class Walker implements Actor {
     r.style.pointerEvents = 'visible';   /* 'all' 은 숨긴(visibility:hidden) 주민도 마우스를 받아, 이장님 대화 중 안 보이는 주민의 말풍선이 떴다(10-23) */ this.g.style.cursor = 'pointer'; this.g.insertBefore(r, this.g.firstChild); this.hit = r as SVGRectElement;
   }
 
-  /* 머리 위 빨간 세모(이장님과 같은 NPC 표시) — 시민이 구글폼으로 인터뷰를 남겨 생긴 주민에게만 붙인다(10-23 사용자 결정). 도안은 chief.json 의 mark */
+  /* 머리 위 세모(이장님과 같은 NPC 표시) — 시민이 구글폼으로 인터뷰를 남겨 생긴 주민에게만 붙인다(10-23 사용자 결정). 도안은 chief.json 의 mark, 색은 부르는 쪽이 준다(폼 주민은 초록 formColors, 10-28) */
   private mark: SVGGElement | null = null; private markB = -1;
   showMark(M: { outline: string; fill: string; shine: string; colors: { outline: string; fill: string; shine: string } }) {
     if (this.mark) return;

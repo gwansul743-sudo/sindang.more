@@ -5,7 +5,8 @@
    · 폼을 낸 사람은 모두 띄운다(10-28). 답이 적으면 맺음말('더 이상 할 말은 없네요.' 등)로 채운다. 최소 2장(소개 + 맺음말).
    · 순서: 소개 → 손님 → 생각(파트 A) → 우리만 하는 것(문8-1) → 골목 이야기(문9-1) → 10년 뒤(문30, 절반만) → 맺음말.
      장마다 말투 틀이 여러 벌이고 응답 id 를 씨앗으로 고른다. '~요?' 되받기 틀('10년 뒤요?')은 한 대본에 한 번까지.
-   · 응답자 글: 65자를 넘으면 첫 문장만, 첫 문장도 넘거나 전화·주소창·메일·욕설이 보이면 그 장을 뺀다(공개 전시). 40자가 넘는 글은 틀 없이 그대로.
+   · 응답자 글: Apps Script 가 AI 로 다듬은 정돈본('AI 정돈|문8-1')이 있으면 그것을, 없으면 원문을 쓴다. 정돈본이 '(빼기)'면 그 장을 뺀다(AI 가 공개하기 어렵다고 본 글).
+     65자를 넘으면 첫 문장만, 첫 문장도 넘거나 전화·주소창·메일·욕설이 보이면 그 장을 뺀다(공개 전시). 40자가 넘는 글은 틀 없이 그대로.
    · 6장·240자를 넘으면 맺음말 → 생각 둘째 장 → 손님 → 10년 뒤 순으로 덜어낸다.
    · 같은 응답이면 언제 만들어도 같은 대본. hook 은 따로 씨앗을 써서, hook 목록을 늘려도 본문은 바뀌지 않는다. */
 
@@ -69,7 +70,7 @@ const norm = (s: string) => s.replace(/\s+/g, ' ').replace(/[‘’`]/g, "'").tr
 const SAY_BY_TEXT = new Map<string, { n: number; say: string }>();
 SAY.forEach(([n, oldT, newT, say]) => { SAY_BY_TEXT.set(norm(oldT), { n: +n, say }); SAY_BY_TEXT.set(norm(newT), { n: +n, say }); });
 
-const BAD = [/\d{2,4}[-.\s]?\d{3,4}[-.\s]?\d{4}/, /https?:|www\.|\.com|\.kr|\.net/i, /@[\w-]+\./, /씨발|시발|ㅅㅂ|ㅆㅂ|병신|ㅂㅅ|개새|좆|존나|졸라|미친놈|미친년|꺼져|닥쳐/];
+const BAD = [/\[가림\]/, /[ㄱ-ㅎㅏ-ㅣ]/, /\d{2,4}[-.\s]?\d{3,4}[-.\s]?\d{4}/, /https?:|www\.|\.com|\.kr|\.net/i, /@[\w-]+\./, /씨발|시발|ㅅㅂ|ㅆㅂ|병신|ㅂㅅ|개새|좆|존나|졸라|미친놈|미친년|꺼져|닥쳐/];
 /* 응답자 글 정리: 50자 넘으면 첫 문장만, 그래도 넘거나 위험하면 null. 끝에 문장부호가 없으면 마침표만 붙인다(뜻은 그대로) */
 export function cleanFree(raw: string | undefined, max = 50): string | null {
   if (!raw) return null;
@@ -120,8 +121,13 @@ export function buildFormScript(id: string, answers: FormAnswers | null | undefi
     : pick([`주중엔 ${age} 손님이 많아요.`, `평일엔 주로 ${age} 분들이 오세요.`, `손님은 ${age}${iga(age)} 제일 많아요.`]);
   if (c1 || c2) pages.push({ key: 'customers', text: [c1, c2].filter(Boolean).join(' ') });
   /* 4·5 를 먼저 읽어 둔다 — 응답자 글이 없으면 파트 A 를 한 장 더 쓴다 */
-  const only = last(/^문8\./) === '없다' ? null : cleanFree(last(/^문8-1\./), 65);
-  const story = last(/^문9\./) === '없다' ? null : cleanFree(last(/^문9-1\./), 65);
+  const freeText = (n: string) => {   /* AI 정돈본 우선 → 없으면 원문. '(빼기)'면 그 장 없음 */
+    const ai = last(new RegExp(`^AI 정돈\\|문${n}$`));
+    if (ai === '(빼기)') return null;
+    return cleanFree(ai || last(new RegExp(`^문${n}\\.`)), 65);
+  };
+  const only = last(/^문8\./) === '없다' ? null : freeText('8-1');
+  const story = last(/^문9\./) === '없다' ? null : freeText('9-1');
   /* 3. 생각 — 파트 A: '매우 그렇다' 문장(없으면 '그렇다'). 한 장에 둘까지(60자 이하일 때), 응답자 글이 없으면 남은 문장으로 한 장 더 */
   const strong: string[] = [], agree: string[] = [], seen = new Set<number>();
   for (const [key, v] of pairs) {

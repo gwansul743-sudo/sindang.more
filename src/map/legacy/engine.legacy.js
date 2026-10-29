@@ -271,9 +271,10 @@ export function bootLegacy(DATA){
     sideDone = done; stage.addEventListener('transitionend', onEnd); }
   let chiefActor = null, catActor = null, chiefHome = null;   /* 이장님 배우 (WALKERS 에서 채움) — 말풍선이 머리 위를 따라간다. chiefHome: 평소 자리 */
   const talk = mountTalk(stage, { onEnd: () => kioskRest() });   /* 큰 말풍선(인터뷰). 작은 말풍선의 인사가 끝나면 시작. 마지막 장이 닫히면 범례·주민 */
-  const speech = mountSpeech(stage, {
-    anchor: () => { if(!chiefActor || chiefActor.g.getAttribute('display') === 'none') return null; const r = chiefActor.g.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { x: r.left + r.width / 2 - st.left, y: r.top - st.top }; },
-    bounds: () => { const m = map.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { left: m.left - st.left, top: m.top - st.top, width: m.width, height: m.height }; },
+  /* 말풍선은 #map 안(10-28): 범례·확대 버튼·카드·관리 창 같은 UI 를 덮지 않고 그 아래로 지나간다(speech.css z-index) */
+  const speech = mountSpeech(map, {
+    anchor: () => { if(!chiefActor || chiefActor.g.getAttribute('display') === 'none') return null; const r = chiefActor.g.getBoundingClientRect(), st = map.getBoundingClientRect(); return { x: r.left + r.width / 2 - st.left, y: r.top - st.top }; },
+    bounds: () => { const m = map.getBoundingClientRect(); return { left: 0, top: 0, width: m.width, height: m.height }; },
     onEnd: () => { if(KIOSK && !introOpen && kioskStage === 'play' && DATA.chiefTalk) talk.start(DATA.chiefTalk); },
   });
   const CHIEF_LINES = ['오호! 처음 보는 얼굴이구먼!\n**신당 5길**에 어서와!!', '잠깐 이야기 좀 듣고 갈 텐가?'];
@@ -285,11 +286,13 @@ export function bootLegacy(DATA){
   /* hover 판정 보조: 그 자리 맨 위에 실제로 이 캐릭터가 있나(가게 점·말풍선·패널 등에 가려져 있으면 아니다). 커서 밑으로 걸어 들어온 경우도 이것으로 본다 */
   const topAt = (g, P) => { const t = document.elementFromPoint(P.cx, P.cy); return !!t && g.contains(t); };
   /* 전시 보드에선 충분히 다가갔을 때만 hover 말풍선(10-26 사용자 요청): 보드 전체 화면(kioskTarget)에서 + 버튼(×1.6) hoverZooms() 번만큼 확대한 배율부터.
-     멀리서는 사람이 작아 안 보이는데 말풍선만 떠서 오류처럼 보였다. 휠·핀치도 배율로 본다. 누르기(클릭·탭)는 배율과 상관없다. 평소 지도는 그대로 */
+     멀리서는 사람이 작아 안 보이는데 말풍선만 떠서 오류처럼 보였다. 휠·핀치도 배율로 본다. 누르기(클릭·탭)는 배율과 상관없다 */
   /* 10-26 완화: 3번 → 데스크톱 1번(사람 키 약 21 → 42px), 폰 폭 2번. 폰은 픽셀을 정수로 맞추느라 2번까지 사람 크기가 보드 전체와 같다(21px).
      폰 터치는 이 문턱과 상관없이 탭하면 뜬다 — 이 값은 마우스(좁은 창 포함)용 */
-  const hoverZooms = () => desktop() ? 1 : 2;
-  const hoverNear = () => !(KIOSK && board?.on) || V.scale() >= kioskTarget().s * 1.6 ** hoverZooms() * 0.98;
+  /* 10-28: 조금 더 다가가야 뜨게 — 위 문턱에 HOVER_EXTRA(×1.25)를 더 곱한다(데스크톱 + 1번 → 약 1.5번, 폰 2번 → 약 2.5번).
+     평소 지도(전시 모드 OFF)도 같은 규칙으로, 기준만 처음 화면(homeView) 배율 */
+  const hoverZooms = () => desktop() ? 1 : 2, HOVER_EXTRA = 1.25;
+  const hoverNear = () => V.scale() >= (KIOSK && board?.on ? kioskTarget().s : homeView().s) * 1.6 ** hoverZooms() * HOVER_EXTRA * 0.98;
   /* 마을 사람 인터뷰(10-23, 설계 메모 '마을 사람 캐릭터 인터뷰' §4): 대본이 있는 주민(content/characters/villagers/*.json)은 이장님과 같은 2단 —
      마우스를 올리면(터치는 첫 탭) 머리 위 작은 말풍선에 hook 한 줄이 HOOK_MS 동안 뜨고, 누르면(터치는 두 번째 탭) 지도 아래 큰 상자에 인터뷰가 장마다 넘어간다.
      말을 거는 동안 그 주민은 그 자리에 서 있다(walker.hold). 말풍선·상자 모양은 이장님 것과 같다(chief-speech · chief-talk). 큰 상자가 닫히면 다시 걷는다 */
@@ -299,9 +302,9 @@ export function bootLegacy(DATA){
   const TOUCH_HOOK_MS = 8000;
   let villager = null, vHookT = null;   /* { w, script } 지금 말을 거는 주민 */
   const vTalk = mountTalk(stage, { onEnd: () => { const st = vEndCard; vEndCard = null; villagerDone(); if(st) openStoreCard(st); if(KIOSK) idle(); } });   /* 모바일: 대화가 끝나면 그 가게 카드 */   /* 대화가 끝나면 무입력 30초를 다시 센다 → 자동 순환 이어짐 */
-  const vSpeech = mountSpeech(stage, {
-    anchor: () => { const g = (vPeek || villager)?.w.g; if(!g || g.getAttribute('display') === 'none') return null; const r = g.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { x: r.left + r.width / 2 - st.left, y: r.top - st.top }; },
-    bounds: () => { const m = map.getBoundingClientRect(), st = stage.getBoundingClientRect(); return { left: m.left - st.left, top: m.top - st.top, width: m.width, height: m.height }; },
+  const vSpeech = mountSpeech(map, {
+    anchor: () => { const g = (vPeek || villager)?.w.g; if(!g || g.getAttribute('display') === 'none') return null; const r = g.getBoundingClientRect(), st = map.getBoundingClientRect(); return { x: r.left + r.width / 2 - st.left, y: r.top - st.top }; },
+    bounds: () => { const m = map.getBoundingClientRect(); return { left: 0, top: 0, width: m.width, height: m.height }; },
   });
   const takeVillager = (w, script) => { clearTimeout(vHookT); if(villager && villager.w !== w){ villager.w.release(); vTalk.hide(); } villager = { w, script }; w.hold(); };
   /* 이장님이 말하는 동안(전시 연출·말풍선·큰 상자)엔 주민에게 말을 걸 수 없다(10-23) */
@@ -354,7 +357,7 @@ export function bootLegacy(DATA){
   function dropVillager(w){ if(villager?.w === w) villagerDone(); else if(vPeek?.w === w) endPeek(true); }
   function bindVillager(w, script){
     w.makeClickable();
-    if(script.kind === 'form') w.showMark(DATA.characters.chief.mark);   /* 시민이 인터뷰를 남겨 생긴 주민만 빨간 세모. 가게 인터뷰 주민(shop)은 표시 없음 */
+    if(script.kind === 'form'){ const M = DATA.characters.chief.mark; w.showMark({ ...M, colors: M.formColors || M.colors }); }   /* 시민이 인터뷰를 남겨 생긴 주민만 세모 — 이장님(빨강)과 달리 초록(10-28, chief.json mark.formColors). 가게 인터뷰 주민(shop)은 표시 없음 */
     w.hover.onHover = P => hoverNear() && topAt(w.g, P) && villagerHook(w, script);   /* 마우스: 몸 판정 칸 위에 있으면(walker tick → HoverProbe) — pointerenter 대신(10-26) */
     /* 터치 판정(10-23): click 의 pointerType 은 iOS 사파리 등에서 비어 와 첫 탭에 바로 대화가 열렸다 → 닿는 순간(pointerdown)의 종류를 기억해 쓴다. 그것도 없으면 hover 없는 기기를 터치로 */
     let downType = '';
@@ -388,8 +391,11 @@ export function bootLegacy(DATA){
       board.play({ onChief: () => { if(my !== kioskSeq || !KIOSK) return; const [cx, cy] = board.chiefAt(), t = kioskTarget();
         V.centerOn(cx, cy - 12, t.s * 1.6 ** 2, 0, () => { if(my !== kioskSeq || !KIOSK) return; showChief(true); speech.say(CHIEF_LINES); }, true); } }); }); }   /* always: 줌인 도중 지도를 눌러 비행이 끊겨도 이장님은 그 자리에서 나온다(10-26) */
   /* 전시 연출을 그 자리에서 다 멈추고 평소 상태로(카메라·사이드바는 부르는 쪽이 정한다) */
-  function stopKiosk(){ viewer.close(); vplayer.close(); closeCluster(); kioskSeq++; clearTimeout(kioskStartT); stopCycle(); kioskStage = 'off'; syncSkip?.(); speech.hide(); talk.hide(); villagerDone(); showChief(false); board?.hide(); walkersTo('home'); chiefTo(false); sideDone?.(false); }
-  function kioskRest(){ if(!KIOSK || !board || kioskStage !== 'play') return; kioskStage = 'rest'; syncSkip?.(); idle(); board.rest(); const t = kioskTarget(); centerOn(t.x, t.y, t.s, 0); }   /* 이장님 줌인에서 보드 전체로 물러나며 범례·단추 */
+  function stopKiosk(){ viewer.close(); closeCluster(); kioskSeq++; clearTimeout(kioskStartT); stopCycle(); kioskStage = 'off'; syncSkip?.(); speech.hide(); talk.hide(); villagerDone(); showChief(false); board?.hide(); walkersTo('home'); chiefTo(false); sideDone?.(false); }
+  function kioskRest(){ if(!KIOSK || !board || kioskStage !== 'play') return; kioskStage = 'rest'; syncSkip?.(); idle(); board.rest(); const t = kioskTarget(), k = REST_ZOOM(), [cx, cy] = board.chiefAt(); centerOn(cx + (t.x - cx) / k, cy + (t.y - cy) / k, t.s * k, 0); }
+  /* 이장님 줌인에서 물러나며 범례·단추 — 보드 전체까지 다 물러나지 않고 데스크톱 ×1.25 · 폰 ×1.6(+ 버튼 한 번) 남긴다(10-28 사용자 요청).
+     중심은 이장님을 고정점으로 줌아웃한 자리(보드 전체 화면에서 이장님이 있던 곳에 그대로 보인다). 30초 쉼·자동 순환 한 바퀴 끝은 보드 전체 그대로 */
+  const REST_ZOOM = () => desktop() ? 1.25 : 1.6;
   function kioskSkip(){ if(!KIOSK || !board || introOpen || kioskStage !== 'play') return; speech.hide(); talk.hide(); board.skip(); showChief(true); kioskRest(); }
   /* 건너뛰기(10-23): 연출(play) 동안만 보인다. 전엔 지도를 누르거나 휠만 굴려도 건너뛰어졌다 */
   const skipBtn = document.createElement('button'); skipBtn.type = 'button'; skipBtn.className = 'kb-skip'; skipBtn.textContent = 'Skip ›'; skipBtn.setAttribute('aria-label', '전시 연출 건너뛰기'); map.appendChild(skipBtn);
@@ -680,10 +686,12 @@ export function bootLegacy(DATA){
     walkerScene = scene;
     walkerGraphs = { home: graph, kiosk: board ? buildRoadGraph(board.roadPath(), board.land, { minLen: 40 }) : graph };   /* 전시 모드: 보드 위의 실제 길(골목까지) */
     const offscreen = (x, y) => { const s = scale(), px = (x - V.x) * s, py = (y - V.y) * s; return px < -40 || py < -40 || px > V.pw + 40 || py > V.ph + 40; };
-    /* 가게 인터뷰 주민(10-28): 대본(content/characters/villagers/*.json) 중 무작위 SHOP_SLOTS 명만 나와 있고, SHOP_SWAP_MS 마다 가장 먼저 나온 사람이
+    /* 걷는 주민은 모두 WALK_MAX 명까지(10-28): 시민 인터뷰 주민(아래 구글폼)이 먼저 FORM_SLOTS 명까지, 남은 자리를 가게 인터뷰 주민으로 채운다
+       (구글폼 0명 → 가게 대본 전부(7명 넘으면 무작위 7명), 4명 → 가게 3명, 10명 → 구글폼 5 + 가게 2). 구글폼 인원이 바뀔 때마다 shopFit 이 맞춘다.
+       가게 인터뷰 주민: 대본(content/characters/villagers/*.json) 중 무작위로 남은 자리만큼 나와 있고, SHOP_SWAP_MS 마다 가장 먼저 나온 사람이
        퇴장하고 아직 안 나온 사람이 화면 밖 길에서 걸어 들어온다. 퇴장은 화면 밖이면 바로, 보이는 곳이면 살짝 사라지며. 말을 거는 중인 사람은 내보내지 않는다.
-       모습은 대본 id 로 정해져(다시 나와도 같은 사람) look 이 있으면 그 모습. 대본 없는 지나가는 사람은 없다 — 나머지 자리는 시민 인터뷰 주민(아래 구글폼) */
-    const SHOP_SLOTS = 2, SHOP_SWAP_MS = 40000, shopScripts = (DATA.villagers || []).slice(), shopOn = [];   /* shopOn: 나온 순서대로 { script, w } */
+       모습은 대본 id 로 정해져(다시 나와도 같은 사람) look 이 있으면 그 모습. 대본 없는 지나가는 사람은 없다 */
+    const WALK_MAX = 7, FORM_SLOTS = 5, SHOP_SWAP_MS = 40000, shopScripts = (DATA.villagers || []).slice(), shopOn = [];   /* shopOn: 나온 순서대로 { script, w } */
     function shopEnter(script, walkIn){
       const w = spawnWalker(scene, { graph: walkerGraphs[board?.on ? 'kiosk' : 'home'], parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, speed: 6.5, seed: seedOf(script.id), offscreen: walkIn ? offscreen : undefined, fixed: script.look });
       w.g.dataset.script = script.id; walkers.push(w); shopOn.push({ script, w }); bindVillager(w, script); }   /* data-script: 지금 누가 나와 있는지 개발자 도구에서 보이게 */
@@ -695,24 +703,30 @@ export function bootLegacy(DATA){
       const out = shopOn.find(o => villager?.w !== o.w && vPeek?.w !== o.w), rest = shopScripts.filter(v => !shopOn.some(o => o.script === v) && v !== out?.script);
       if(!out || !rest.length) return;
       shopLeave(out); shopEnter(rest[Math.floor(Math.random() * rest.length)], true); }
-    shopScripts.slice().sort(() => Math.random() - 0.5).slice(0, SHOP_SLOTS).forEach(v => shopEnter(v, false));   /* 처음 둘은 길 위 아무 데서나 */
-    if(shopScripts.length > SHOP_SLOTS) setInterval(shopSwap, SHOP_SWAP_MS);
+    let shopReady = false;
+    function shopFit(){   /* 구글폼 주민 수에 맞춰 가게 주민 수를 맞춘다. 첫 맞춤(구글폼을 처음 읽은 뒤)은 길 위 아무 데서나, 그 뒤로는 화면 밖에서 걸어 들어온다 */
+      const want = Math.min(shopScripts.length, Math.max(0, WALK_MAX - formOn.size)), walkIn = shopReady; shopReady = true;
+      while(shopOn.length > want){ const out = shopOn.find(o => villager?.w !== o.w && vPeek?.w !== o.w); if(!out) break; shopLeave(out); }   /* 말 거는 중이면 다음 맞춤 때 */
+      const rest = shopScripts.filter(v => !shopOn.some(o => o.script === v)).sort(() => Math.random() - 0.5);
+      while(shopOn.length < want && rest.length) shopEnter(rest.pop(), walkIn); }
+    setInterval(shopSwap, SHOP_SWAP_MS);   /* 안 나온 대본이 없으면 shopSwap 이 그냥 돌아간다 */
     /* 시민 인터뷰 주민(10-23): 구글폼 응답 → Apps Script(tools/apps-script/form_to_supabase.gs) → Supabase characters(approved) + interviews(answers).
-       앱이 답으로 대본을 만들고(features/villagers/formScript — 폼을 낸 사람은 모두, 답이 적으면 맺음말로 채움) 빨간 세모 주민으로 띄운다. 동시에 FORM_SLOTS 명까지,
+       앱이 답으로 대본을 만들고(features/villagers/formScript — 폼을 낸 사람은 모두, 답이 적으면 맺음말로 채움) 초록 세모 주민으로 띄운다. 동시에 FORM_SLOTS 명까지,
        새 사람이 오면 가장 먼저 온 사람부터 퇴장(FIFO, 인터뷰는 DB 에 남는다). 표가 바뀌면 실시간으로, 아니어도 20초마다 맞춘다.
        새 주민은 화면 밖 길에서 걸어 들어온다. status 를 hidden 으로 바꾸면 다음 맞춤 때 사라진다. ?formdemo=N 은 DB 대신 견본 응답 N건(content/characters/form-samples.json) */
-    const FORM_SLOTS = 6, formOn = new Map();   /* 캐릭터 id → 주민 */
+    const formOn = new Map();   /* 캐릭터 id → 주민 */
     function syncForm(rows){
       const want = rows.map(r => ({ id: r.id, script: scriptFromRow(r.id, r.answers, r.summary) })).filter(r => r.script).slice(-FORM_SLOTS), ids = new Set(want.map(r => r.id));
       for(const [id, w] of [...formOn]) if(!ids.has(id)){ dropVillager(w); scene.remove(w); formOn.delete(id); const i = walkers.indexOf(w); if(i >= 0) walkers.splice(i, 1); }
       for(const r of want){ if(formOn.has(r.id)) continue;
         const w = spawnWalker(scene, { graph: walkerGraphs[board?.on ? 'kiosk' : 'home'], parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, speed: 6.5, seed: seedOf(r.id), offscreen });
         walkers.push(w); formOn.set(r.id, w); bindVillager(w, r.script); }
+      shopFit();
     }
     const formDemo = Math.min(formSamples.length, Number(new URLSearchParams(location.search).get('formdemo')) || 0);
     if(formDemo) syncForm(formSamples.slice(0, formDemo).map(s => ({ id: s.id, answers: s.answers, summary: null })));
     else { let busy = false, again = false;
-      const refresh = async () => { if(busy){ again = true; return; } busy = true; try { syncForm(await listFormVillagers(FORM_SLOTS * 2)); } finally { busy = false; if(again){ again = false; refresh(); } } };
+      const refresh = async () => { if(busy){ again = true; return; } busy = true; try { syncForm(await listFormVillagers(FORM_SLOTS * 2)); } finally { busy = false; if(!shopReady) shopFit();   /* 구글폼을 못 읽어도 가게 주민은 나온다 */ if(again){ again = false; refresh(); } } };
       refresh(); watchFormVillagers(refresh); }
     const chief = new Chief(scene.layer, DATA.characters.body, DATA.characters.chief); scene.add(chief); chiefActor = chief;
     chief.makeHoverable();

@@ -74,10 +74,22 @@ html.kb-dark .pixel-terrain,html.kb-dark .roads,html.kb-dark .pixel-props,html.k
 .kb-ring{fill:none;stroke:#8a4a3e;stroke-width:1.2;stroke-opacity:.5;stroke-dasharray:2 1.6}
 .kb-hole{fill:#6b3a30}
 .kb-thr{stroke:#4a2a22;stroke-width:3;stroke-linecap:round;fill:none}
-.kb-lab{font-family:var(--font-ui);font-weight:700;font-size:21px;letter-spacing:-.025em;fill:var(--kb-wine);text-anchor:middle;paint-order:stroke;stroke:#fbf3e2;stroke-width:.48em;stroke-linejoin:miter;shape-rendering:auto;pointer-events:none}   /* 가게 이름: 이장님 '신당 5길' 이름표와 같은 글꼴·굵기·외곽선(10-23, 전엔 손글씨), 색만 보드 톤 */
+.kb-lab{font-family:var(--font-ui);font-weight:700;font-size:15px;letter-spacing:-.025em;fill:var(--kb-wine);text-anchor:middle;dominant-baseline:central;shape-rendering:auto;pointer-events:none}   /* 가게 이름: 이장님 '신당 5길' 이름표와 같은 글꼴·굵기(10-23), 10-28부터 천 이름표 안에 */
+/* 이름표(10-28, board.ts placeLabels): 큰 단추는 크림 천 조각 + 안쪽 홈질, 작은 단추(.minor)는 작은 이름 글씨만(외곽선). 단추가 등장할 때 같이(.in) */
+.kb-lg{opacity:0;cursor:pointer;transition:opacity .3s ease .2s}
+.kb-lg.in{opacity:1;pointer-events:auto}
+.kb-lg.in.dim{opacity:.25;transition:none}
+.kb-lab-s{font-size:10px;font-weight:600;fill:#6b3a30;paint-order:stroke;stroke:#fbf3e2;stroke-width:3px;stroke-linejoin:round}
+.kb-lg.minor.sel .kb-lab-s,.kb-lg.minor.focus .kb-lab-s{fill:var(--kb-wine);font-weight:800}
+.kb-tag{fill:#fbf3e2;stroke:#c4ae8f;stroke-width:1}
+.kb-tag-st{fill:none;stroke:var(--kb-stitch);stroke-width:1.2;stroke-dasharray:3.5 2.5;opacity:.85}
+.kb-lg.sel .kb-tag,.kb-lg.focus .kb-tag{fill:#f6e3c8;stroke:var(--kb-wine)}
+/* 실(10-28): 이름표가 단추에서 떨어져 있을 때 잇는 빨간 홈질. 단추·이름표 아래 깔린다 */
+.kb-lead{stroke:var(--kb-thread);stroke-width:1.6;stroke-dasharray:4 3;stroke-linecap:round;opacity:0;transition:opacity .3s ease .2s}
+.kb-lead.in{opacity:.9}.kb-lead.in.dim{opacity:.2;transition:none}.kb-lead.none{display:none}
+.kb-hit{fill:transparent}   /* 작은 단추의 누르는 칸 */
 .kb-btn.in.dim{opacity:.25;filter:saturate(.25)}
-.kb-btn.in.gone{opacity:0;pointer-events:none}   /* 필터 밖 + 원래 숫자 단추로 묶여 있던 것(board.ts regroup) */
-.kb-btn.in.dim,.kb-btn.in.gone,.kb-btn.in.still{animation:none;transition:none}   /* 업종을 고를 때 빠지는 단추는 모션 없이 바로(10-28) */
+.kb-btn.in.dim{animation:none;transition:none}   /* 업종을 고를 때 빠지는 단추는 모션 없이 바로(10-28) */
 .kb-btn.in.pop{animation:kb-pop .42s cubic-bezier(.2,1.4,.35,1) both}   /* 걸러져 새로 보이게 된 단추만 톡 생긴다(board.ts setFilter, 지연은 왼쪽부터) */
 @keyframes kb-pop{0%{transform:scale(.2);opacity:0}55%{opacity:1}75%{transform:scale(1.14)}100%{transform:scale(1);opacity:1}}
 @media(prefers-reduced-motion:reduce){.kb-btn.in.pop{animation:none}}
@@ -92,11 +104,7 @@ html.kb-dark .pixel-terrain,html.kb-dark .roads,html.kb-dark .pixel-props,html.k
 .kb-btn.sel .kb-rim-img,.kb-btn.focus .kb-rim-img{stroke:var(--kb-wine);stroke-width:2.5;stroke-dasharray:4 3}
 .kb-btn.up .kb-img{opacity:.6}
 
-/* 겹친 단추 묶음(10-26): 크림 천 단추 + 홈질 테두리 + 가게 수. 묶인 단추는 숨는다. 고를 땐 작은 말풍선(#cluster-pop, 아래 천 톤) */
-.kb-btn.clustered{display:none}
-.kb-cl-face{fill:#fbf3e2;stroke:var(--kb-thread);stroke-width:2;stroke-dasharray:4 3;stroke-opacity:1}
-.kb-cl-n{font-family:var(--font-ui);font-weight:800;font-size:24px;fill:var(--kb-wine);text-anchor:middle;pointer-events:none;shape-rendering:auto}
-.kb-cluster:hover .kb-cl-face{fill:#f1e2c5}
+/* 겹친 단추 묶음: 10-28부터 보드엔 숫자 단추가 없다(큰 단추는 모아 붙이고 작은 단추는 비켜 선다, board.ts layout). 아래 #cluster-pop 천 톤은 남겨 둔다 */
 html.kb-on #cluster-pop{background:linear-gradient(#f1e2c5e6,#f1e2c5e6),var(--kb-cream) url(/board/linen.webp);background-size:auto,120px;border:1px solid #c4ae8f;border-radius:5px;box-shadow:0 3px 4px #2e3b4338;color:var(--kb-wine)}
 html.kb-on #cluster-pop::before{content:"";position:absolute;inset:3px;border:1.5px dashed var(--kb-stitch);border-radius:2px;pointer-events:none}
 html.kb-on #cluster-pop::after{background:#f1e2c5;border-color:#c4ae8f}

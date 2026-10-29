@@ -129,23 +129,23 @@ interviews  id, source(form|shop), answers(json), summary_md, store_id?, created
 - 낮/밤 전환은 커튼으로 덮고 바꾼다(`theme-toggle/switchTheme`) — 폰에서 시트 교체 중간 프레임이 지지직거려서.
 
 **캐릭터·주민 대화**
-- 가게 인터뷰 주민은 대본 중 **무작위 2명만** 나와 있고 40초마다 먼저 나온 사람이 퇴장·새 사람이 화면 밖에서 걸어 들어온다(10-28, `engine.legacy.js` SHOP_SLOTS·SHOP_SWAP_MS, 말 거는 중엔 안 내보냄). 대본 없는 지나가는 사람은 없다 — 나머지는 구글폼 시민 인터뷰 주민. 파츠 조합, 격자 17×18. 이장님 + 고양이(`cat.json`).
+- 걷는 주민은 **모두 7명까지**(10-28, `engine.legacy.js` WALK_MAX·FORM_SLOTS·shopFit): 구글폼 시민 인터뷰 주민이 먼저 최대 5명, 남은 자리를 가게 인터뷰 주민(대본 중 무작위)으로 채운다 — 폼 0명 → 가게 최대 7, 폼 4 → 가게 3, 폼 10 → 폼 5 + 가게 2. 가게 주민은 40초마다 먼저 나온 사람이 퇴장·안 나온 사람이 화면 밖에서 걸어 들어온다(SHOP_SWAP_MS, 말 거는 중엔 안 내보냄). 대본 없는 지나가는 사람은 없다. 파츠 조합, 격자 17×18. 이장님 + 고양이(`cat.json`).
 - 주민 대본 `content/characters/villagers/*.json`: id·name·store(가게 이름과 똑같이)·hook·pages(3~8장), 선택 `look`(`act.json` 참고 — style short|bob|hat, bun·bag, col 은 `palette.json` 키). `store` 는 실DB 가게 이름과 똑같이(예: '나은데이 필라테스'). 지금 5명(바액트·신당야학·표주·두런두런·나은데이).
 - hover(터치는 첫 탭): 머리 위 hook 말풍선. 판정은 그려진 몸 칸(`scene.ts` overBody)을 매 프레임 `HoverProbe` 가 본다. 새 말풍선이 옛 것을 닫고, 큰 대화 상자·전시 연출 중엔 안 뜬다. 전시 보드에선 보드 전체에서 + 버튼(×1.6)을 데스크톱 1번·좁은 창 2번 누른 배율부터(`hoverZooms`).
 - 누르면(터치는 두 번째 탭, 누르는 칸 44px) 큰 대화 상자(이름표 '가게 · 이름', Skip »). 그 가게 카드를 펴고 주민 쪽으로 줌인, 자동 순환 멈춤, 주민은 멈춰 섬(`walker.hold`). 폰은 카드 대신 이름표 옆 '가게 카드 ›'.
-- 빨간 세모 표시는 `kind: "form"`(시민 인터뷰) 주민에게만.
+- 머리 위 세모 표시는 `kind: "form"`(시민 인터뷰) 주민에게만 — **초록**(10-28, `chief.json` mark.formColors). 이장님 세모는 빨강 그대로.
 
 **구글폼 → 시민 인터뷰 주민** (서버·크론 없음):
 ```
 폼 제출 → 응답 시트 → Apps Script(tools/apps-script/form_to_supabase.gs) → 공개해도 되는 열만 interviews{source:'form'} + characters{approved}
-  → 앱(entities/villager/api.ts) 실시간 + 20초 폴링 → features/villagers/formScript.ts 대본 생성 → 주민 스폰(동시 6명, FIFO)
+  → 앱(entities/villager/api.ts) 실시간 + 20초 폴링 → features/villagers/formScript.ts 대본 생성 → 주민 스폰(동시 5명, FIFO — 남는 자리는 가게 주민)
 ```
 - 승인 없이 바로 띄움(AUTO_PUBLISH). 내리기 = `characters.status = hidden`. 손본 대본은 `interviews.summary_md` 에 JSON(hook·pages·name).
 - 대본 규칙·익명 처리(상호 안 보냄, 이름표는 업종 '밥집 사장님')·폼 열 이름 찾기는 `formScript.ts`·`.gs` 머리 주석. `?formdemo=N` 으로 DB 없이 미리 보기.
 
 **전시 모드 = 전시 보드** (정본: `features/kiosk-board/board.ts` 머리 주석 + `engine.legacy.js` 전시 모드 블록):
-- 켜면 섬이 시안 `MORE_exhibition_dynamic_v2.html` 그대로의 천 섬이 된다(바다 #7793b1 + 리넨, 낮/밤 없음). **길만 실제 길**(roads.json 을 재단선 → 섬 상자로 변환, `kiosk-board.json` 의 hideRoads·hideMain 으로 정돈), 가게 단추도 실제 자리. 업종(`category`) → 단추 그림(`public/board/btn-*.webp`)·범례 필터. 겹치는 단추는 숫자 단추로 묶음. 캔버스 단위 1:1 평행이동.
-- 연출: 어두워짐 → 보드가 떠올라 펴짐 → 스티치·하늘·길·집·나무·제목 → 이장님 줌인·대화 → 범례·주민·단추. 연출 중엔 'Skip ›'로만 건너뜀. 주민은 인터뷰가 있는 사람만(`parkExtras`).
+- 켜면 섬이 시안 `MORE_exhibition_dynamic_v2.html` 그대로의 천 섬이 된다(바다 #7793b1 + 리넨, 낮/밤 없음). **길만 실제 길**(roads.json 을 재단선 → 섬 상자로 변환, `kiosk-board.json` 의 hideRoads·hideMain 으로 정돈), 가게 단추도 실제 자리. 업종(`category`) → 단추 그림(`public/board/btn-*.webp`)·범례 필터. **위계(10-28)**: `kiosk-board.json` `featured`(가게 이름 목록, 전시 1회용 — DB 칸 아님)에 든 가게는 큰 단추 + 천 이름표, 나머지는 0.5배 작은 단추 + 작은 이름 글씨. 숫자 단추는 없다 — 겹친 큰 단추는 실제 자리 가운데로 모아 맞닿게 붙이고(0.78배) 묶음끼리 닿으면 묶음째 밀어 띄운다, 이름표는 빈 자리로 빼 빨간 홈질 실로 잇는다, 작은 단추는 비켜 선다(`board.ts` layout). 이름표 손 배치는 `labelAt: {"가게 이름": [dx, dy]}`. 목록이 비면 전부 큰 단추. 캔버스 단위 1:1 평행이동.
+- 연출: 어두워짐 → 보드가 떠올라 펴짐 → 스티치·하늘·길·집·나무·제목 → 이장님 줌인·대화 → 범례·주민·단추(대화 뒤엔 보드 전체까지 다 물러나지 않고 데스크톱 ×1.25·폰 ×1.6 로 이장님을 고정점 삼아 줌아웃, 10-28 `REST_ZOOM`). 연출 중엔 'Skip ›'로만 건너뜀. 주민은 인터뷰가 있는 사람만(`parkExtras`).
 - 무입력 `IDLE_MS`(지금 3초, 사용자 조정)면 자동 순환: 단추를 하나씩 줌인 + 카드 6초씩, 한 바퀴 뒤 보드 전체. 입력이 오면 바로 멈춤(`V.stop`). 대화·사진 뷰어·영상 재생·손가락 닿음 동안엔 시작 안 함.
 - **평소 지도(전시 모드 OFF)도 자동 순환**(10-26, '가게를 주인공으로'): 무입력 `HOME_IDLE_MS` 12초면 발행된 가게(다음 호 제외)를 지도 동선 순서(가장 서쪽에서 가까운 가게로)로 카드 열고 줌인(`HOME_FOCUS` 4.6) 6초씩, 한 바퀴 뒤 카드 닫고 처음 화면. 방문객이 직접 연 카드가 떠 있으면(읽는 중) 시작 안 함. 멈춤·재개 규칙은 전시 모드와 같다(`homeStep`)
 - 인트로가 떠 있는 동안엔 아무것도 안 돈다(인트로 다시 보기 = 상단바 'MORE' 글자, 10-28 — 'INTRO 다시 보기' 버튼은 뺐다. 연출을 멈추고(`stopKiosk`) 인트로가 끝나면 다시). 늦은 콜백은 `kioskSeq` 로 막는다. OFF 는 커튼(`curtain.ts`)으로 덮고 한 번에 되돌린다.
