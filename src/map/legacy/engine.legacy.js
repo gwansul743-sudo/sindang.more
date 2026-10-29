@@ -291,7 +291,7 @@ export function bootLegacy(DATA){
   /* 이장님·매니저님 인터뷰 영상(10-29) — 연출이 끝난 뒤(rest)에만. 주민 hook 과 같은 2단: hover(터치는 첫 탭) 말풍선(후킹 한 마디 + '영상 보기 ›') → 누르면(또는 사람을 한 번 더) 영상 플레이어 바로
      (가게 카드 영상과 같은 features/video-player, 구글 드라이브). 둘 다 큰 상자 대본은 없다(사용자 결정). 닫히면 무입력을 다시 센다. 대본·링크: chief-talk.json(hook·video·videoTitle)·manager-talk.json(hook·video·title) */
   /* 주민 hook 과 같은 3단(10-29 사용자 요청): hover → 말풍선이 한 자씩 찍힌다(단추 없음) → 한 번 누르면(말풍선이든 사람이든) 글이 다 보이고 '▶ 영상 보기' 단추가 붙는다(full) → 한 번 더 누르면 영상.
-     터치는 hover 가 없으니 첫 탭에 단추까지(full) 바로, 두 번째 탭에 영상. 말풍선은 NPC_HOOK_MS(단추가 붙은 뒤엔 NPC_FULL_MS) 동안 남는다 */
+     누르기(마우스 클릭·터치 탭)로 처음 뜨는 말풍선은 단추까지(full) 바로, 한 번 더 누르면 영상 — hover 문턱(hoverNear) 아래 배율에서도 똑같다. 말풍선은 NPC_HOOK_MS(단추가 붙은 뒤엔 NPC_FULL_MS) 동안 남는다 */
   const NPC_HOOK_MS = 6000, NPC_FULL_MS = 10000, NPC_CTA = '영상 보기';
   let npcHookT = null, npcOpen = null, npcFull = false;   /* npcOpen: 지금 말풍선의 영상 열기, npcFull: 단추가 붙었나 */
   const npcTimer = (actor, ms) => { clearTimeout(npcHookT); npcHookT = setTimeout(() => { if(speech.visible && speechActor === actor && kioskStage === 'rest') speech.hide(); }, ms); };
@@ -308,13 +308,13 @@ export function bootLegacy(DATA){
   const managerVideo = () => { const T = DATA.managerTalk; if(T) npcVideo(T.video, T.title || T.name); };
   function managerHook(full){ const T = DATA.managerTalk; if(!npcReady() || !T || talk.visible) return false; if(speech.visible && speechActor === managerActor) return true;
     npcSay(managerActor, [T.hook], parseVideo(T.video) ? managerVideo : null, full); return true; }
-  /* 누르기(10-29, 주민 bindVillager 와 같이): 말풍선이 떠 있으면 다음 단계(글 다 보이기+단추 → 영상), 아니면 말풍선부터(터치는 단추까지 바로). 터치 첫 탭은 카메라가 그 사람을 비춘다(focusVillager — 섬 가장자리의 매니저님 말풍선이 폰 화면 밖으로 잘리지 않게) */
+  /* 누르기(10-29, 주민 bindVillager 와 같이): 말풍선이 떠 있으면 다음 단계(글 다 보이기+단추 → 영상), 아니면 말풍선을 단추까지 한 번에(hover 가 안 뜨는 배율·터치). 터치 첫 탭은 카메라가 그 사람을 비춘다(focusVillager — 섬 가장자리의 매니저님 말풍선이 폰 화면 밖으로 잘리지 않게) */
   const npcBind = (actor, hook) => { let downType = '';
     actor.g.addEventListener('pointerdown', e => { downType = e.pointerType; });
     actor.g.addEventListener('click', e => { e.stopPropagation(); if(V.moved) return;
       const type = downType || e.pointerType || (matchMedia('(hover: none)').matches ? 'touch' : 'mouse'); downType = '';
       if(speech.visible && speechActor === actor && !talk.visible) npcAdvance(actor);
-      else if(hook(type !== 'mouse') && type !== 'mouse') focusVillager(actor); }); };
+      else if(hook(true) && type !== 'mouse') focusVillager(actor); }); };   /* 누르기는 마우스·손가락 모두 단추까지 바로(주민 villagerHook 'click'·'touch' 와 같이) — hover 문턱 아래 배율에서 눌러도 */
   /* hover 판정 보조: 그 자리 맨 위에 실제로 이 캐릭터가 있나(가게 점·말풍선·패널 등에 가려져 있으면 아니다). 커서 밑으로 걸어 들어온 경우도 이것으로 본다 */
   const topAt = (g, P) => { const t = document.elementFromPoint(P.cx, P.cy); return !!t && g.contains(t); };
   /* 전시 보드에선 충분히 다가갔을 때만 hover 말풍선(10-26 사용자 요청): 보드 전체 화면(kioskTarget)에서 + 버튼(×1.6) hoverZooms() 번만큼 확대한 배율부터.
