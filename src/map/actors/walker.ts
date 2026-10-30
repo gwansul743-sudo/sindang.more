@@ -94,7 +94,7 @@ export class Walker implements Actor {
     let hop = 0;
     if (this.drag) { this.x = this.drag.x; this.y = this.drag.y; this.fs.show('wave' + (Math.floor(now / 140) % 2)); hop = 3; }   // 들린 채 버둥버둥(손 흔드는 그림) + 3칸 떠 있기. 그림자는 땅에
     else {
-      const b = this.back!, dx = b.x - this.x, dy = b.y - this.y, dl = Math.hypot(dx, dy), step = this.speed * 2.2 * dt;   // 돌아갈 땐 평소의 2.2배(10-30)
+      const b = this.back!, dx = b.x - this.x, dy = b.y - this.y, dl = Math.hypot(dx, dy), step = this.speed * 3 * dt;   // 돌아갈 땐 평소의 3배(10-30)
       if (dl <= step || f.still) {
         this.a = b.a; this.b = b.b; this.d = b.d; this.len = b.len; this.back = null; this.x = b.x; this.y = b.y; this.offT = 0;
         if (this.held) { this.mode = 'pause'; this.until = Infinity; } else { this.mode = 'walk'; this.nextPause = rnd(4, 12); }
