@@ -741,12 +741,13 @@ export function bootLegacy(DATA){
     walkerScene = scene;
     walkerGraphs = { home: graph, kiosk: board ? buildRoadGraph(board.roadPath(), board.land, { minLen: 40 }) : graph };   /* 전시 모드: 보드 위의 실제 길(골목까지) */
     const offscreen = (x, y) => { const s = scale(), px = (x - V.x) * s, py = (y - V.y) * s; return px < -40 || py < -40 || px > V.pw + 40 || py > V.ph + 40; };
-    /* 걷는 주민은 모두 WALK_MAX 명까지(10-28): 시민 인터뷰 주민(아래 구글폼)이 먼저 FORM_SLOTS 명까지, 남은 자리를 가게 인터뷰 주민으로 채운다
+    /* 걷는 주민(10-30 갱신): 시민 인터뷰 주민(아래 구글폼)은 인원 제한 없이 모두, 가게 인터뷰 주민은 WALK_MAX 에서 폼 인원을 뺀 자리(최소 SHOP_MIN 명). 아래 괄호는 10-28 옛 규칙
        (구글폼 0명 → 가게 대본 전부(7명 넘으면 무작위 7명), 4명 → 가게 3명, 10명 → 구글폼 5 + 가게 2). 구글폼 인원이 바뀔 때마다 shopFit 이 맞춘다.
        가게 인터뷰 주민: 대본(content/characters/villagers/*.json) 중 무작위로 남은 자리만큼 나와 있고, SHOP_SWAP_MS 마다 가장 먼저 나온 사람이
        퇴장하고 아직 안 나온 사람이 화면 밖 길에서 걸어 들어온다. 퇴장은 화면 밖이면 바로, 보이는 곳이면 살짝 사라지며. 말을 거는 중인 사람은 내보내지 않는다.
        모습은 대본 id 로 정해져(다시 나와도 같은 사람) look 이 있으면 그 모습. 대본 없는 지나가는 사람은 없다. "always": true 대본은 순환하지 않고 늘 나와 있다 */
-    const WALK_MAX = 7, FORM_SLOTS = 5, SHOP_SWAP_MS = 40000, shopScripts = (DATA.villagers || []).slice(), shopOn = [];   /* shopOn: 나온 순서대로 { script, w } */
+    const WALK_MAX = 7, SHOP_MIN = 3, SHOP_SWAP_MS = 40000,   /* 10-30(사용자 요청): 구글폼 주민은 인원 제한 없이 모두. 가게 주민은 WALK_MAX 에서 폼 인원을 뺀 만큼, 단 SHOP_MIN 명은 늘 */
+          shopScripts = (DATA.villagers || []).slice(), shopOn = [];   /* shopOn: 나온 순서대로 { script, w } */
     /* 늘 걷는 주민(10-30): 대본에 "always": true 면 순환·퇴장 없이 항상 나와 있다(지금 그랑블루). WALK_MAX 안에 들고, 그만큼 순환 자리가 준다 */
     const shopAlways = shopScripts.filter(v => v.always), shopPool = shopScripts.filter(v => !v.always);
     function shopEnter(script, walkIn){
@@ -764,18 +765,18 @@ export function bootLegacy(DATA){
     function shopFit(){   /* 구글폼 주민 수에 맞춰 가게 주민 수를 맞춘다. 첫 맞춤(구글폼을 처음 읽은 뒤)은 길 위 아무 데서나, 그 뒤로는 화면 밖에서 걸어 들어온다 */
       const walkIn = shopReady; shopReady = true;
       for(const v of shopAlways) if(!shopOn.some(o => o.script === v)) shopEnter(v, walkIn);   /* 늘 걷는 주민(대본 always) 먼저 */
-      const turn = () => shopOn.filter(o => !o.script.always), want = Math.min(shopPool.length, Math.max(0, WALK_MAX - formOn.size - shopAlways.length));
+      const turn = () => shopOn.filter(o => !o.script.always), want = Math.min(shopPool.length, Math.max(SHOP_MIN, WALK_MAX - formOn.size - shopAlways.length));
       while(turn().length > want){ const out = turn().find(o => villager?.w !== o.w && vPeek?.w !== o.w); if(!out) break; shopLeave(out); }   /* 말 거는 중이면 다음 맞춤 때 */
       const rest = shopPool.filter(v => !shopOn.some(o => o.script === v)).sort(() => Math.random() - 0.5);
       while(turn().length < want && rest.length) shopEnter(rest.pop(), walkIn); }
     setInterval(shopSwap, SHOP_SWAP_MS);   /* 안 나온 대본이 없으면 shopSwap 이 그냥 돌아간다 */
     /* 시민 인터뷰 주민(10-23): 구글폼 응답 → Apps Script(tools/apps-script/form_to_supabase.gs) → Supabase characters(approved) + interviews(answers).
-       앱이 답으로 대본을 만들고(features/villagers/formScript — 폼을 낸 사람은 모두, 답이 적으면 맺음말로 채움) 초록 세모 주민으로 띄운다. 동시에 FORM_SLOTS 명까지,
-       새 사람이 오면 가장 먼저 온 사람부터 퇴장(FIFO, 인터뷰는 DB 에 남는다). 표가 바뀌면 실시간으로, 아니어도 20초마다 맞춘다.
+       앱이 답으로 대본을 만들고(features/villagers/formScript — 폼을 낸 사람은 모두, 답이 적으면 맺음말로 채움) 초록 세모 주민으로 띄운다. 10-30부터 인원 제한 없이 승인된 사람 모두가
+       걷는다(전엔 동시 5명·FIFO). 표가 바뀌면 실시간으로, 아니어도 20초마다 맞춘다.
        새 주민은 화면 밖 길에서 걸어 들어온다. status 를 hidden 으로 바꾸면 다음 맞춤 때 사라진다. ?formdemo=N 은 DB 대신 견본 응답 N건(content/characters/form-samples.json) */
     const formOn = new Map();   /* 캐릭터 id → 주민 */
     function syncForm(rows){
-      const want = rows.map(r => ({ id: r.id, script: scriptFromRow(r.id, r.answers, r.summary) })).filter(r => r.script).slice(-FORM_SLOTS), ids = new Set(want.map(r => r.id));
+      const want = rows.map(r => ({ id: r.id, script: scriptFromRow(r.id, r.answers, r.summary) })).filter(r => r.script), ids = new Set(want.map(r => r.id));
       for(const [id, w] of [...formOn]) if(!ids.has(id)){ dropVillager(w); scene.remove(w); formOn.delete(id); const i = walkers.indexOf(w); if(i >= 0) walkers.splice(i, 1); }
       for(const r of want){ if(formOn.has(r.id)) continue;
         const w = spawnWalker(scene, { graph: walkerGraphs[board?.on ? 'kiosk' : 'home'], parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, speed: 6.5, seed: seedOf(r.id), offscreen });
@@ -785,7 +786,7 @@ export function bootLegacy(DATA){
     const formDemo = Math.min(formSamples.length, Number(new URLSearchParams(location.search).get('formdemo')) || 0);
     if(formDemo) syncForm(formSamples.slice(0, formDemo).map(s => ({ id: s.id, answers: s.answers, summary: null })));
     else { let busy = false, again = false;
-      const refresh = async () => { if(busy){ again = true; return; } busy = true; try { syncForm(await listFormVillagers(FORM_SLOTS * 2)); } finally { busy = false; if(!shopReady) shopFit();   /* 구글폼을 못 읽어도 가게 주민은 나온다 */ if(again){ again = false; refresh(); } } };
+      const refresh = async () => { if(busy){ again = true; return; } busy = true; try { syncForm(await listFormVillagers()); } finally { busy = false; if(!shopReady) shopFit();   /* 구글폼을 못 읽어도 가게 주민은 나온다 */ if(again){ again = false; refresh(); } } };
       refresh(); watchFormVillagers(refresh); }
     const chief = new Chief(scene.layer, DATA.characters.body, DATA.characters.chief); scene.add(chief); chiefActor = chief;
     chief.makeHoverable();

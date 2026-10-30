@@ -130,6 +130,7 @@ interviews  id, source(form|shop), answers(json), summary_md, store_id?, created
 - 낮/밤 전환은 커튼으로 덮고 바꾼다(`theme-toggle/switchTheme`) — 폰에서 시트 교체 중간 프레임이 지지직거려서.
 
 **캐릭터·주민 대화**
+- **10-30: 구글폼 주민은 인원 제한 없이 승인된 사람 모두가 걷는다**(`syncForm`, `listFormVillagers()` 인자 없이 = 전부). 가게 주민은 7 − 폼 인원, 단 최소 3명(`SHOP_MIN`). 아래 7명 규칙은 옛 기록.
 - 걷는 주민은 **모두 7명까지**(10-28, `engine.legacy.js` WALK_MAX·FORM_SLOTS·shopFit): 구글폼 시민 인터뷰 주민이 먼저 최대 5명, 남은 자리를 가게 인터뷰 주민(대본 중 무작위)으로 채운다 — 폼 0명 → 가게 최대 7, 폼 4 → 가게 3, 폼 10 → 폼 5 + 가게 2. 가게 주민은 40초마다 먼저 나온 사람이 퇴장·안 나온 사람이 화면 밖에서 걸어 들어온다(SHOP_SWAP_MS, 말 거는 중엔 안 내보냄). **늘 걷는 주민**(10-30): 대본에 `"always": true` 면 순환·퇴장 없이 항상 나와 있고(지금 그랑블루), 7명 안에 들어 그만큼 순환 자리가 준다(폼 5 → 그랑블루 + 순환 1). 대본 없는 지나가는 사람은 없다. 파츠 조합, 격자 17×18. 이장님 + 고양이(`cat.json`).
 - 주민 대본 `content/characters/villagers/*.json`: id·name·store(가게 이름과 똑같이)·hook·pages(3~8장), 선택 `look`(`act.json` 참고 — style short|bob|hat, bun·bag, col 은 `palette.json` 키). `store` 는 실DB 가게 이름과 똑같이(예: '나은데이 필라테스'). 지금 6명(바액트·신당야학·표주·두런두런·나은데이·그랑블루). `fixed` 칸은 코드가 읽지 않는다. 대본의 `store` 가 DB에 없으면 대화만 열리고 가게 카드는 안 열린다.
 - hover(터치는 첫 탭): 머리 위 hook 말풍선. 판정은 그려진 몸 칸(`scene.ts` overBody)을 매 프레임 `HoverProbe` 가 본다. 새 말풍선이 옛 것을 닫고, 큰 대화 상자·전시 연출 중엔 안 뜬다. 전시 보드에선 보드 전체에서 + 버튼(×1.6)을 데스크톱 1번·좁은 창 2번 누른 배율부터(`hoverZooms`).
