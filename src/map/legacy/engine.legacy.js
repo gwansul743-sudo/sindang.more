@@ -157,6 +157,7 @@ export function bootLegacy(DATA){
     current = s; dots.select(s._dot);
     const up = s.status==='up', href = s.ig || IG;
     const list = STORES, idx = list.indexOf(s)+1, vid = renderVideo(s), photos = s.photos || (s.photoUrl ? [s.photoUrl] : []);   /* 영상이 있으면 포스터 칸에 사진 대신 플레이어 (10-21) */
+    const noIg = vid.embed || (!up && !(s.issue||'').trim());   /* 호수가 없는 가게(10-30): 아직 인스타 게시물이 없으니 'Instagram에서 보기'·안내 문구를 뺀다 */
     card.classList.toggle('has-video', !!vid.embed);   /* 영상 카드(10-28): 인스타 버튼·안내 문구 없이 영상이 카드 폭을 다 쓴다(theme CSS 대신 tokens.css) */
     card.innerHTML = `
       <button class="x" aria-label="닫기" onclick="closeCard()">✕</button>
@@ -166,10 +167,10 @@ export function bootLegacy(DATA){
         <h3>${esc(s.name)}</h3>
         ${up?'<p class="copy">인터뷰가 끝나면 이 자리에 카드뉴스가 올라옵니다.</p>':''}
         ${up?'<div class="tags"><span class="tag">다음 호</span></div>':''}
-        ${vid.embed ? '' : `<a class="ig-link ${up?'up':''}" href="${esc(href)}" target="_blank" rel="noopener"><span>${up?'매거진 팔로우하기':'Instagram에서 보기'}</span><span>↗</span></a>`}
+        ${noIg ? '' : `<a class="ig-link ${up?'up':''}" href="${esc(href)}" target="_blank" rel="noopener"><span>${up?'매거진 팔로우하기':'Instagram에서 보기'}</span><span>↗</span></a>`}
         ${vid.link||''}
         <div class="navs"><button class="nav" aria-label="이전" onclick="step(-1)">‹</button><button class="nav" aria-label="다음" onclick="step(1)">›</button></div>
-        ${vid.embed ? '' : '<div class="small-note">카드뉴스 전체는 인스타그램 게시물에서 볼 수 있습니다.</div>'}
+        ${noIg ? '' : '<div class="small-note">카드뉴스 전체는 인스타그램 게시물에서 볼 수 있습니다.</div>'}
       </div>
       ${renderInterview(s.interview)}`;
     /* 스켈레톤(10-23): 사진·영상을 다 받기 전엔 포스터 칸에 반짝이는 자리표시. 이미 받아 둔 사진이면 바로. 사진을 못 받으면 원래 픽셀 포스터로 */
