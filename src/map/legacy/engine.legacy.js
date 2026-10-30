@@ -742,8 +742,10 @@ export function bootLegacy(DATA){
        (구글폼 0명 → 가게 대본 전부(7명 넘으면 무작위 7명), 4명 → 가게 3명, 10명 → 구글폼 5 + 가게 2). 구글폼 인원이 바뀔 때마다 shopFit 이 맞춘다.
        가게 인터뷰 주민: 대본(content/characters/villagers/*.json) 중 무작위로 남은 자리만큼 나와 있고, SHOP_SWAP_MS 마다 가장 먼저 나온 사람이
        퇴장하고 아직 안 나온 사람이 화면 밖 길에서 걸어 들어온다. 퇴장은 화면 밖이면 바로, 보이는 곳이면 살짝 사라지며. 말을 거는 중인 사람은 내보내지 않는다.
-       모습은 대본 id 로 정해져(다시 나와도 같은 사람) look 이 있으면 그 모습. 대본 없는 지나가는 사람은 없다 */
+       모습은 대본 id 로 정해져(다시 나와도 같은 사람) look 이 있으면 그 모습. 대본 없는 지나가는 사람은 없다. "always": true 대본은 순환하지 않고 늘 나와 있다 */
     const WALK_MAX = 7, FORM_SLOTS = 5, SHOP_SWAP_MS = 40000, shopScripts = (DATA.villagers || []).slice(), shopOn = [];   /* shopOn: 나온 순서대로 { script, w } */
+    /* 늘 걷는 주민(10-30): 대본에 "always": true 면 순환·퇴장 없이 항상 나와 있다(지금 그랑블루). WALK_MAX 안에 들고, 그만큼 순환 자리가 준다 */
+    const shopAlways = shopScripts.filter(v => v.always), shopPool = shopScripts.filter(v => !v.always);
     function shopEnter(script, walkIn){
       const w = spawnWalker(scene, { graph: walkerGraphs[board?.on ? 'kiosk' : 'home'], parts: DATA.characters, palette: DATA.characters.palette, looks: DATA.characters.looks, speed: 6.5, seed: seedOf(script.id), offscreen: walkIn ? offscreen : undefined, fixed: script.look });
       w.g.dataset.script = script.id; walkers.push(w); shopOn.push({ script, w }); bindVillager(w, script); }   /* data-script: 지금 누가 나와 있는지 개발자 도구에서 보이게 */
@@ -752,15 +754,17 @@ export function bootLegacy(DATA){
       if(w.lastT === 'off' || offscreen(w.x, w.y)){ scene.remove(w); return; }
       w.g.style.pointerEvents = 'none'; w.g.style.transition = 'opacity .8s'; w.g.style.opacity = '0'; setTimeout(() => scene.remove(w), 800); }
     function shopSwap(){
-      const out = shopOn.find(o => villager?.w !== o.w && vPeek?.w !== o.w), rest = shopScripts.filter(v => !shopOn.some(o => o.script === v) && v !== out?.script);
+      const out = shopOn.find(o => !o.script.always && villager?.w !== o.w && vPeek?.w !== o.w), rest = shopPool.filter(v => !shopOn.some(o => o.script === v) && v !== out?.script);
       if(!out || !rest.length) return;
       shopLeave(out); shopEnter(rest[Math.floor(Math.random() * rest.length)], true); }
     let shopReady = false;
     function shopFit(){   /* 구글폼 주민 수에 맞춰 가게 주민 수를 맞춘다. 첫 맞춤(구글폼을 처음 읽은 뒤)은 길 위 아무 데서나, 그 뒤로는 화면 밖에서 걸어 들어온다 */
-      const want = Math.min(shopScripts.length, Math.max(0, WALK_MAX - formOn.size)), walkIn = shopReady; shopReady = true;
-      while(shopOn.length > want){ const out = shopOn.find(o => villager?.w !== o.w && vPeek?.w !== o.w); if(!out) break; shopLeave(out); }   /* 말 거는 중이면 다음 맞춤 때 */
-      const rest = shopScripts.filter(v => !shopOn.some(o => o.script === v)).sort(() => Math.random() - 0.5);
-      while(shopOn.length < want && rest.length) shopEnter(rest.pop(), walkIn); }
+      const walkIn = shopReady; shopReady = true;
+      for(const v of shopAlways) if(!shopOn.some(o => o.script === v)) shopEnter(v, walkIn);   /* 늘 걷는 주민(대본 always) 먼저 */
+      const turn = () => shopOn.filter(o => !o.script.always), want = Math.min(shopPool.length, Math.max(0, WALK_MAX - formOn.size - shopAlways.length));
+      while(turn().length > want){ const out = turn().find(o => villager?.w !== o.w && vPeek?.w !== o.w); if(!out) break; shopLeave(out); }   /* 말 거는 중이면 다음 맞춤 때 */
+      const rest = shopPool.filter(v => !shopOn.some(o => o.script === v)).sort(() => Math.random() - 0.5);
+      while(turn().length < want && rest.length) shopEnter(rest.pop(), walkIn); }
     setInterval(shopSwap, SHOP_SWAP_MS);   /* 안 나온 대본이 없으면 shopSwap 이 그냥 돌아간다 */
     /* 시민 인터뷰 주민(10-23): 구글폼 응답 → Apps Script(tools/apps-script/form_to_supabase.gs) → Supabase characters(approved) + interviews(answers).
        앱이 답으로 대본을 만들고(features/villagers/formScript — 폼을 낸 사람은 모두, 답이 적으면 맺음말로 채움) 초록 세모 주민으로 띄운다. 동시에 FORM_SLOTS 명까지,

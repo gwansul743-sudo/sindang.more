@@ -10,7 +10,9 @@
    · 6장·240자를 넘으면 맺음말 → 생각 둘째 장 → 손님 → 10년 뒤 순으로 덜어낸다.
    · 같은 응답이면 언제 만들어도 같은 대본. hook 은 따로 씨앗을 써서, hook 목록을 늘려도 본문은 바뀌지 않는다. */
 
-export interface FormAnswers { v?: number; pairs?: [string, string][] }
+import { buildTownScript } from './townScript';
+
+export interface FormAnswers { v?: number; f?: string; pairs?: [string, string][] }   /* f: 'town' = '신당동, 어떤 동네인가요?' 폼(townScript), 없으면 상인 설문 */
 export interface FormScript { id: string; kind: 'form'; name: string; hook: string; pages: string[] }
 
 /* 틀 목록. '?'로 시작하는 틀은 되받기('~요?') — 한 대본에 한 번만 쓴다 */
@@ -168,6 +170,6 @@ export function buildFormScript(id: string, answers: FormAnswers | null | undefi
 
 /* interviews.summary_md 에 관리자가 손본 대본(JSON)이 있으면 그것을 쓴다(나중에 Supabase 표에서 직접 고칠 수 있게) */
 export function scriptFromRow(id: string, answers: FormAnswers | null, summary: string | null): FormScript | null {
-  if (summary) { try { const s = JSON.parse(summary); if (s && s.hook && Array.isArray(s.pages) && s.pages.length >= 1) return { id, kind: 'form', name: s.name || '가게 사장님', hook: s.hook, pages: s.pages.slice(0, 6) }; } catch { /* 손본 대본이 깨졌으면 규칙으로 */ } }
-  return buildFormScript(id, answers);
+  if (summary) { try { const s = JSON.parse(summary); if (s && s.hook && Array.isArray(s.pages) && s.pages.length >= 1) return { id, kind: 'form', name: s.name || (answers?.f === 'town' ? '동네 이웃' : '가게 사장님'), hook: s.hook, pages: s.pages.slice(0, 6) }; } catch { /* 손본 대본이 깨졌으면 규칙으로 */ } }
+  return answers?.f === 'town' ? buildTownScript(id, answers) : buildFormScript(id, answers);
 }
