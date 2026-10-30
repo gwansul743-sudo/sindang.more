@@ -82,6 +82,24 @@ export class Walker implements Actor {
   private drag: { x: number; y: number } | null = null;
   private back: { x: number; y: number; a: number; b: number; d: number; len: number } | null = null;
   get dragging() { return !!this.drag; }
+  /* 꾹 누르는 동안(집기 전, drag.ts): 걸음을 멈춰 손가락 밑에서 빠져나가지 않게 + 몸 둘레에 원 게이지가 ms 동안 차오른다(색은 말 거는 표시 홈질과 같은 와인) */
+  private pinned = false; private gauge: SVGGElement | null = null; private gaugeArc: SVGCircleElement | null = null;
+  pin(on: boolean) {
+    if (on === this.pinned) return; this.pinned = on;
+    if (on) { if (this.mode === 'walk') this.mode = 'pause'; this.until = Infinity; } else if (!this.held && this.mode === 'pause') this.until = 0;
+  }
+  showGauge(ms: number) {
+    const R = 10, C = 2 * Math.PI * R, cy = -HIT_TOP + HIT_H / 2;
+    if (!this.gauge) {
+      this.gauge = el('g', { class: 'wk-gauge', 'pointer-events': 'none' }, this.g);
+      el('circle', { cx: 0, cy, r: R, fill: 'none', stroke: '#fffdf4', 'stroke-opacity': '.75', 'stroke-width': 2.4 }, this.gauge);
+      this.gaugeArc = el('circle', { cx: 0, cy, r: R, fill: 'none', stroke: '#9b3d49', 'stroke-width': 1.6, 'stroke-linecap': 'round', 'stroke-dasharray': C.toFixed(2), transform: `rotate(-90 0 ${cy})` }, this.gauge) as SVGCircleElement;
+    }
+    const a = this.gaugeArc!; this.g.appendChild(this.gauge); this.gauge.style.display = '';
+    a.style.transition = 'none'; a.style.strokeDashoffset = C.toFixed(2); a.getBoundingClientRect();   // 비운 채로 한 번 그린 뒤
+    a.style.transition = `stroke-dashoffset ${ms}ms linear`; a.style.strokeDashoffset = '0';            // 시계 방향으로 차오름
+  }
+  hideGauge() { if (this.gauge) this.gauge.style.display = 'none'; }
   grab() { this.drag = { x: this.x + this.ox, y: this.y + this.oy }; this.back = null; this.x = this.drag.x; this.y = this.drag.y; this.ox = 0; this.oy = 0; }
   dragTo(x: number, y: number) { if (this.drag) { this.drag.x = x; this.drag.y = y; } }
   drop() {
@@ -162,7 +180,7 @@ export class Walker implements Actor {
     if (near && this.mode !== 'wave' && (this.armed || (now - P!.t < 140 && now - this.waveEnd > 700))) { this.mode = 'wave'; this.waveStart = now; this.waveMin = now + 1200; this.armed = false; }
     /* 최소 1.2초는 흔들고, 포인터가 곁에서 움직이는 동안은 계속. 포인터가 2.4초 멈춰 있으면 다시 걷기 */
     if (this.mode === 'wave' && now > this.waveMin && !(near && now - P!.t < 2400)) { this.mode = 'walk'; this.waveEnd = now; }
-    if (this.held && this.mode === 'walk') { this.mode = 'pause'; this.until = Infinity; }   /* 손인사가 끝나도 붙잡혀 있으면 계속 서 있기 */
+    if ((this.held || this.pinned) && this.mode === 'walk') { this.mode = 'pause'; this.until = Infinity; }   /* 손인사가 끝나도 붙잡혀 있으면 계속 서 있기 */
     if (this.mode === 'pause' && now > this.until) { this.mode = 'walk'; this.nextPause = rnd(9, 24); }
     if (this.mode === 'walk' && !still) {
       this.nextPause -= dt;
