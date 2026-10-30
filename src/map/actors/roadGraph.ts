@@ -11,6 +11,7 @@ export interface RoadGraph {
   dist(a: number, b: number): number;
   nextNode(at: number, from: number): number;   // 교차로에서 다음 노드: 직진을 선호하는 무작위
   randomEdge(): GraphEdge;                 // 길이 비례 무작위 간선
+  nearest(x: number, y: number): { e: GraphEdge; d: number; x: number; y: number };   // 가장 가까운 길 위의 점(간선 + a 에서 떨어진 거리). 끌어다 놓은 주민이 돌아갈 곳(10-30)
 }
 
 const EDGE = 14;   // 해안선에서 띄울 여유
@@ -57,5 +58,14 @@ export function buildRoadGraph(majorRoadPath: string, land: LandGeometry, opt: G
     let r = Math.random() * wts.reduce((p, c) => p + c, 0); for (let i = 0; i < nb.length; i++) { r -= wts[i]; if (r <= 0) return nb[i]; } return nb[0];
   }
   function randomEdge() { let r = Math.random() * total; for (const c of edges) { r -= c.l; if (r <= 0) return c; } return edges[0]; }
-  return { nodes, edges, total, dist, nextNode, randomEdge };
+  function nearest(x: number, y: number) {
+    let best = { e: edges[0], d: 0, x: nodes[edges[0].a].x, y: nodes[edges[0].a].y }, bd = Infinity;
+    for (const e of edges) {
+      const A = nodes[e.a], B = nodes[e.b], ex = B.x - A.x, ey = B.y - A.y, t = Math.max(0, Math.min(1, ((x - A.x) * ex + (y - A.y) * ey) / (e.l * e.l || 1)));
+      const px = A.x + ex * t, py = A.y + ey * t, dd = (px - x) ** 2 + (py - y) ** 2;
+      if (dd < bd) { bd = dd; best = { e, d: t * e.l, x: px, y: py }; }
+    }
+    return best;
+  }
+  return { nodes, edges, total, dist, nextNode, randomEdge, nearest };
 }

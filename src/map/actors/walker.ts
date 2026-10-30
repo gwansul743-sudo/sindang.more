@@ -78,10 +78,49 @@ export class Walker implements Actor {
     el('path', { d: M.outline, fill: M.colors.outline }, this.mark); el('path', { d: M.fill, fill: M.colors.fill }, this.mark); el('path', { d: M.shine, fill: M.colors.shine }, this.mark);
   }
 
+  /* 집어 옮기기(10-30, actors/drag.ts): 집는 동안은 손가락을 따라 떠서 버둥거리고, 놓으면 가장 가까운 길 위의 점까지 곧장 걸어가 거기서 다시 길을 걷는다 */
+  private drag: { x: number; y: number } | null = null;
+  private back: { x: number; y: number; a: number; b: number; d: number; len: number } | null = null;
+  get dragging() { return !!this.drag; }
+  grab() { this.drag = { x: this.x + this.ox, y: this.y + this.oy }; this.back = null; this.x = this.drag.x; this.y = this.drag.y; this.ox = 0; this.oy = 0; }
+  dragTo(x: number, y: number) { if (this.drag) { this.drag.x = x; this.drag.y = y; } }
+  drop() {
+    if (!this.drag) return; const { x, y } = this.drag; this.drag = null; this.x = x; this.y = y;
+    const n = this.G.nearest(x, y), flip = Math.random() < 0.5;
+    this.back = { x: n.x, y: n.y, a: flip ? n.e.b : n.e.a, b: flip ? n.e.a : n.e.b, d: flip ? n.e.l - n.d : n.d, len: n.e.l || 0.01 };
+  }
+  private tickFree(f: Frame) {
+    const { now, dt, V, s } = f, mul = f.mul;
+    let hop = 0;
+    if (this.drag) { this.x = this.drag.x; this.y = this.drag.y; this.fs.show('wave' + (Math.floor(now / 140) % 2)); hop = 3; }   // 들린 채 버둥버둥(손 흔드는 그림) + 3칸 떠 있기. 그림자는 땅에
+    else {
+      const b = this.back!, dx = b.x - this.x, dy = b.y - this.y, dl = Math.hypot(dx, dy), step = this.speed * 1.6 * dt;
+      if (dl <= step || f.still) {
+        this.a = b.a; this.b = b.b; this.d = b.d; this.len = b.len; this.back = null; this.x = b.x; this.y = b.y; this.offT = 0;
+        if (this.held) { this.mode = 'pause'; this.until = Infinity; } else { this.mode = 'walk'; this.nextPause = rnd(4, 12); }
+      } else {
+        this.x += (dx / dl) * step; this.y += (dy / dl) * step; this.walkT += dt;
+        this.face = this.faceWant = Math.abs(dx) > Math.abs(dy) * 0.9 ? 'side' : dy > 0 ? 'front' : 'back'; this.dir = this.dirWant = dx < 0 ? -1 : 1;
+      }
+      this.fs.show(this.face + CYCLE[Math.floor(this.walkT / 0.19) % 4]);
+    }
+    this.hover.step(false, null, now);
+    this.finish(f, (this.x - V.x) * s, (this.y - V.y) * s, this.face === 'side' && this.dir < 0 ? -1 : 1, hop, mul);
+  }
+  /* 앞 층 · 세모 · 화면에 놓기 — 걷기와 집어 옮기기가 같이 쓴다 */
+  private finish(f: Frame, sx: number, sy: number, flip: 1 | -1, hop: number, mul: number) {
+    const { now, still, lms, LK } = f, k = f.k * mul;
+    let front = false; const fx = this.x + this.ox, fy = this.y + this.oy;
+    for (const l of lms) { if (Math.abs(fx - l.x) < 18 * LK + 5 * k && fy > l.y - 2.5 * LK && fy < l.y + 2 * LK + 18 * k) { front = true; break; } }
+    if (front !== this.front) { f.setFront(this, front); this.front = front; }
+    if (this.mark) { const mb = still ? 0 : Math.floor(now / 520) % 2; if (mb !== this.markB) { this.mark.setAttribute('transform', `translate(${-SW / 2},${-FEET - mb - hop})`); this.markB = mb; } }   /* 세모: 0.52초마다 한 칸 오르내림(이장님과 같은 박자) */
+    f.place(this, sx, sy, flip, hop, mul);
+  }
+
   /* 다른 길 그래프로 옮겨 타기 — 전시 모드의 5길 울타리(안쪽 길만) ⇄ 평소의 큰 길. 보이지 않을 때 부른다(그 자리에서 순간이동) */
   setGraph(G: RoadGraph) {
     if (G === this.G || !G.edges.length) return;
-    this.G = G; const e = G.randomEdge(); const flip = Math.random() < 0.5;
+    this.G = G; this.drag = null; this.back = null; const e = G.randomEdge(); const flip = Math.random() < 0.5;
     this.a = flip ? e.b : e.a; this.b = flip ? e.a : e.b; this.d = Math.random() * e.l; this.len = e.l || 0.01; this.ox = 0; this.oy = 0;
     this.x = G.nodes[this.a].x; this.y = G.nodes[this.a].y; this.mode = 'walk'; this.nextPause = rnd(4, 16); this.offT = 0;
   }
@@ -106,9 +145,10 @@ export class Walker implements Actor {
   }
 
   tick(f: Frame, others: Actor[]) {
-    const { now, dt, V, s, P, live, still, kiosk, nearPx, lms, LK } = f, G = this.G;
-    const mul = f.mul, q = f.q * mul, k = f.k * mul;   /* 배율은 엔진이 준다(전시 보드 위에서는 크게, 10-23). 이장님·고양이도 같이 */
+    const { now, dt, V, s, P, live, still, kiosk, nearPx } = f, G = this.G;
+    const mul = f.mul, q = f.q * mul;   /* 배율은 엔진이 준다(전시 보드 위에서는 크게, 10-23). 이장님·고양이도 같이 */
     this.fitHit(q);
+    if (this.drag || this.back) { this.tickFree(f); return; }
     if (!still && !this.held) {
       const fx = (this.x - V.x) * s, fy = (this.y - V.y) * s;
       this.offT = fx < -nearPx || fx > V.pw + nearPx || fy < -nearPx || fy > V.ph + nearPx ? this.offT + dt : 0;
@@ -149,11 +189,7 @@ export class Walker implements Actor {
     else if (this.mode === 'pause' || still) this.fs.show('front0');
     else this.fs.show(this.face + CYCLE[Math.floor(this.walkT / 0.19) % 4]);
     /* 랜드마크 건물 발치(앞)에 있으면 앞 층으로 */
-    let front = false; const fx = this.x + this.ox, fy = this.y + this.oy;
-    for (const l of lms) { if (Math.abs(fx - l.x) < 18 * LK + 5 * k && fy > l.y - 2.5 * LK && fy < l.y + 2 * LK + 18 * k) { front = true; break; } }
-    if (front !== this.front) { f.setFront(this, front); this.front = front; }
-    if (this.mark) { const mb = still ? 0 : Math.floor(now / 520) % 2; if (mb !== this.markB) { this.mark.setAttribute('transform', `translate(${-SW / 2},${-FEET - mb - hop})`); this.markB = mb; } }   /* 세모: 0.52초마다 한 칸 오르내림(이장님과 같은 박자) */
-    f.place(this, sx, sy, this.mode === 'walk' && this.face === 'side' && this.dir < 0 ? -1 : 1, hop, mul);
+    this.finish(f, sx, sy, this.mode === 'walk' && this.face === 'side' && this.dir < 0 ? -1 : 1, hop, mul);
   }
 }
 

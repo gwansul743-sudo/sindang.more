@@ -20,6 +20,7 @@ import { majorRoadPath } from '../layers/roads';
 import { buildRoadGraph } from '../actors/roadGraph';
 import { createScene } from '../actors/scene';
 import { spawnWalker } from '../actors/walker';
+import { makeDraggable } from '../actors/drag';
 import { listFormVillagers, watchFormVillagers } from '../../entities/villager/api';
 import { scriptFromRow, seedOf } from '../../features/villagers/formScript';
 import formSamples from '../../../content/characters/form-samples.json';
@@ -396,6 +397,7 @@ export function bootLegacy(DATA){
   function dropVillager(w){ if(villager?.w === w) villagerDone(); else if(vPeek?.w === w) endPeek(true); }
   function bindVillager(w, script){
     w.makeClickable(); w.vScript = script;   /* 해 디오라마 속 주민 명단(story villagers.roster)이 대본을 찾는다 */
+    makeDraggable(w, V, { onGrab: () => { if(villager?.w === w && !vTalk.visible) villagerDone(); else if(vPeek?.w === w) endPeek(true); } });   /* 집어 옮기기(10-30): 놓으면 가까운 길로 걸어 돌아간다. 집으면 그 사람 머리 위 말풍선은 닫는다(큰 대화는 그대로) */
     if(script.kind === 'form'){ const M = DATA.characters.chief.mark; w.showMark({ ...M, colors: M.formColors || M.colors }); }   /* 시민이 인터뷰를 남겨 생긴 주민만 세모 — 이장님(빨강)과 달리 초록(10-28, chief.json mark.formColors). 가게 인터뷰 주민(shop)은 표시 없음 */
     w.hover.onHover = P => hoverNear() && topAt(w.g, P) && villagerHook(w, script);   /* 마우스: 몸 판정 칸 위에 있으면(walker tick → HoverProbe) — pointerenter 대신(10-26) */
     /* 터치 판정(10-23): click 의 pointerType 은 iOS 사파리 등에서 비어 와 첫 탭에 바로 대화가 열렸다 → 닿는 순간(pointerdown)의 종류를 기억해 쓴다. 그것도 없으면 hover 없는 기기를 터치로 */

@@ -41,6 +41,7 @@ export interface Viewport {
   toMap(clientX: number, clientY: number): [number, number];   // 화면 px → 지도 좌표
   relayout(): void;
   stop(): void;   // 진행 중인 카메라 이동을 그 자리에서 멈춤(자동 순환 중 사람이 만졌을 때)
+  skipPointer(id: number): void;   // 이 포인터는 지도를 끌지 않는다(주민을 집어 옮길 때, 10-30). 그 pointerdown 보다 먼저(대상 요소에서) 부른다
   destroy(): void;
 }
 
@@ -158,7 +159,8 @@ export function createViewport(o: ViewportOptions): Viewport {
 
   /* 드래그·휠·핀치 */
   const ptrs = new Map<number, [number, number]>(); let lastDist = 0, downAt: [number, number] = [0, 0];
-  const onDown = (e: PointerEvent) => { ptrs.set(e.pointerId, [e.clientX, e.clientY]); moved = false; downAt = [e.clientX, e.clientY]; stopAnim(); o.onActivity?.(); };
+  const skip = new Set<number>();
+  const onDown = (e: PointerEvent) => { if (skip.delete(e.pointerId)) { moved = false; stopAnim(); o.onActivity?.(); return; } ptrs.set(e.pointerId, [e.clientX, e.clientY]); moved = false; downAt = [e.clientX, e.clientY]; stopAnim(); o.onActivity?.(); };
   const onMove = (e: PointerEvent) => {
     if (!ptrs.has(e.pointerId)) return;
     const prev = ptrs.get(e.pointerId)!; ptrs.set(e.pointerId, [e.clientX, e.clientY]);
@@ -201,7 +203,7 @@ export function createViewport(o: ViewportOptions): Viewport {
   }
 
   return {
-    stop: stopAnim,
+    stop: stopAnim, skipPointer: (id: number) => { skip.add(id); },
     get x() { return vx; }, get y() { return vy; }, get w() { return vw; }, get h() { return vh; },
     get pw() { return pw; }, get ph() { return ph; }, get moved() { return moved; },
     scale, apply, fit, homeView, resetHome, clampView, zoomAt, zoomSmooth, animateTo, centerOn, toMap, relayout, destroy,
