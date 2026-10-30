@@ -1,5 +1,5 @@
 /* 영상 크게 보기(10-28) — 사진 크게 보기(photo-viewer/viewer.css)와 같은 바탕·글자색·그림자·모서리. 낮·밤 공통, 사진 뷰어와 같은 층(z 1000) */
-.vv{position:fixed;inset:0;z-index:1000;background:#000000ef;opacity:0;transition:opacity .2s ease;overscroll-behavior:contain}
+.vv{position:fixed;inset:0;z-index:1000;background:#000000fa;opacity:0;transition:opacity .2s ease;overscroll-behavior:contain}
 .vv.show{opacity:1}
 .vv:focus{outline:none}
 .vv[hidden]{display:none}

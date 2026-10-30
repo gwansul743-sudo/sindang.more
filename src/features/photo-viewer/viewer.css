@@ -1,7 +1,7 @@
 /* 사진 크게 보기(10-26) — 낮·밤 공통. 바탕은 검정(10-30, 예전엔 밤 커튼 색 #04202d), 글자는 낮 커튼 색(#f5f2e6) — 테마와 상관없이 사진이 잘 보이게.
    지도·사이드바·대화 상자보다 위, 낮/밤 커튼(theme-toggle)보다 아래.
    넘김은 커버플로(10-28): .pv-stage 가 원근(perspective, viewer.ts 가 사진 칸 크기에 맞춰 넣음), .pv-ring 이 3D 공간, .pv-card 한 장씩 */
-.pv{position:fixed;inset:0;z-index:1000;background:#000000ef;opacity:0;transition:opacity .2s ease;touch-action:none;user-select:none;-webkit-user-select:none;overscroll-behavior:contain}
+.pv{position:fixed;inset:0;z-index:1000;background:#000000fa;opacity:0;transition:opacity .2s ease;touch-action:none;user-select:none;-webkit-user-select:none;overscroll-behavior:contain}
 .pv.show{opacity:1}
 .pv:focus{outline:none}
 .pv[hidden]{display:none}
