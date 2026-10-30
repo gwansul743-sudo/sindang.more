@@ -26,7 +26,7 @@ export interface Board {
   rest(): void;                                               // 범례·주민
   hide(): void;
   setStores(list: BoardStore[]): void; setFilter(cat: string | null): void; select(id: string | null): void;
-  focusList(): { id: string; x: number; y: number }[];        // 자동 순환용: 보이는(필터에 걸리지 않은) 단추 자리(지도 좌표), 왼쪽→오른쪽
+  focusList(): { id: string; x: number; y: number }[];        // 자동 순환용: 보이는(필터에 걸리지 않은) 강조 단추 자리(지도 좌표), 왼쪽→오른쪽
   focus(id: string | null): void;                             // 자동 순환 중 강조(콩콩 뛰는 단추)
   roadPath(): string;                                         // 지도 좌표의 길(주민 그래프)
   land: BoardLand;                                            // 섬 덩어리(지도 좌표)
@@ -485,7 +485,9 @@ export function mountBoard(o: BoardOptions): Board {
       at(() => { if (my === run) btns.forEach((b) => [b.lab, b.lead].forEach((e) => e?.classList.add('in'))); }, 250 + 450); },   /* 이름표·실은 단추가 다 나온 뒤 한꺼번에(10-29) */   /* 단추가 모두 한꺼번에(0.25s), 단추 모션이 끝날 무렵 이름표·실이 한꺼번에 — 10-29 */   /* ⑨ 범례·주민·단추(차례로 탕탕) */
     hide() { ++run; on = false; reset(); g.classList.remove('mounted'); },
     setStores, setFilter, select(id) { selected = id; applyBtnState(); const b = btns.find((q) => q.id === id); if (b) [b.pos, b.lab, b.lead].forEach((e) => e?.parentNode?.appendChild(e)); },   /* 고른 단추·이름표·실은 커지므로 각 층의 맨 앞으로(10-29) */
-    focusList: () => btns.filter((b) => !filter || b.cat === filter).sort((a, b) => a.x - b.x).map((b) => { const [x, y] = toMap([b.x, b.y]); return { id: b.id, x, y }; }),
+    /* 자동 순환은 강조 가게(featured)만 돈다(10-30). featured 가 비면 전부 feat 라 전부 돈다. 범례 필터 업종에 강조 가게가 하나도 없으면 그 업종 전부 */
+    focusList: () => { const inCat = btns.filter((b) => !filter || b.cat === filter), favs = inCat.filter((b) => b.feat);
+      return (favs.length ? favs : inCat).sort((a, b) => a.x - b.x).map((b) => { const [x, y] = toMap([b.x, b.y]); return { id: b.id, x, y }; }); },
     focus(id) { btns.forEach((b) => parts(b).forEach((e) => e.classList.toggle('focus', b.id === id))); },   /* 비추는 단추는 콩콩, 작은 단추는 이름표도 */
   };
 }

@@ -14,10 +14,20 @@ export interface ChiefData {
   mark: { outline: string; fill: string; shine: string; colors: { outline: string; fill: string; shine: string } };
 }
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+/* 전시 보드 위에서만(10-30, 사용자 '살짝 키우고 후광'): 주민보다 조금 크게 + 뒤에 은은한 금빛 후광. 보드 여부는 f.mul > 1(엔진 actorMul = board.on ? 1.3 : 1)로 안다 */
+const BOARD_K = 1.3, HALO_ID = 'wk-halo-grad';
+function haloGrad(svg: SVGSVGElement | null) {   /* 후광 그라데이션은 SVG 하나에 한 번만 */
+  if (!svg || svg.querySelector('#' + HALO_ID)) return;
+  const defs = svg.querySelector(':scope > defs') || el('defs', {}, svg);   /* 숨긴 층 안의 defs 에 두면 그라데이션이 안 그려질 수 있어 svg 바로 아래 */
+  const g = el('radialGradient', { id: HALO_ID }, defs);
+  el('stop', { offset: '0', 'stop-color': '#fff8d6', 'stop-opacity': '1' }, g);
+  el('stop', { offset: '.55', 'stop-color': '#ffe27a', 'stop-opacity': '.75' }, g);
+  el('stop', { offset: '1', 'stop-color': '#ffcf4d', 'stop-opacity': '0' }, g);
+}
 
 export class Chief implements Actor {
   g: SVGGElement; body: SVGGElement; fs: FrameSet; x: number; y: number; ox = 0; oy = 0; front = false; lastT = ''; lastB = '';
-  private mark: SVGGElement; private markB = -1;
+  private mark: SVGGElement; private markB = -1; private halo: SVGGElement; private haloOn = false;
   private label: SVGTextElement | null = null; private labelQ = 0;
   private mode: 'stand' | 'wave' | 'bow' = 'stand'; private until = 0; private nextPause = rnd(8, 16);
   private armed = true; private waveMin = 0; private waveEnd = 0;
@@ -31,6 +41,9 @@ export class Chief implements Actor {
   constructor(parent: SVGGElement, body: BodyParts, c: ChiefData) {
     this.x = c.x; this.y = c.y; this.seated = !!c.seated;
     this.g = el('g', { class: 'wk wk-chief' + (c.cls ? ' ' + c.cls : '') }, parent);
+    haloGrad(parent.ownerSVGElement);
+    this.halo = el('g', { class: 'wk-halo', display: 'none' }, this.g);   /* 몸 뒤(그림자보다도 뒤). 가슴께를 가운데로 */
+    el('circle', { cx: 0, cy: -8, r: 15, fill: `url(#${HALO_ID})` }, this.halo);
     el('path', { d: SHADOW, fill: '#24382d', opacity: '.22', transform: `translate(${-SW / 2},${-FEET})` }, this.g);
     this.fs = mountFrames(this.g, chiefFrames(body, c.art), c.col); this.body = this.fs.body;
     this.mark = el('g', { class: 'wk-mark' }, this.g); const M = c.mark;
@@ -48,7 +61,8 @@ export class Chief implements Actor {
 
   tick(f: Frame) {
     const { now, dt, V, s, P, live, still, kiosk } = f;
-    const mul = f.mul, q = f.q * mul;   /* 배율은 엔진이 준다(주민과 같이). 이름표는 px/q 환산이라 글자 크기는 그대로 */
+    const onBoard = f.mul > 1, mul = f.mul * (onBoard ? BOARD_K : 1), q = f.q * mul;   /* 배율은 엔진이 준다(주민과 같이) + 보드 위에선 BOARD_K. 이름표는 px/q 환산이라 글자 크기는 그대로 */
+    if (onBoard !== this.haloOn) { this.haloOn = onBoard; if (onBoard) this.halo.removeAttribute('display'); else this.halo.setAttribute('display', 'none'); }
     const sx = (this.x - V.x) * s, sy = (this.y - V.y) * s;
     const over = this.lastT !== 'off' && overBody(P, sx, sy, q, this.hitHalf), near = live && over;   /* 손 흔들기와 hover 말풍선이 같은 몸 판정 칸(10-26) */
     if (!near) this.armed = true;
