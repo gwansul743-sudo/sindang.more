@@ -10,8 +10,14 @@
 .vv-media video{background:#000;object-fit:contain}
 .vv-media iframe.drive.fit{inset:0 auto auto 0;width:560px;height:315px;transform-origin:0 0}   /* 좁은 화면: 560×315 로 그려 player.ts 가 줄인다 */
 .vv-media iframe,.vv-media video{transition:opacity .3s ease}
-.vv-box.loading .vv-media iframe,.vv-box.loading .vv-media video{opacity:0}
-.vv-box.loading::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(100deg,transparent 30%,#ffffff2e 50%,transparent 70%) 0 0/250% 100% no-repeat;animation:skel-sweep 1.15s ease-in-out infinite}
+.vv-box.loading:not(.cover) .vv-media iframe,.vv-box.loading:not(.cover) .vv-media video{opacity:0}
+.vv-box.loading::before{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(100deg,transparent 30%,#ffffff2e 50%,transparent 70%) 0 0/250% 100% no-repeat;animation:skel-sweep 1.15s ease-in-out infinite}
+/* 드라이브(10-30): 누르기 전엔 iframe 위를 썸네일 막(::after, 누르기는 통과)으로 덮고 카드와 같은 유리 재생 단추(.vt-play, 아래). 단추는 받은 뒤(.ready)에만.
+   iframe 자체를 opacity:0 으로 숨기면 드라이브가 첫 누르기를 무시한다(헤드리스 확인) → 보이는 채로 덮는다 */
+.vv-box.cover::after{content:"";position:absolute;inset:0;z-index:1;background:inherit;pointer-events:none}
+.vv-box>.vt-play{z-index:3;pointer-events:none;opacity:0;transition:opacity .25s ease,transform .25s cubic-bezier(.22,1,.36,1),background-color .25s ease}
+.vv-box.cover.ready>.vt-play{opacity:1}
+.vv-box.cover.ready:hover>.vt-play{transform:scale(1.07);background:#ffffff57}
 .vv-label{position:absolute;left:0;right:0;bottom:calc(14px + env(safe-area-inset-bottom));text-align:center;color:#f5f2e6;font:600 13px var(--font-ui);letter-spacing:.04em;pointer-events:none}
 .vv-x{position:absolute;top:calc(10px + env(safe-area-inset-top));right:calc(10px + env(safe-area-inset-right));width:44px;height:44px;padding:10px;border:0;background:none;color:#f5f2e6;opacity:.8;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .vv-x svg{display:block;width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;filter:drop-shadow(0 1px 2px #000000cc)}
