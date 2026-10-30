@@ -146,7 +146,7 @@ interviews  id, source(form|shop), answers(json), summary_md, store_id?, created
 ```
 - 승인 없이 바로 띄움(AUTO_PUBLISH). 내리기 = `characters.status = hidden`. 손본 대본은 `interviews.summary_md` 에 JSON(hook·pages·name).
 - 대본 규칙·익명 처리(상호 안 보냄, 이름표는 업종 '밥집 사장님')·폼 열 이름 찾기는 `formScript.ts`·`.gs` 머리 주석. `?formdemo=N` 으로 DB 없이 미리 보기.
-- **두 번째 폼 '신당동, 어떤 동네인가요?'(10-30)**: 방문객·주민·일하는 사람용. 응답 시트 없이 폼에 묶인 `tools/apps-script/town_form_to_supabase.gs` 가 같은 표에 `answers.f = 'town'` 으로 넣고, 앱은 `scriptFromRow` 에서 `townScript.ts` 로 갈라 대본을 만든다(이름 '30대 주민'·'40대 동네 일꾼'·'20대 나들이 손님'). 연락처·동의는 안 보낸다. 견본은 `form-samples.json` 의 t01~t03.
+- **두 번째 폼 '신당동, 어떤 동네인가요?'(10-30)**: 방문객·주민·일하는 사람용. 응답 시트 없이 폼에 묶인 `tools/apps-script/town_form_to_supabase.gs` 가 같은 표에 `answers.f = 'town'` 으로 넣고, 앱은 `scriptFromRow` 에서 `townScript.ts` 로 갈라 대본을 만든다(이름 '30대 토박이 주민'·'40대 골목 일꾼'·'20대 맛집 탐방 손님' 등 — 답에 따라 섞음, hook 은 떠오르는 단어로. 10-30 2판: 5명 동시 hook 겹침 95→13%, 이름 73→12%). 연락처·동의는 안 보낸다. 견본은 `form-samples.json` 의 t01~t03.
 
 **전시 모드 = 전시 보드** (정본: `features/kiosk-board/board.ts` 머리 주석 + `engine.legacy.js` 전시 모드 블록):
 - 켜면 섬이 시안 `MORE_exhibition_dynamic_v2.html` 그대로의 천 섬이 된다(바다 #7793b1 + 리넨, 낮/밤 없음). **길만 실제 길**(roads.json 을 재단선 → 섬 상자로 변환, `kiosk-board.json` 의 hideRoads·hideMain 으로 정돈), 가게 단추도 실제 자리. 업종(`category`) → 단추 그림(`public/board/btn-*.webp`)·범례 필터. **위계(10-28)**: `kiosk-board.json` `featured`(가게 이름 목록, 전시 1회용 — DB 칸 아님)에 든 가게는 천 이름표, 나머지는 작은 이름 글씨. **단추 크기는 10-29부터 모두 작은 단추(0.5배)로 같다**(`board.ts` FEAT_K — 1로 두면 예전처럼 강조 가게만 큰 단추). 숫자 단추는 없다 — 겹친 큰 단추는 실제 자리 가운데로 모아 맞닿게 붙이고(0.78배) 묶음끼리 닿으면 묶음째 밀어 띄운다, 이름표는 빈 자리로 빼 빨간 홈질 실로 잇는다, 작은 단추는 비켜 선다(`board.ts` layout). 이름표 손 배치는 `labelAt: {"가게 이름": [dx, dy]}`. 목록이 비면 전부 큰 단추. 캔버스 단위 1:1 평행이동.
