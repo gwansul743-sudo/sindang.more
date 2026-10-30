@@ -256,7 +256,10 @@ export function bootLegacy(DATA){
      연출 중엔 지도를 만져도 끊기지 않는다 — '건너뛰기' 버튼(.kb-skip)으로만 바로 다 보이게(kioskSkip, 10-23). 낮춘 상태에서 30초 무입력이면 카메라만 보드 전체 뷰로. OFF 는 커튼 아래서 되돌린다(kioskOff). */
   /* 전시 모드로 열기: ?kiosk 또는 /qr 경로(10-26, 전시장 QR). QR 은 경로로 — Cloudflare Web Analytics 가 ?쿼리 는 기록하지 않아 /qr 이어야 QR 방문이 따로 집계된다.
      Pages 는 404.html 이 없으면 모르는 경로에 첫 화면(index)을 준다(SPA). 인쇄한 QR 주소는 못 바꾸니 /qr 의 동작은 여기서만 바꾼다 */
-  let KIOSK = new URLSearchParams(location.search).has('kiosk') || /^\/qr\/?$/i.test(location.pathname);
+  /* 10-30(사용자 요청): 링크로 들어온 모든 방문객이 전시 모드 ON 으로 시작한다(인스타 프로필 링크 포함). 평소 지도로 열려면 ?kiosk=0(또는 off·false).
+     상단 '전시 모드' 버튼으로 끄는 건 그대로. /qr·?kiosk 도 그대로 ON(/qr 은 QR 방문 집계용 경로로 계속 쓴다) */
+  const kioskQ = new URLSearchParams(location.search).get('kiosk');
+  let KIOSK = kioskQ === null ? true : !/^(0|off|false|no)$/i.test(kioskQ);
   const BOARD_DEBUG = new URLSearchParams(location.search).has('board');   /* ?board=1: 연출 없이 보드가 다 보이는 상태로 시작(개발·확인용) */
   const kioskBtn = document.getElementById('kiosk');
   function renderKiosk(){ kioskBtn.textContent = '전시 모드 ' + (KIOSK?'ON':'OFF'); kioskBtn.setAttribute('aria-pressed', KIOSK); }

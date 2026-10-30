@@ -50,7 +50,8 @@ for (const [name, vp] of [['desktop', { width: 1280, height: 800 }], ['mobile', 
     page.on('pageerror', e => errors.push(String(e)));
     page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
     page.on('response', r => { if (r.status() >= 400 && !/favicon\.ico$/.test(r.url())) errors.push(`${r.status()} ${r.url()}`); });
-    await page.goto(URL_ + '?theme=' + theme, { waitUntil: 'networkidle0' });
+    await page.goto(URL_ + '?kiosk=0&theme=' + theme,   /* 10-30: 기본이 전시 모드 ON 이 되어, 평소 지도 기준값은 ?kiosk=0 으로 본다 */
+       { waitUntil: 'networkidle0' });
     await page.waitForSelector('.dot', { timeout: 10000 });
     await page.click('#openMap'); await page.waitForFunction(() => document.getElementById('intro').classList.contains('done'), { timeout: 8000 });
     await new Promise(r => setTimeout(r, 1200));   // centerOn 애니메이션 끝
